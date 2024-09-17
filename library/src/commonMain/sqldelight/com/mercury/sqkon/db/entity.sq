@@ -17,4 +17,4 @@ CREATE TABLE entity (
 -- insertEntity:
 -- INSERT INTO entity VALUES ?;
 -- selectByName:
--- SELECT * FROM entity WHERE entity_name = ?;
+-- SELECT * FROM entity WHERE entity_name = ?

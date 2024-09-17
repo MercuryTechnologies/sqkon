@@ -2,9 +2,11 @@ package com.mercury.sqkon.db
 
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
+import app.cash.sqldelight.coroutines.mapToOneOrNull
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.datetime.Clock
 import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.json.Json
@@ -44,16 +46,40 @@ open class KeyValueStorage<T : Any>(
         }
     }
 
+    suspend fun update(key: String, value: T) {
+        entityQueries.updateEntity(
+            entityName = entityName,
+            entityKey = key,
+            updatedAt = Clock.System.now().toEpochMilliseconds(),
+            expiresAt = null,
+            value = json.encodeToString(serializer, value)
+        )
+    }
+
+    fun selectByKey(key: String): Flow<T?> {
+        return entityQueries
+            .selectAll(
+                entityName = entityName,
+                entityKey = key,
+                mapper = { json.decodeFromString(serializer, it) },
+            )
+            .asFlow()
+            .mapToOneOrNull(dispatcher)
+    }
+
     fun selectAll(
+        where: Where? = null,
         orderBy: List<OrderBy> = emptyList(),
     ): Flow<List<T>> {
         return entityQueries
             .selectAll(
                 entityName,
                 mapper = { json.decodeFromString(serializer, it) },
+                where = where,
                 orderBy = orderBy,
             )
-            .asFlow().mapToList(dispatcher)
+            .asFlow()
+            .mapToList(dispatcher)
     }
 
 }
