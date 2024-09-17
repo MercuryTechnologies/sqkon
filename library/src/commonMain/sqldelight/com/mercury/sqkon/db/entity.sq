@@ -1,0 +1,20 @@
+import kotlin.String;
+
+CREATE TABLE entity (
+    entity_name TEXT NOT NULL,
+    entity_key TEXT NOT NULL,
+    -- UTC timestamp in milliseconds
+    added_at INTEGER NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    -- UTC timestamp in milliseconds
+    updated_at INTEGER NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    -- UTC timestamp in milliseconds
+    expires_at INTEGER,
+    -- JSONB Blob use jsonb_ operators
+    value BLOB AS String NOT NULL,
+    PRIMARY KEY (entity_name, entity_key)
+);
+
+-- insertEntity:
+-- INSERT INTO entity VALUES ?;
+-- selectByName:
+-- SELECT * FROM entity WHERE entity_name = ?;
