@@ -6,9 +6,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
 import kotlin.test.assertEquals
-import kotlin.uuid.ExperimentalUuidApi
 
-@OptIn(ExperimentalUuidApi::class)
 class KeyValueStorageTest {
 
     private val entityQueries = createEntityQueries()
@@ -59,8 +57,8 @@ class KeyValueStorageTest {
 
         val actual = testObjectStorage.selectAll(
             orderBy = listOf(
-                OrderBy(TestObject::value.name, OrderDirection.ASC),
-                OrderBy(TestObject::name.name, OrderDirection.ASC),
+                OrderBy(TestObject::value, direction = OrderDirection.ASC),
+                OrderBy(TestObject::name, direction = OrderDirection.ASC),
             )
         ).first()
 
@@ -72,13 +70,16 @@ class KeyValueStorageTest {
     @Test
     fun selectAll_orderBy_EntityChildAddedBy() = runTest {
         val expected = (0..10).map { TestObject() }
-            .sortedBy { it.child.createdAt }
+            .sortedByDescending { it.child.createdAt }
             .associateBy { it.id }
         testObjectStorage.insertAll(expected)
 
         val actual = testObjectStorage.selectAll(
             orderBy = listOf(
-                OrderBy(TestObject::child, TestObjectChild::createdAt),
+                OrderBy(
+                    TestObject::child, TestObjectChild::createdAt,
+                    direction = OrderDirection.DESC
+                ),
             )
         ).first()
 
