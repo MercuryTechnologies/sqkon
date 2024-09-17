@@ -1,6 +1,7 @@
 package com.mercury.sqkon
 
-import kotlinx.serialization.Contextual
+import kotlinx.datetime.Clock
+import kotlinx.datetime.Instant
 import kotlinx.serialization.Serializable
 import kotlin.random.Random
 import kotlin.uuid.ExperimentalUuidApi
@@ -9,8 +10,16 @@ import kotlin.uuid.Uuid
 @OptIn(ExperimentalUuidApi::class)
 @Serializable
 data class TestObject(
-    val id: @Contextual Uuid = Uuid.random(),
-    val name: String = "Name ${Random.nextInt(10000000)}",
-    val value: Int = Random.nextInt(1000000000),
-    val description: String = Random.nextInt(100).toString()
+    val id: String = Uuid.random().toString(),
+    val name: String = "Name ${Uuid.random()}",
+    val value: Int = Random.nextInt(Int.MAX_VALUE),
+    val description: String = "Description ${Uuid.random()}",
+    val child: TestObjectChild = TestObjectChild(),
+)
+
+
+@Serializable
+data class TestObjectChild(
+    val createdAt: Instant = Clock.System.now(),
+    val updatedAt: Instant = Clock.System.now(),
 )

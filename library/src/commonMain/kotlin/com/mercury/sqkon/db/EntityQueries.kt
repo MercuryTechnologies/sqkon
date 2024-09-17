@@ -12,19 +12,20 @@ class EntityQueries(
     suspend fun insertEntity(entity: Entity) {
         val identifier = identifier("insert", entity.entity_name)
         driver.execute(
-            identifier,
-            """
+            identifier = identifier,
+            sql = """
             INSERT INTO entity (entity_name, entity_key, added_at, updated_at, expires_at, value) 
-            VALUES (?, ?, ?, ?, ?, jsonb('${entity.value_}'))
+            --VALUES (?, ?, ?, ?, ?, jsonb('${entity.value_}'))
+            VALUES (?, ?, ?, ?, ?, jsonb(?))
             """.trimIndent(),
-            5
+            parameters = 6
         ) {
             bindString(0, entity.entity_name)
             bindString(1, entity.entity_key)
             bindLong(2, entity.added_at)
             bindLong(3, entity.updated_at)
             bindLong(4, entity.expires_at)
-            //bindString(5, entity.value_)
+            bindString(5, entity.value_)
         }.await()
         println("insert entity.value: ${entity.value_}")
         notifyQueries(identifier) { emit ->
@@ -34,8 +35,14 @@ class EntityQueries(
     }
 
 
-    fun <T : Any> selectAll(entityName: String, mapper: (value: String) -> T): Query<T> {
-        return SelectByNameQuery(entityName) { cursor ->
+    fun <T : Any> selectAll(
+        entityName: String,
+        mapper: (value: String) -> T,
+        orderBy: List<OrderBy> = emptyList(),
+    ): Query<T> {
+        return SelectByNameQuery(
+            entityName = entityName, orderBy = orderBy
+        ) { cursor ->
             Entity(
                 cursor.getString(0)!!,
                 cursor.getString(1)!!,
@@ -51,11 +58,13 @@ class EntityQueries(
 
     private inner class SelectByNameQuery<out T : Any>(
         private val entityName: String,
-        private val order: Pair<String, String>? = null,
+        private val orderBy: List<OrderBy>,
         mapper: (SqlCursor) -> T,
     ) : Query<T>(mapper) {
 
-        private val identifier: Int = identifier("selectByName", entityName)
+        private val identifier: Int = identifier(
+            "selectByName", entityName, orderBy.toString()
+        )
 
         override fun addListener(listener: Listener) {
             driver.addListener("entity", "entity_$entityName", listener = listener)
@@ -65,26 +74,28 @@ class EntityQueries(
             driver.removeListener("entity", "entity_$entityName", listener = listener)
         }
 
-        override fun <R> execute(mapper: (SqlCursor) -> QueryResult<R>): QueryResult<R> =
-            driver.executeQuery(
+        override fun <R> execute(mapper: (SqlCursor) -> QueryResult<R>): QueryResult<R> {
+            val orderBy = orderBy.toSqlString()
+            return driver.executeQuery(
                 identifier = identifier,
                 sql = """
-                SELECT entity.entity_name, entity.entity_key, entity.added_at, entity.updated_at, entity.expires_at, 
-                json_extract(entity.value, '$') value
-                FROM entity WHERE entity_name = ?
-                ORDER BY jsonb_extract(entity.value, '$.name')"
-                """.trimIndent(),
+                    SELECT entity.entity_name, entity.entity_key, entity.added_at, entity.updated_at, entity.expires_at, 
+                    json_extract(entity.value, '$') value
+                    FROM entity WHERE entity_name = ?
+                    $orderBy
+                    """.trimIndent(),
                 mapper,
                 parameters = 1
             ) {
                 bindString(0, entityName)
             }
+        }
 
         override fun toString(): String = "selectByName"
     }
 
 }
 
-private fun identifier(function: String, entityName: String): Int {
-    return "${function}_${entityName}".hashCode()
+private fun identifier(vararg values: String): Int {
+    return values.joinToString("_").hashCode()
 }
