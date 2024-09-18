@@ -136,6 +136,38 @@ class EntityQueries(
         override fun toString(): String = "select"
     }
 
+    fun count(entityName: String): Query<Long> = CountQuery(entityName) { cursor ->
+        cursor.getLong(0)!!
+    }
+
+    private inner class CountQuery<out T : Any>(
+        private val entityName: String,
+        mapper: (SqlCursor) -> T,
+    ) : Query<T>(mapper) {
+
+        private val identifier: Int = identifier("count", entityName)
+
+        override fun addListener(listener: Query.Listener) {
+            driver.addListener("entity_$entityName", listener = listener)
+        }
+
+        override fun removeListener(listener: Query.Listener) {
+            driver.removeListener("entity_$entityName", listener = listener)
+        }
+
+        override fun <R> execute(mapper: (SqlCursor) -> QueryResult<R>): QueryResult<R> =
+            driver.executeQuery(
+                identifier = identifier,
+                sql = """SELECT COUNT(*) FROM entity WHERE entity_name = ?""",
+                mapper = mapper,
+                parameters = 1
+            ) {
+                bindString(0, entityName)
+            }
+
+        override fun toString(): String = "count"
+    }
+
 }
 
 private fun identifier(vararg values: String?): Int {

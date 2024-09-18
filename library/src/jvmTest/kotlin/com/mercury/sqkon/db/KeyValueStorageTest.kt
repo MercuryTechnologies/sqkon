@@ -135,4 +135,15 @@ class KeyValueStorageTest {
         assertEquals(expect, actualsById.first())
     }
 
+    @Test
+    fun count() = runTest {
+        val empty = testObjectStorage.count().first()
+        assertEquals(expected = 0, empty)
+
+        val expected = (0..10).map { TestObject() }.associateBy { it.id }
+        testObjectStorage.insertAll(expected)
+        val ten = testObjectStorage.count().first()
+        assertEquals(expected.size.toLong(), ten)
+    }
+
 }

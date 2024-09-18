@@ -2,6 +2,7 @@ package com.mercury.sqkon.db
 
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
+import app.cash.sqldelight.coroutines.mapToOne
 import app.cash.sqldelight.coroutines.mapToOneOrNull
 import com.mercury.sqkon.db.serialization.KotlinSqkonSerializer
 import com.mercury.sqkon.db.serialization.SqkonJson
@@ -59,8 +60,6 @@ open class KeyValueStorage<T : Any>(
         entityQueries.transaction { values.forEach { (key, value) -> update(key, value) } }
     }
 
-    // TODO replace
-
     fun selectByKey(key: String): Flow<T?> {
         return entityQueries
             .selectAll(
@@ -89,6 +88,12 @@ open class KeyValueStorage<T : Any>(
             )
             .asFlow()
             .mapToList(dispatcher)
+    }
+
+    fun count(): Flow<Long> {
+        return entityQueries.count(entityName)
+            .asFlow()
+            .mapToOne(dispatcher)
     }
 
 }
