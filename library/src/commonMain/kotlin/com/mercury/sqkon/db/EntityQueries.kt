@@ -5,14 +5,13 @@ import app.cash.sqldelight.SuspendingTransacterImpl
 import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.db.SqlCursor
 import app.cash.sqldelight.db.SqlDriver
-import java.sql.SQLException
 
 class EntityQueries(
     driver: SqlDriver,
 ) : SuspendingTransacterImpl(driver) {
 
     suspend fun insertEntity(entity: Entity) {
-        val identifier = identifier("insert", entity.entity_name)
+        val identifier = identifier("insert")
         driver.execute(
             identifier = identifier,
             sql = """
@@ -41,7 +40,7 @@ class EntityQueries(
         expiresAt: Long?,
         value: String,
     ) {
-        val identifier = identifier("update", entityName)
+        val identifier = identifier("update")
         driver.execute(
             identifier = identifier,
             sql = """
@@ -61,7 +60,7 @@ class EntityQueries(
         }
     }
 
-    fun <T : Any> selectAll(
+    fun <T : Any> select(
         entityName: String,
         entityKey: String? = null,
         mapper: (value: String) -> T,
@@ -94,7 +93,9 @@ class EntityQueries(
     ) : Query<T>(mapper) {
 
         private val identifier: Int = identifier(
-            "select", if (entityKey != null) "key" else null, entityName, orderBy.toString()
+            "select", if (entityKey != null) "key" else null,
+            //TODO add where for identifier (needs to use binding parameters)
+            orderBy.identifier()
         )
 
         override fun addListener(listener: Listener) {
@@ -112,28 +113,57 @@ class EntityQueries(
                 json_extract(entity.value, '$') value
                 FROM entity 
                 WHERE entity_name = ? ${if (entityKey != null) "AND entity_key = ?" else ""} 
-                ${where.toSqlString().let { if (it.isNotEmpty()) "AND $it" else "" }}
+                ${where.toSqlString().let { if (it.isNotEmpty()) "AND ($it)" else "" }}
                 $orderBy
             """.trimIndent()
             return try {
                 driver.executeQuery(
                     identifier = identifier,
                     sql = sql.replace('\n', ' '),
-                    mapper,
+                    mapper = mapper,
                     parameters = (1 + if (entityKey != null) 1 else 0)
                 ) {
                     bindString(0, entityName)
-                    if (entityKey != null) {
-                        bindString(1, entityKey)
-                    }
+                    if (entityKey != null) bindString(1, entityKey)
                 }
-            } catch (sqlLite: SQLException) {
+            } catch (ex: SqlException) {
                 println("SQL Error: $sql")
-                throw sqlLite
+                throw ex
             }
         }
 
         override fun toString(): String = "select"
+    }
+
+    suspend fun delete(
+        entityName: String,
+        entityKey: String? = null,
+        where: Where? = null,
+    ) {
+        //TODO add where for identifier (needs to use binding parameters)
+        val identifier = identifier("delete", entityKey)
+        val sql = """
+            DELETE FROM entity 
+            WHERE entity_name = ? ${if (entityKey != null) "AND entity_key = ?" else ""}
+            ${where.toSqlString().let { if (it.isNotEmpty()) "AND ($it)" else "" }}
+        """.trimIndent()
+        try {
+            driver.execute(
+                identifier = identifier,
+                sql = sql.replace('\n', ' '),
+                parameters = (1 + if (entityKey != null) 1 else 0)
+            ) {
+                bindString(0, entityName)
+                if (entityKey != null) bindString(1, entityKey)
+            }.await()
+        } catch (ex: SqlException) {
+            println("SQL Error: $sql")
+            throw ex
+        }
+        notifyQueries(identifier) { emit ->
+            emit("entity")
+            emit("entity_$entityName")
+        }
     }
 
     fun count(entityName: String): Query<Long> = CountQuery(entityName) { cursor ->
@@ -145,7 +175,7 @@ class EntityQueries(
         mapper: (SqlCursor) -> T,
     ) : Query<T>(mapper) {
 
-        private val identifier: Int = identifier("count", entityName)
+        private val identifier: Int = identifier("count")
 
         override fun addListener(listener: Query.Listener) {
             driver.addListener("entity_$entityName", listener = listener)
@@ -170,6 +200,13 @@ class EntityQueries(
 
 }
 
+/**
+ * Generate an identifier for a query based on changing query sqlstring
+ * (binding parameters don't change the structure of the string)
+ */
 private fun identifier(vararg values: String?): Int {
     return values.filterNotNull().joinToString("_").hashCode()
 }
+
+
+expect class SqlException : Exception

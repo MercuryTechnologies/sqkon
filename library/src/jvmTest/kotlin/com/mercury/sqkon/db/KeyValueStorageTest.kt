@@ -7,6 +7,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.Clock
 import org.junit.Test
 import kotlin.test.assertEquals
+import kotlin.time.Duration.Companion.seconds
 
 class KeyValueStorageTest {
 
@@ -73,6 +74,7 @@ class KeyValueStorageTest {
             .associateBy { it.id }
         testObjectStorage.insertAll(expected)
 
+
         val actual = testObjectStorage.selectAll(
             orderBy = listOf(
                 OrderBy(TestObject::value, direction = OrderDirection.ASC),
@@ -87,7 +89,12 @@ class KeyValueStorageTest {
 
     @Test
     fun selectAll_orderBy_EntityChildAddedBy() = runTest {
-        val expected = (0..10).map { TestObject() }
+        val expected = (0..10)
+            .map {
+                TestObject(
+                    child = TestObjectChild(createdAt = Clock.System.now().plus(it.seconds))
+                )
+            }
             .sortedByDescending { it.child.createdAt }
             .associateBy { it.id }
         testObjectStorage.insertAll(expected)
@@ -119,20 +126,60 @@ class KeyValueStorageTest {
 
 
     @Test
-    fun selectAll_byEntityId() = runTest {
+    fun select_byEntityId() = runTest {
         val expected = (0..10).map { TestObject() }.associateBy { it.id }
         testObjectStorage.insertAll(expected)
 
         val expect = expected.values.toList()[5]
         val actualByKey = testObjectStorage.selectByKey(expect.id).first()
 
-        val actualsById = testObjectStorage.selectAll(
-            where = Eq(TestObject::id, value = expect.id)
+        val actualsById = testObjectStorage.select(
+            where = Eq(TestObject::name, value = expect.id)
         ).first()
 
         assertEquals(1, actualsById.size)
         assertEquals(expect, actualByKey)
         assertEquals(expect, actualsById.first())
+    }
+
+    @Test
+    fun deleteAll() = runTest {
+        val expected = (0..10).map { TestObject() }.associateBy { it.id }
+        testObjectStorage.insertAll(expected)
+        val actual = testObjectStorage.selectAll().first()
+        assertEquals(expected.size, actual.size)
+
+        testObjectStorage.deleteAll()
+        val empty = testObjectStorage.selectAll().first()
+        assertEquals(expected = 0, empty.size)
+    }
+
+    @Test
+    fun delete_byKey() = runTest {
+        val expected = (0..10).map { TestObject() }.associateBy { it.id }
+        testObjectStorage.insertAll(expected)
+        val actual = testObjectStorage.selectAll().first()
+        assertEquals(expected.size, actual.size)
+
+        val key = expected.keys.toList()[5]
+        testObjectStorage.deleteByKey(key)
+        val actualAfterDelete = testObjectStorage.selectAll().first()
+        assertEquals(expected.size - 1, actualAfterDelete.size)
+    }
+
+    @Test
+    fun delete_byEntityId() = runTest {
+        val expected = (0..10).map { TestObject() }.associateBy { it.id }
+        testObjectStorage.insertAll(expected)
+        val actual = testObjectStorage.selectAll().first()
+        assertEquals(expected.size, actual.size)
+
+        val key = expected.keys.toList()[5]
+        testObjectStorage.delete(
+            where = Eq(TestObject::id, value = key)
+        )
+        val actualAfterDelete = testObjectStorage.selectAll().first()
+        assertEquals(expected.size - 1, actualAfterDelete.size)
     }
 
     @Test

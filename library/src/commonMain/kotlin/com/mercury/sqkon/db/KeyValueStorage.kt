@@ -60,9 +60,21 @@ open class KeyValueStorage<T : Any>(
         entityQueries.transaction { values.forEach { (key, value) -> update(key, value) } }
     }
 
+    /**
+     * Select all rows. Effectively an alias for [select] with no where set.
+     */
+    fun selectAll(orderBy: List<OrderBy> = emptyList()): Flow<List<T>> {
+        return select(where = null, orderBy = orderBy)
+    }
+
+    /**
+     * Select by key.
+     *
+     * Note, using where will be less performant than selecting by key.
+     */
     fun selectByKey(key: String): Flow<T?> {
         return entityQueries
-            .selectAll(
+            .select(
                 entityName = entityName,
                 entityKey = key,
                 mapper = {
@@ -73,12 +85,12 @@ open class KeyValueStorage<T : Any>(
             .mapToOneOrNull(dispatcher)
     }
 
-    fun selectAll(
+    fun select(
         where: Where? = null,
         orderBy: List<OrderBy> = emptyList(),
     ): Flow<List<T>> {
         return entityQueries
-            .selectAll(
+            .select(
                 entityName,
                 mapper = {
                     serializer.deserialize(klazz, it) ?: error("Failed to deserialize value")
@@ -88,6 +100,40 @@ open class KeyValueStorage<T : Any>(
             )
             .asFlow()
             .mapToList(dispatcher)
+    }
+
+    /**
+     * Delete all rows. Basically an alias for [delete] with no where set.
+     */
+    suspend fun deleteAll() = delete(where = null)
+
+    /**
+     * Delete by key.
+     *
+     * If you need to delete all rows, use [deleteAll].
+     * If you need to specify which rows to delete, use [delete] with a [Where]. Note, using where
+     * will be less performant than deleting by key.
+     *
+     * @see delete
+     * @see deleteAll
+     */
+    suspend fun deleteByKey(key: String) {
+        entityQueries.delete(entityName, entityKey = key)
+    }
+
+    /**
+     * Delete using where clause. If where is null, all rows will be deleted.
+     *
+     * Note, it will always be more performant to delete by key, than using where clause pointing
+     * at your entities id.
+     *
+     * @see deleteAll
+     * @see deleteByKey
+     */
+    suspend fun delete(
+        where: Where? = null
+    ) {
+        entityQueries.delete(entityName, where = where)
     }
 
     fun count(): Flow<Long> {

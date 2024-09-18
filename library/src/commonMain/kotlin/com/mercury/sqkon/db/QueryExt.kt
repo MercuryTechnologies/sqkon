@@ -50,6 +50,7 @@ fun Where?.toSqlString(): String {
     return this.toSqlString()
 }
 
+// TODO: See if we can type safe the passed in object to make sure we pick the top level class we want
 data class OrderBy(
     val entityColumn: String,
     /**
@@ -65,6 +66,10 @@ data class OrderBy(
         entityColumn.joinToString(".") { it.name },
         direction
     )
+
+    fun identifier(): String {
+        return "order_by_${entityColumn}${direction?.value?.let { "_$it" }}"
+    }
 }
 
 fun List<OrderBy>.toSqlString(): String {
@@ -79,7 +84,10 @@ fun List<OrderBy>.toSqlString(): String {
     }
 }
 
+
 enum class OrderDirection(val value: String) {
     ASC(value = "ASC"),
     DESC(value = "DESC")
 }
+
+internal fun List<OrderBy>.identifier(): String = joinToString("_") { it.identifier() }

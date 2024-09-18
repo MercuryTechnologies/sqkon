@@ -20,3 +20,5 @@ CREATE TABLE entity (
 -- SELECT * FROM entity WHERE entity_name = ?
 -- count:
 -- SELECT COUNT(*) FROM entity WHERE entity_name = ?;
+-- delete:
+-- DELETE FROM entity WHERE entity_name = ?;
