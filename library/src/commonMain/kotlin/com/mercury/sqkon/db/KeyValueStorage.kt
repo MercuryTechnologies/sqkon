@@ -86,7 +86,7 @@ open class KeyValueStorage<T : Any>(
     }
 
     fun select(
-        where: Where? = null,
+        where: Where<T>? = null,
         orderBy: List<OrderBy> = emptyList(),
     ): Flow<List<T>> {
         return entityQueries
@@ -131,7 +131,7 @@ open class KeyValueStorage<T : Any>(
      * @see deleteByKey
      */
     suspend fun delete(
-        where: Where? = null
+        where: Where<T>? = null
     ) {
         entityQueries.delete(entityName, where = where)
     }

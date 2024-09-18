@@ -64,7 +64,7 @@ class EntityQueries(
         entityName: String,
         entityKey: String? = null,
         mapper: (value: String) -> T,
-        where: Where? = null,
+        where: Where<T>? = null,
         orderBy: List<OrderBy> = emptyList(),
     ): Query<T> = SelectQuery(
         entityName = entityName,
@@ -87,7 +87,7 @@ class EntityQueries(
     private inner class SelectQuery<out T : Any>(
         private val entityName: String,
         private val entityKey: String? = null,
-        private val where: Where? = null,
+        private val where: Where<*>? = null,
         private val orderBy: List<OrderBy>,
         mapper: (SqlCursor) -> T,
     ) : Query<T>(mapper) {
@@ -138,7 +138,7 @@ class EntityQueries(
     suspend fun delete(
         entityName: String,
         entityKey: String? = null,
-        where: Where? = null,
+        where: Where<*>? = null,
     ) {
         //TODO add where for identifier (needs to use binding parameters)
         val identifier = identifier("delete", entityKey)

@@ -2,10 +2,10 @@ package com.mercury.sqkon.db
 
 import kotlin.reflect.KProperty1
 
-data class Eq(
+data class Eq<T>(
     private val entityColumn: String,
     private val value: String,
-) : Where() {
+) : Where<T>() {
     constructor(
         vararg entityColumn: KProperty1<*, *>,
         value: String,
@@ -19,33 +19,51 @@ data class Eq(
     }
 }
 
-data class And(private val left: Where, private val right: Where) : Where() {
+//infix fun <T : Any, V : Any, V2 : Any> KProperty1<T, V>.then(property: KProperty1<V, V2>): KProperty1<V, V2> {
+//    // Add to builder
+//    return property
+//}
+//
+//fun block() {
+//    Test::child then TestChild::childValue
+//}
+//
+//data class Test(
+//    val value: String,
+//    val child: TestChild,
+//)
+//
+//data class TestChild(
+//    val childValue: String,
+//)
+
+data class And<T : Any>(private val left: Where<T>, private val right: Where<T>) : Where<T>() {
     override fun toSqlString(): String {
         return "(${left.toSqlString()} AND ${right.toSqlString()})"
     }
 }
 
-data class Or(private val left: Where, private val right: Where) : Where() {
+data class Or<T : Any>(private val left: Where<T>, private val right: Where<T>) : Where<T>() {
     override fun toSqlString(): String {
         return "(${left.toSqlString()} OR ${right.toSqlString()})"
     }
 }
 
-infix fun Where.and(other: Where): Where {
+infix fun <T : Any> Where<T>.and(other: Where<T>): Where<T> {
     return And(this, other)
 }
 
-infix fun Where.or(other: Where): Where {
-    return Or(this, other)
+infix fun <T : Any> Where<T>.or(other: Where<T>): Where<T> {
+    return Or<T>(this, other)
 }
 
-abstract class Where {
+abstract class Where<T> {
     // TODO use prepared statement bindings for the values
     abstract fun toSqlString(): String
     override fun toString(): String = toSqlString()
 }
 
-fun Where?.toSqlString(): String {
+fun Where<*>?.toSqlString(): String {
     this ?: return ""
     return this.toSqlString()
 }

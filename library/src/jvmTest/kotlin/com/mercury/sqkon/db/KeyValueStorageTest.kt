@@ -134,7 +134,7 @@ class KeyValueStorageTest {
         val actualByKey = testObjectStorage.selectByKey(expect.id).first()
 
         val actualsById = testObjectStorage.select(
-            where = Eq(TestObject::name, value = expect.id)
+            where = Eq(TestObject::id, value = expect.id)
         ).first()
 
         assertEquals(1, actualsById.size)
