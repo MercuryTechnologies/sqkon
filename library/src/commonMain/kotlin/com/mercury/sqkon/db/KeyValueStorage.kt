@@ -3,46 +3,45 @@ package com.mercury.sqkon.db
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import app.cash.sqldelight.coroutines.mapToOneOrNull
+import com.mercury.sqkon.db.serialization.KotlinSqkonSerializer
+import com.mercury.sqkon.db.serialization.SqkonJson
+import com.mercury.sqkon.db.serialization.SqkonSerializer
+import com.mercury.sqkon.db.utils.nowMillis
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
-import kotlinx.datetime.Clock
-import kotlinx.serialization.InternalSerializationApi
-import kotlinx.serialization.KSerializer
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonBuilder
-import kotlinx.serialization.serializer
+import kotlin.reflect.KClass
 
 /**
+ * Base interaction to the database.
+ *
  * @param json if providing your own, recommend using [SqkonJson]  builder.
  */
 open class KeyValueStorage<T : Any>(
     protected val entityName: String,
     protected val entityQueries: EntityQueries,
-    protected val json: Json = SqkonJson {},
-    protected val serializer: KSerializer<T>,
+    protected val klazz: KClass<T>,
+    protected val serializer: SqkonSerializer = KotlinSqkonSerializer(),
     protected val dispatcher: CoroutineDispatcher = Dispatchers.Default,
-    // todo expiration
+    // TODO expiresAt
 ) {
 
     suspend fun insert(key: String, value: T) {
+        val now = nowMillis()
         val entity = Entity(
             entity_name = entityName,
             entity_key = key,
-            added_at = System.currentTimeMillis(),
-            updated_at = System.currentTimeMillis(),
-            expires_at = 0,
-            value_ = json.encodeToString(serializer, value)
+            added_at = now,
+            updated_at = now,
+            expires_at = null,
+            value_ = serializer.serialize(klazz, value) ?: error("Failed to serialize value")
         )
         entityQueries.insertEntity(entity)
     }
 
     suspend fun insertAll(values: Map<String, T>) {
         entityQueries.transaction {
-            values.forEach { (key, value) ->
-                println("insertAll value: $value")
-                insert(key, value)
-            }
+            values.forEach { (key, value) -> insert(key, value) }
         }
     }
 
@@ -50,18 +49,26 @@ open class KeyValueStorage<T : Any>(
         entityQueries.updateEntity(
             entityName = entityName,
             entityKey = key,
-            updatedAt = Clock.System.now().toEpochMilliseconds(),
+            updatedAt = nowMillis(),
             expiresAt = null,
-            value = json.encodeToString(serializer, value)
+            value = serializer.serialize(klazz, value) ?: error("Failed to serialize value")
         )
     }
+
+    suspend fun updateAll(values: Map<String, T>) {
+        entityQueries.transaction { values.forEach { (key, value) -> update(key, value) } }
+    }
+
+    // TODO replace
 
     fun selectByKey(key: String): Flow<T?> {
         return entityQueries
             .selectAll(
                 entityName = entityName,
                 entityKey = key,
-                mapper = { json.decodeFromString(serializer, it) },
+                mapper = {
+                    serializer.deserialize(klazz, it) ?: error("Failed to deserialize value")
+                },
             )
             .asFlow()
             .mapToOneOrNull(dispatcher)
@@ -74,7 +81,9 @@ open class KeyValueStorage<T : Any>(
         return entityQueries
             .selectAll(
                 entityName,
-                mapper = { json.decodeFromString(serializer, it) },
+                mapper = {
+                    serializer.deserialize(klazz, it) ?: error("Failed to deserialize value")
+                },
                 where = where,
                 orderBy = orderBy,
             )
@@ -87,31 +96,15 @@ open class KeyValueStorage<T : Any>(
 /**
  * @param json if providing your own, recommend using [SqkonJson]  builder.
  */
-@OptIn(InternalSerializationApi::class)
 inline fun <reified T : Any> keyValueStorage(
     entityName: String,
     entityQueries: EntityQueries,
-    json: Json = SqkonJson {},
+    serializer: SqkonSerializer = KotlinSqkonSerializer(),
 ): KeyValueStorage<T> {
     return KeyValueStorage(
         entityName = entityName,
         entityQueries = entityQueries,
-        json = json,
-        serializer = T::class.serializer()
+        klazz = T::class,
+        serializer = serializer,
     )
-}
-
-/**
- * Recommended default json configuration for KeyValueStorage.
- *
- * This configuration generally allows changes to json and enables ordering and querying.
- *
- * - `ignoreUnknownKeys = true` is generally recommended to allow for removing fields from classes.
- * - `encodeDefaults` = true, is required to be able to query on default values, otherwise that field
- *     is missing in the db.
- */
-fun SqkonJson(builder: JsonBuilder.() -> Unit) = Json {
-    ignoreUnknownKeys = true
-    encodeDefaults = true
-    builder()
 }

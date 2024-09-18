@@ -59,7 +59,7 @@ class KeyValueStorageTest {
         testObjectStorage.insertAll(expected)
 
         val actual = testObjectStorage.selectAll(
-            orderBy = listOf(OrderBy(TestObject::name.name, OrderDirection.ASC))
+            orderBy = listOf(OrderBy(TestObject::name, direction = OrderDirection.ASC))
         ).first()
 
         assertEquals(expected.size, actual.size)
