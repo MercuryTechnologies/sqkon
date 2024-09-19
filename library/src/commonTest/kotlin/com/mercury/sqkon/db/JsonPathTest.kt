@@ -23,11 +23,11 @@ class JsonPathTest {
     }
 
 //    Not possible right now
-//    @Test
-//    fun `build with list`() {
-//        val path = TestObject::list then TestObjectChild::createdAt
-//        assertEquals(expected = "\$.list.createdAt", actual = path.build())
-//    }
+    @Test
+    fun `build with list`() {
+        val path = TestObject::list then TestObjectChild::createdAt
+        assertEquals(expected = "\$.list.createdAt", actual = path.build())
+    }
 
 
 }

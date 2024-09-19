@@ -8,6 +8,14 @@ inline infix fun <reified R : Any, reified V : Any, reified V2 : Any> KProperty1
     existingPath = listOf(this, property)
 )
 
+
+// Support list type not implemented yet
+inline infix fun <reified R : Any, reified V : Collection<L>, reified L : Any, reified V2 : Any> KProperty1<R, V>.then(
+    property: KProperty1<L, V2>
+): JsonPath<V2> = JsonPath(
+    existingPath = listOf(this, property)
+)
+
 /**
  * Represents a path in a JSON object, using limited reflection to build the path.
  *
