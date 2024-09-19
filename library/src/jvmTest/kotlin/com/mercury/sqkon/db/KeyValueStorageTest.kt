@@ -2,7 +2,9 @@ package com.mercury.sqkon.db
 
 import com.mercury.sqkon.TestObject
 import com.mercury.sqkon.TestObjectChild
+import com.mercury.sqkon.until
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.Clock
 import org.junit.Test
@@ -228,5 +230,100 @@ class KeyValueStorageTest {
         val ten = testObjectStorage.count().first()
         assertEquals(expected.size.toLong(), ten)
     }
+
+    @Test
+    fun selectAllFlow_flowUpdatesOnInsert() = runTest {
+        val results: MutableList<List<TestObject>> = mutableListOf()
+        backgroundScope.launch {
+            testObjectStorage.selectAll(
+                orderBy = listOf(OrderBy(TestObject::id, direction = OrderDirection.ASC))
+            ).collect { results.add(it) }
+        }
+        // Wait for first result
+        until { results.isNotEmpty() }
+        assertEquals(0, results.first().size)
+
+        val expected = (0..10).map { TestObject() }
+            .associateBy { it.id }
+            .toSortedMap()
+        testObjectStorage.insertAll(expected)
+
+        until { results.size == 2 }
+
+        assertEquals(expected.size, results[1].size)
+        assertEquals(expected.values.toList(), results[1])
+    }
+
+    @Test
+    fun selectAllFlow_flowUpdatesOnUpdate() = runTest {
+        val expected = (0..10).map { TestObject() }
+            .associateBy { it.id }
+            .toSortedMap()
+        testObjectStorage.insertAll(expected)
+        val results: MutableList<List<TestObject>> = mutableListOf()
+        backgroundScope.launch {
+            testObjectStorage.selectAll(
+                orderBy = listOf(OrderBy(TestObject::id, direction = OrderDirection.ASC))
+            ).collect { results.add(it) }
+        }
+
+        until { results.size == 1 }
+        assertEquals(expected.size, results.first().size)
+
+        val updated = expected.values.toList()[5].copy(
+            name = "Updated Name",
+            value = 12345,
+            description = "Updated Description",
+            child = expected.values.toList()[5].child.copy(updatedAt = Clock.System.now())
+        )
+        testObjectStorage.update(updated.id, updated)
+        until { results.size == 2 }
+
+        assertEquals(expected.size, results[1].size)
+        assertEquals(updated, results[1][5])
+    }
+
+    @Test
+    fun selectAllFlow_flowUpdatesOnDelete() = runTest {
+        val expected = (0..10).map { TestObject() }
+            .associateBy { it.id }
+            .toSortedMap()
+        testObjectStorage.insertAll(expected)
+        val results: MutableList<List<TestObject>> = mutableListOf()
+        backgroundScope.launch {
+            testObjectStorage.selectAll(
+                orderBy = listOf(OrderBy(TestObject::id, direction = OrderDirection.ASC))
+            ).collect { results.add(it) }
+        }
+
+        until { results.size == 1 }
+        assertEquals(expected.size, results.first().size)
+
+        val key = expected.keys.toList()[5]
+        testObjectStorage.deleteByKey(key)
+        until { results.size == 2 }
+
+        assertEquals(expected.size - 1, results[1].size)
+    }
+
+    @Test
+    fun selectCount_flowUpdatesOnChange() = runTest {
+        val results: MutableList<Long> = mutableListOf()
+        backgroundScope.launch {
+            testObjectStorage.count().collect { results.add(it) }
+        }
+        // Wait for first result
+        until { results.isNotEmpty() }
+        assertEquals(expected = 0, results.first())
+
+        TestObject().also { testObjectStorage.insert(it.id, it) }
+        until { results.size == 2 }
+        assertEquals(expected = 1, results[1])
+
+        testObjectStorage.deleteAll()
+        until { results.size == 3 }
+        assertEquals(expected = 0, results[2])
+    }
+
 
 }
