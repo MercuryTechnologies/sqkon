@@ -101,10 +101,9 @@ class KeyValueStorageTest {
 
         val actual = testObjectStorage.selectAll(
             orderBy = listOf(
-                OrderBy(
-                    TestObject::child, TestObjectChild::createdAt,
-                    direction = OrderDirection.DESC
-                ),
+                OrderBy(direction = OrderDirection.DESC) {
+                    TestObject::child then TestObjectChild::createdAt
+                },
             )
         ).first()
 
@@ -124,7 +123,6 @@ class KeyValueStorageTest {
         assertEquals(actual, expect)
     }
 
-
     @Test
     fun select_byEntityId() = runTest {
         val expected = (0..10).map { TestObject() }.associateBy { it.id }
@@ -134,12 +132,50 @@ class KeyValueStorageTest {
         val actualByKey = testObjectStorage.selectByKey(expect.id).first()
 
         val actualsById = testObjectStorage.select(
-            where = Eq(TestObject::id, value = expect.id)
+            where = TestObject::id eq expect.id
         ).first()
 
         assertEquals(1, actualsById.size)
         assertEquals(expect, actualByKey)
         assertEquals(expect, actualsById.first())
+    }
+
+
+    @Test
+    fun select_byEntityInlineValue() = runTest {
+        val expected = (0..10).map { TestObject() }.associateBy { it.id }
+        testObjectStorage.insertAll(expected)
+        val expect = expected.values.toList()[5]
+        val actualByInlineValue = testObjectStorage.select(
+            // This works, but need to work on an API which would ignore the value class if passed in
+            where = TestObject::testValue eq expect.testValue.test
+        ).first()
+
+        assertEquals(1, actualByInlineValue.size)
+        assertEquals(expect, actualByInlineValue.first())
+    }
+
+    @Test
+    fun select_byEntityChildField() = runTest {
+        val expected = (0..10).map {
+            TestObject(
+                child = TestObjectChild(
+                    createdAt = Clock.System.now().plus(it.seconds)
+                )
+            )
+        }.associateBy { it.id }
+        testObjectStorage.insertAll(expected)
+        val expect = expected.values.toList()[5]
+        val actualByInlineValue = testObjectStorage.select(
+            where = LessThan(
+                path = { then(TestObject::child).then(TestObjectChild::createdAt) },
+                value = expect.child.createdAt.toString()
+            ),
+            orderBy = listOf(OrderBy { TestObject::child then TestObjectChild::createdAt })
+        ).first()
+
+        assertEquals(5, actualByInlineValue.size)
+        assertEquals(expected.values.take(5), actualByInlineValue)
     }
 
     @Test

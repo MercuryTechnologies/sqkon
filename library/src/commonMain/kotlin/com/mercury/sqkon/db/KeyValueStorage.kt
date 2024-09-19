@@ -63,7 +63,7 @@ open class KeyValueStorage<T : Any>(
     /**
      * Select all rows. Effectively an alias for [select] with no where set.
      */
-    fun selectAll(orderBy: List<OrderBy> = emptyList()): Flow<List<T>> {
+    fun selectAll(orderBy: List<OrderBy<T>> = emptyList()): Flow<List<T>> {
         return select(where = null, orderBy = orderBy)
     }
 
@@ -87,7 +87,7 @@ open class KeyValueStorage<T : Any>(
 
     fun select(
         where: Where<T>? = null,
-        orderBy: List<OrderBy> = emptyList(),
+        orderBy: List<OrderBy<T>> = emptyList(),
     ): Flow<List<T>> {
         return entityQueries
             .select(

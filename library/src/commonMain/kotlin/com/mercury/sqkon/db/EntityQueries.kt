@@ -65,7 +65,7 @@ class EntityQueries(
         entityKey: String? = null,
         mapper: (value: String) -> T,
         where: Where<T>? = null,
-        orderBy: List<OrderBy> = emptyList(),
+        orderBy: List<OrderBy<T>> = emptyList(),
     ): Query<T> = SelectQuery(
         entityName = entityName,
         entityKey = entityKey,
@@ -88,7 +88,7 @@ class EntityQueries(
         private val entityName: String,
         private val entityKey: String? = null,
         private val where: Where<*>? = null,
-        private val orderBy: List<OrderBy>,
+        private val orderBy: List<OrderBy<T>>,
         mapper: (SqlCursor) -> T,
     ) : Query<T>(mapper) {
 

@@ -2,62 +2,60 @@ package com.mercury.sqkon.db
 
 import kotlin.reflect.KProperty1
 
-data class Eq<T>(
-    private val entityColumn: String,
-    private val value: String,
+data class Eq<T : Any?>(
+    private val path: JsonPath<T>, private val value: String,
 ) : Where<T>() {
-    constructor(
-        vararg entityColumn: KProperty1<*, *>,
-        value: String,
-    ) : this(
-        entityColumn.joinToString(".") { it.name },
-        value
-    )
+
+    constructor(property: KProperty1<T, Any?>, value: String) : this(JsonPath(property), value)
 
     override fun toSqlString(): String {
-        return "jsonb_extract(entity.value,'\$.${entityColumn}') = '$value'"
+        return "jsonb_extract(entity.value,'${path.build()}') = '$value'"
     }
 }
 
-//infix fun <T : Any, V : Any, V2 : Any> KProperty1<T, V>.then(property: KProperty1<V, V2>): KProperty1<V, V2> {
-//    // Add to builder
-//    return property
-//}
-//
-//fun block() {
-//    Test::child then TestChild::childValue
-//}
-//
-//data class Test(
-//    val value: String,
-//    val child: TestChild,
-//)
-//
-//data class TestChild(
-//    val childValue: String,
-//)
+infix fun <T : Any?> JsonPath<T>.eq(value: String): Eq<T> = Eq(this, value)
+infix fun <T : Any?> KProperty1<T, *>.eq(value: String): Eq<T> = Eq(this, value)
+
+
+data class GreaterThan<T : Any?>(
+    private val path: JsonPath<T>.() -> JsonPath<*>, private val value: String,
+) : Where<T>() {
+
+    constructor(property: KProperty1<T, Any?>, value: String) : this({ then(property) }, value)
+
+    override fun toSqlString(): String {
+        return "jsonb_extract(entity.value,'${JsonPath<T>().path().build()}') > '$value'"
+    }
+}
+
+infix fun <T : Any?> KProperty1<T, *>.gt(value: String): GreaterThan<T> = GreaterThan(this, value)
+
+data class LessThan<T : Any?>(
+    private val path: JsonPath<T>.() -> JsonPath<*>, private val value: String,
+) : Where<T>() {
+
+    constructor(property: KProperty1<T, Any?>, value: String) : this({ then(property) }, value)
+
+    override fun toSqlString(): String {
+        return "jsonb_extract(entity.value,'${JsonPath<T>().path().build()}') < '$value'"
+    }
+}
+
+infix fun <T : Any?> KProperty1<T, *>.lt(value: String): LessThan<T> = LessThan(this, value)
 
 data class And<T : Any>(private val left: Where<T>, private val right: Where<T>) : Where<T>() {
-    override fun toSqlString(): String {
-        return "(${left.toSqlString()} AND ${right.toSqlString()})"
-    }
+    override fun toSqlString(): String = "(${left.toSqlString()} AND ${right.toSqlString()})"
 }
+
+infix fun <T : Any> Where<T>.and(other: Where<T>): Where<T> = And(this, other)
 
 data class Or<T : Any>(private val left: Where<T>, private val right: Where<T>) : Where<T>() {
-    override fun toSqlString(): String {
-        return "(${left.toSqlString()} OR ${right.toSqlString()})"
-    }
+    override fun toSqlString(): String = "(${left.toSqlString()} OR ${right.toSqlString()})"
 }
 
-infix fun <T : Any> Where<T>.and(other: Where<T>): Where<T> {
-    return And(this, other)
-}
+infix fun <T : Any> Where<T>.or(other: Where<T>): Where<T> = Or<T>(this, other)
 
-infix fun <T : Any> Where<T>.or(other: Where<T>): Where<T> {
-    return Or<T>(this, other)
-}
-
-abstract class Where<T> {
+abstract class Where<T : Any?> {
     // TODO use prepared statement bindings for the values
     abstract fun toSqlString(): String
     override fun toString(): String = toSqlString()
@@ -69,34 +67,33 @@ fun Where<*>?.toSqlString(): String {
 }
 
 // TODO: See if we can type safe the passed in object to make sure we pick the top level class we want
-data class OrderBy(
-    val entityColumn: String,
+data class OrderBy<T : Any?>(
     /**
      * Sqlite defaults to ASC when not specified
      */
     val direction: OrderDirection? = null,
+    private val builder: JsonPath<T>.() -> JsonPath<*>,
 ) {
-    // TODO parse fields better
+
     constructor(
-        vararg entityColumn: KProperty1<*, *>,
-        direction: OrderDirection? = null
-    ) : this(
-        entityColumn.joinToString(".") { it.name },
-        direction
-    )
+        property: KProperty1<T, Any?>,
+        direction: OrderDirection? = null,
+    ) : this(direction, { then(property) })
+
+    val path: JsonPath<*> = JsonPath<T>().builder()
 
     fun identifier(): String {
-        return "order_by_${entityColumn}${direction?.value?.let { "_$it" }}"
+        return "order_by_${path.fieldNames()}${direction?.value?.let { "_$it" }}"
     }
 }
 
-fun List<OrderBy>.toSqlString(): String {
+fun <T : Any> List<OrderBy<T>>.toSqlString(): String {
     return if (isEmpty()) {
         ""
     } else {
         "ORDER BY ${
             joinToString(", ") {
-                "jsonb_extract(entity.value, '\$.${it.entityColumn}') ${it.direction?.value ?: ""}".trim()
+                "jsonb_extract(entity.value, '${it.path.build()}') ${it.direction?.value ?: ""}".trim()
             }
         }"
     }
@@ -108,4 +105,4 @@ enum class OrderDirection(val value: String) {
     DESC(value = "DESC")
 }
 
-internal fun List<OrderBy>.identifier(): String = joinToString("_") { it.identifier() }
+internal fun <T : Any> List<OrderBy<T>>.identifier(): String = joinToString("_") { it.identifier() }

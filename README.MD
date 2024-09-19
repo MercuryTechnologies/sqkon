@@ -1,10 +1,15 @@
-# sqkon
+# Sqkon
 
-Kotlin Multiplatform Library
+Sqkon (/sk-on/) A Kotlin Multiplatform KeyValue Store with the ability to query on values using
+SQLite and JSONB.
+
+## Development
 
 ### Publish to MavenCentral
 
-1) Registering a Sonatype account as described here: 
+**TODO PUBLISH TO MAVEN CENTRAL GH ACTIONS**
+
+1) Registering a Sonatype account as described here:
    https://dev.to/kotlin/how-to-build-and-publish-a-kotlin-multiplatform-library-going-public-4a8k
 2) Add developer id, name, email and the project url to
    `/convention-plugins/src/main/kotlin/convention.publication.gradle.kts`
