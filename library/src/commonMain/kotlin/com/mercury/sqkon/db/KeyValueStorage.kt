@@ -94,7 +94,7 @@ open class KeyValueStorage<T : Any>(
             .select(
                 entityName,
                 mapper = {
-                    serializer.deserialize<T>(type, it) ?: error("Failed to deserialize value")
+                    serializer.deserialize(type, it) ?: error("Failed to deserialize value")
                 },
                 where = where,
                 orderBy = orderBy,

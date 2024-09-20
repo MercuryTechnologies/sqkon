@@ -6,6 +6,34 @@ import kotlin.reflect.KClass
 import kotlin.reflect.KProperty1
 import kotlin.reflect.typeOf
 
+/**
+ * Create a Path builder using one of the manu reified methods.
+ *
+ * From a class:
+ *
+ * ```
+ * val builder = TestObject::class.with(TestObject::statuses) {
+ *   then(Status::createdAt)
+ * }
+ * ```
+ *
+ * From a property:
+ *
+ * ```
+ * val builder = TestObject::statuses.builder {
+ *   then(Status::createdAt)
+ * }
+ *
+ * Quick joining two properties:
+ *
+ * ```
+ * val builder = TestObject::statuses.then(Status::createdAt) {
+ *   // can optionally keep going
+ * }
+ * ```
+ * Classes like [OrderBy] and [Where] operators take [JsonPathBuilder] or [KProperty1] to build
+ * the path for sql queries.
+ */
 class JsonPathBuilder<R : Any?>
 @PublishedApi internal constructor(
     @PublishedApi internal val receiverDescriptor: SerialDescriptor,
@@ -15,7 +43,7 @@ class JsonPathBuilder<R : Any?>
     internal var parentNode: JsonPathNode<R, *>? = null
 
     @PublishedApi
-    internal inline fun <reified V : Any?> with(
+    internal inline fun <reified V> with(
         property: KProperty1<R, V>,
         block: JsonPathNode<R, V>.() -> Unit = {}
     ): JsonPathBuilder<R> {
@@ -72,7 +100,7 @@ class JsonPathBuilder<R : Any?>
 
 // Builder Methods to start building paths
 
-inline fun <reified R : Any?, reified V : Any?> KProperty1<R, V>.builder(
+inline fun <reified R, reified V> KProperty1<R, V>.builder(
     block: JsonPathNode<R, V>.() -> Unit = {}
 ): JsonPathBuilder<R> {
     return JsonPathBuilder<R>(receiverDescriptor = serializer<R>().descriptor)
@@ -185,77 +213,28 @@ internal constructor(
     }
 }
 
-private fun testBlock() {
-    val pathBuilder: JsonPathBuilder<Test> = Test::class.with(Test::child) {
-        then(TestChild::child2) {
-            then(TestChild2::childValue2)
-        }
-    }
-    val pathBuilderWithList = Test::class.withList(Test::childList) {
-        then(TestChild::childValue)
-    }
-}
+//private fun testBlock() {
+//    val pathBuilder: JsonPathBuilder<Test> = Test::class.with(Test::child) {
+//        then(TestChild::child2) {
+//            then(TestChild2::childValue2)
+//        }
+//    }
+//    val pathBuilderWithList = Test::class.withList(Test::childList) {
+//        then(TestChild::childValue)
+//    }
+//}
 
-@Deprecated("Use pathBuilder instead", ReplaceWith("pathBuilder()"))
-inline infix fun <reified R : Any, reified V : Any, reified V2 : Any> KProperty1<R, V>.then(
-    property: KProperty1<V, V2>
-): JsonPath<V2> = JsonPath(
-    existingPath = listOf(this, property)
-)
-
-@Deprecated("Use pathBuilder instead", ReplaceWith("pathBuilder()"))
-// Support list type not implemented yet
-@JvmName("thenFromList")
-inline infix fun <reified R : Any, reified V : Any, reified V2 : Any> KProperty1<R, Collection<V>>.then(
-    property: KProperty1<V, V2>
-): JsonPath<V2> = JsonPath(
-    existingPath = listOf(this, property)
-)
-
-/**
- * Represents a path in a JSON object, using limited reflection to build the path.
- *
- * Does not support finding properties in a collection, or value classes
- */
-@Deprecated("Use pathBuilder instead", ReplaceWith("pathBuilder()"))
-class JsonPath<R : Any?>(
-    val existingPath: List<KProperty1<*, *>> = emptyList(),
-) {
-
-    internal constructor(property: KProperty1<R, *>) : this(listOf(property))
-
-    @Deprecated("Use pathBuilder instead", ReplaceWith("pathBuilder()"))
-    inline infix fun <reified V : Any?> then(property: KProperty1<R, V>): JsonPath<V> {
-        return JsonPath(existingPath = existingPath.plus(property))
-    }
-
-    @Deprecated("Use pathBuilder instead", ReplaceWith("pathBuilder()"))
-    internal fun fieldNames(): List<String> {
-        return existingPath.map { it.name }
-    }
-
-    @Deprecated("Use pathBuilder instead", ReplaceWith("pathBuilder()"))
-    fun build(): String {
-        // Right now works for simple objects, we can't do more than ultra basic reflection at KMM
-        //  level, so we would need to generate type information for classes we want to build
-        //  paths for, or use a different approach
-        return fieldNames().joinToString(".", prefix = "\$.")
-    }
-
-    override fun toString(): String = build()
-}
-
-private data class Test(
-    val value: String,
-    val child: TestChild,
-    val childList: List<TestChild>,
-)
-
-private data class TestChild(
-    val childValue: String,
-    val child2: TestChild2,
-)
-
-private data class TestChild2(
-    val childValue2: String,
-)
+//private data class Test(
+//    val value: String,
+//    val child: TestChild,
+//    val childList: List<TestChild>,
+//)
+//
+//private data class TestChild(
+//    val childValue: String,
+//    val child2: TestChild2,
+//)
+//
+//private data class TestChild2(
+//    val childValue2: String,
+//)

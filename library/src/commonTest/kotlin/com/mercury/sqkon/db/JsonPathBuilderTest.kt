@@ -29,8 +29,8 @@ class JsonPathBuilderTest {
     @Test
     @Ignore("Need to expand creating tree json paths")
     fun `build with list`() {
-        val path = TestObject::list then TestObjectChild::createdAt
-        assertEquals(expected = "\$.list.createdAt", actual = path.build())
+        val builder = TestObject::list.thenFromList(TestObjectChild::createdAt)
+        assertEquals(expected = "\$.list[*].createdAt", actual = builder.buildPath())
     }
 
 }

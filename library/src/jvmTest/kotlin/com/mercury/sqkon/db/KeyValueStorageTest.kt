@@ -103,10 +103,7 @@ class KeyValueStorageTest {
 
         val actual = testObjectStorage.selectAll(
             orderBy = listOf(
-                OrderBy(
-                    builder = TestObject::child.builder { then(TestObjectChild::createdAt) },
-                    direction = OrderDirection.DESC
-                )
+                OrderBy(TestObject::child.then(TestObjectChild::createdAt), OrderDirection.DESC)
             )
         ).first()
 
@@ -159,6 +156,20 @@ class KeyValueStorageTest {
     }
 
     @Test
+    fun select_byEntityInlineValueInner() = runTest {
+        val expected = (0..10).map { TestObject() }.associateBy { it.id }
+        testObjectStorage.insertAll(expected)
+        val expect = expected.values.toList()[5]
+        val actualByInlineValue = testObjectStorage.select(
+            // This works, but need to work on an API which would ignore the value class if passed in
+            where = TestObject::testValue eq expect.testValue.test
+        ).first()
+
+        assertEquals(1, actualByInlineValue.size)
+        assertEquals(expect, actualByInlineValue.first())
+    }
+
+    @Test
     fun select_byEntityChildField() = runTest {
         val expected = (0..10).map {
             TestObject(
@@ -170,11 +181,8 @@ class KeyValueStorageTest {
         testObjectStorage.insertAll(expected)
         val expect = expected.values.toList()[5]
         val actualByInlineValue = testObjectStorage.select(
-            where = LessThan(
-                path = { then(TestObject::child).then(TestObjectChild::createdAt) },
-                value = expect.child.createdAt.toString()
-            ),
-            orderBy = listOf(OrderBy( TestObject::child.builder { then(TestObjectChild::createdAt) }))
+            where = TestObject::child.then(TestObjectChild::createdAt) lt expect.child.createdAt.toString(),
+            orderBy = listOf(OrderBy(TestObject::child.then(TestObjectChild::createdAt)))
         ).first()
 
         assertEquals(5, actualByInlineValue.size)
@@ -215,7 +223,7 @@ class KeyValueStorageTest {
 
         val key = expected.keys.toList()[5]
         testObjectStorage.delete(
-            where = Eq(TestObject::id, value = key)
+            where = TestObject::id eq key
         )
         val actualAfterDelete = testObjectStorage.selectAll().first()
         assertEquals(expected.size - 1, actualAfterDelete.size)

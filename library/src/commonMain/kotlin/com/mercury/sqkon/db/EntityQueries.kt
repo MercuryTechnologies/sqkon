@@ -87,7 +87,7 @@ class EntityQueries(
     private inner class SelectQuery<out T : Any>(
         private val entityName: String,
         private val entityKey: String? = null,
-        private val where: Where<*>? = null,
+        private val where: Where<T>? = null,
         private val orderBy: List<OrderBy<T>>,
         mapper: (SqlCursor) -> T,
     ) : Query<T>(mapper) {
