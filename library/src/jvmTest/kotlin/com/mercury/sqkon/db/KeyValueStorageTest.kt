@@ -103,9 +103,10 @@ class KeyValueStorageTest {
 
         val actual = testObjectStorage.selectAll(
             orderBy = listOf(
-                OrderBy(direction = OrderDirection.DESC) {
-                    TestObject::child then TestObjectChild::createdAt
-                },
+                OrderBy(
+                    builder = TestObject::child.builder { then(TestObjectChild::createdAt) },
+                    direction = OrderDirection.DESC
+                )
             )
         ).first()
 
@@ -173,7 +174,7 @@ class KeyValueStorageTest {
                 path = { then(TestObject::child).then(TestObjectChild::createdAt) },
                 value = expect.child.createdAt.toString()
             ),
-            orderBy = listOf(OrderBy { TestObject::child then TestObjectChild::createdAt })
+            orderBy = listOf(OrderBy( TestObject::child.builder { then(TestObjectChild::createdAt) }))
         ).first()
 
         assertEquals(5, actualByInlineValue.size)

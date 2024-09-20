@@ -66,26 +66,23 @@ fun Where<*>?.toSqlString(): String {
     return this.toSqlString()
 }
 
-// TODO: See if we can type safe the passed in object to make sure we pick the top level class we want
 data class OrderBy<T : Any?>(
+    private val builder: JsonPathBuilder<T>,
     /**
      * Sqlite defaults to ASC when not specified
      */
-    val direction: OrderDirection? = null,
-    private val builder: JsonPath<T>.() -> JsonPath<*>,
+    internal val direction: OrderDirection? = null,
 ) {
-
-    constructor(
-        property: KProperty1<T, Any?>,
-        direction: OrderDirection? = null,
-    ) : this(direction, { then(property) })
-
-    val path: JsonPath<*> = JsonPath<T>().builder()
+    val path: String = builder.buildPath()
 
     fun identifier(): String {
-        return "order_by_${path.fieldNames()}${direction?.value?.let { "_$it" }}"
+        return "order_by_${builder.fieldNames()}${direction?.value?.let { "_$it" }}"
     }
 }
+
+inline fun <reified T : Any?, reified V : Any?> OrderBy(
+    property: KProperty1<T, V>, direction: OrderDirection? = null,
+) = OrderBy(property.builder(), direction)
 
 fun <T : Any> List<OrderBy<T>>.toSqlString(): String {
     return if (isEmpty()) {
@@ -93,7 +90,7 @@ fun <T : Any> List<OrderBy<T>>.toSqlString(): String {
     } else {
         "ORDER BY ${
             joinToString(", ") {
-                "jsonb_extract(entity.value, '${it.path.build()}') ${it.direction?.value ?: ""}".trim()
+                "jsonb_extract(entity.value, '${it.path}') ${it.direction?.value ?: ""}".trim()
             }
         }"
     }
