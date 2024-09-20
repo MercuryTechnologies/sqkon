@@ -11,7 +11,8 @@ import com.mercury.sqkon.db.utils.nowMillis
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
-import kotlin.reflect.KClass
+import kotlin.reflect.KType
+import kotlin.reflect.typeOf
 
 /**
  * Base interaction to the database.
@@ -21,7 +22,7 @@ import kotlin.reflect.KClass
 open class KeyValueStorage<T : Any>(
     protected val entityName: String,
     protected val entityQueries: EntityQueries,
-    protected val klazz: KClass<T>,
+    protected val type: KType,
     protected val serializer: SqkonSerializer = KotlinSqkonSerializer(),
     protected val dispatcher: CoroutineDispatcher = Dispatchers.Default,
     // TODO expiresAt
@@ -35,7 +36,7 @@ open class KeyValueStorage<T : Any>(
             added_at = now,
             updated_at = now,
             expires_at = null,
-            value_ = serializer.serialize(klazz, value) ?: error("Failed to serialize value")
+            value_ = serializer.serialize(type, value) ?: error("Failed to serialize value")
         )
         entityQueries.insertEntity(entity)
     }
@@ -52,7 +53,7 @@ open class KeyValueStorage<T : Any>(
             entityKey = key,
             updatedAt = nowMillis(),
             expiresAt = null,
-            value = serializer.serialize(klazz, value) ?: error("Failed to serialize value")
+            value = serializer.serialize(type, value) ?: error("Failed to serialize value")
         )
     }
 
@@ -78,7 +79,7 @@ open class KeyValueStorage<T : Any>(
                 entityName = entityName,
                 entityKey = key,
                 mapper = {
-                    serializer.deserialize(klazz, it) ?: error("Failed to deserialize value")
+                    serializer.deserialize<T>(type, it) ?: error("Failed to deserialize value")
                 },
             )
             .asFlow()
@@ -93,7 +94,7 @@ open class KeyValueStorage<T : Any>(
             .select(
                 entityName,
                 mapper = {
-                    serializer.deserialize(klazz, it) ?: error("Failed to deserialize value")
+                    serializer.deserialize<T>(type, it) ?: error("Failed to deserialize value")
                 },
                 where = where,
                 orderBy = orderBy,
@@ -155,7 +156,7 @@ inline fun <reified T : Any> keyValueStorage(
     return KeyValueStorage(
         entityName = entityName,
         entityQueries = entityQueries,
-        klazz = T::class,
+        type = typeOf<T>(),
         serializer = serializer,
     )
 }

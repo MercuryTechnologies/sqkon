@@ -1,26 +1,25 @@
 package com.mercury.sqkon.db.serialization
 
-import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonBuilder
 import kotlinx.serialization.serializer
-import kotlin.reflect.KClass
+import kotlin.reflect.KType
 
 /**
  * Default serialization for KeyValueStorage. Uses kotlinx.serialization.Json for serialization.
  */
-@OptIn(InternalSerializationApi::class)
 class KotlinSqkonSerializer(
     val json: Json = SqkonJson {}
 ) : SqkonSerializer {
-    override fun <T : Any> serialize(klazz: KClass<T>, value: T?): String? {
+    override fun <T : Any> serialize(type: KType, value: T?): String? {
         value ?: return null
-        return json.encodeToString(klazz.serializer(), value)
+        return json.encodeToString(serializer(type), value)
     }
 
-    override fun <T : Any> deserialize(klazz: KClass<T>, value: String?): T? {
+    @Suppress("UNCHECKED_CAST")
+    override fun <T : Any> deserialize(type: KType, value: String?): T? {
         value ?: return null
-        return json.decodeFromString(klazz.serializer(), value)
+        return json.decodeFromString(serializer(type), value) as T
     }
 }
 
