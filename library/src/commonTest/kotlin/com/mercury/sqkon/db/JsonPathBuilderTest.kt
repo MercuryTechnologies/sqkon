@@ -7,27 +7,30 @@ import org.junit.Test
 import kotlin.test.Ignore
 import kotlin.test.assertEquals
 
-class JsonPathTest {
+class JsonPathBuilderTest {
 
     @Test
     fun `build simple path`() {
-        val path = TestObject::child then TestObjectChild::createdAt
-        assertEquals(expected = "\$.child.createdAt", actual = path.build())
+        val builder = TestObject::class.with(TestObject::child) {
+            then(TestObjectChild::createdAt)
+        }
+        assertEquals(expected = "\$.child.createdAt", actual = builder.buildPath())
     }
 
     @Test
-    @Ignore("Not possible right now with KMM reflection to ignore the value class")
     fun `build with value class`() {
-        val path = TestObject::testValue then TestValue::test
-        assertEquals(expected = "\$.testValue", actual = path.build())
+        val builder = TestObject::class.with(TestObject::testValue) {
+            then(TestValue::test)
+        }
+        assertEquals(expected = "\$.testValue", actual = builder.buildPath())
     }
 
-//    Not possible right now
+
     @Test
+    @Ignore("Need to expand creating tree json paths")
     fun `build with list`() {
         val path = TestObject::list then TestObjectChild::createdAt
         assertEquals(expected = "\$.list.createdAt", actual = path.build())
     }
-
 
 }
