@@ -2,6 +2,7 @@ package com.mercury.sqkon
 
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlin.random.Random
 import kotlin.uuid.ExperimentalUuidApi
@@ -16,6 +17,8 @@ data class TestObject(
     val value: Int = Random.nextInt(Int.MAX_VALUE),
     val description: String = "Description ${Uuid.random()}",
     val testValue: TestValue = TestValue(Uuid.random().toString()),
+    @SerialName("different_name")
+    val serialName: String? = null,
     val child: TestObjectChild = TestObjectChild(),
     val list: List<TestObjectChild> = List(2) { TestObjectChild() },
 )

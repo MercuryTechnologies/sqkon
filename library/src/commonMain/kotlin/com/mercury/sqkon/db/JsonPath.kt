@@ -1,5 +1,6 @@
 package com.mercury.sqkon.db
 
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.serializer
 import kotlin.reflect.KClass
@@ -45,11 +46,12 @@ class JsonPathBuilder<R : Any?>
     @PublishedApi
     internal inline fun <reified V> with(
         property: KProperty1<R, V>,
+        serialName: String? = null,
         block: JsonPathNode<R, V>.() -> Unit = {}
     ): JsonPathBuilder<R> {
         parentNode = JsonPathNode<R, V>(
             //parent = null,
-            propertyName = property.name,
+            propertyName = serialName ?: property.name,
             receiverDescriptor = receiverDescriptor,
             valueDescriptor = serializer<V>().descriptor
         ).also(block)
@@ -60,11 +62,12 @@ class JsonPathBuilder<R : Any?>
     @PublishedApi
     internal inline fun <reified V : Any?> withList(
         property: KProperty1<R, Collection<V>>,
+        serialName: String? = null,
         block: JsonPathNode<R, V>.() -> Unit = {}
     ): JsonPathBuilder<R> {
         parentNode = JsonPathNode<R, V>(
             //parent = null,
-            propertyName = property.name,
+            propertyName = serialName ?: property.name,
             receiverDescriptor = receiverDescriptor,
             valueDescriptor = serializer<Collection<V>>().descriptor
         ).also(block)
@@ -101,10 +104,11 @@ class JsonPathBuilder<R : Any?>
 // Builder Methods to start building paths
 
 inline fun <reified R, reified V> KProperty1<R, V>.builder(
+    serialName: String? = null,
     block: JsonPathNode<R, V>.() -> Unit = {}
 ): JsonPathBuilder<R> {
     return JsonPathBuilder<R>(receiverDescriptor = serializer<R>().descriptor)
-        .with(property = this, block = block)
+        .with(property = this, serialName = serialName, block = block)
 }
 
 inline fun <reified R : Any, reified V : Any> KProperty1<R, Collection<V>>.builderFromList(
@@ -116,21 +120,25 @@ inline fun <reified R : Any, reified V : Any> KProperty1<R, Collection<V>>.build
 
 inline fun <reified R : Any?, reified V : Any?, reified V2 : Any?> KProperty1<R, V>.then(
     property: KProperty1<V, V2>,
+    fromSerialName: String? = null,
+    thenSerialName: String? = null,
     block: JsonPathNode<V, V2>.() -> Unit = {}
 ): JsonPathBuilder<R> {
     return JsonPathBuilder<R>(receiverDescriptor = serializer<R>().descriptor)
-        .with(property = this) {
-            then<V2>(property = property, block = block)
+        .with(property = this, serialName = fromSerialName) {
+            then<V2>(property = property, serialName = thenSerialName, block = block)
         }
 }
 
 inline fun <reified R : Any?, reified V : Any?, reified V2 : Any?> KProperty1<R, Collection<V>>.thenFromList(
     property: KProperty1<V, V2>,
+    fromSerialName: String? = null,
+    thenSerialName: String? = null,
     block: JsonPathNode<V, V2>.() -> Unit = {}
 ): JsonPathBuilder<R> {
     return JsonPathBuilder<R>(receiverDescriptor = serializer<R>().descriptor)
-        .withList<V>(property = this) {
-            then(property = property, block = block)
+        .withList<V>(property = this, fromSerialName) {
+            then(property = property, serialName = thenSerialName, block = block)
         }
 }
 
@@ -169,6 +177,7 @@ inline fun <reified R : Any, reified V : Any?> KClass<R>.withList(
  *
  * Start building using [with] or [withList]
  */
+@OptIn(ExperimentalSerializationApi::class)
 class JsonPathNode<R : Any?, V : Any?>
 @PublishedApi
 internal constructor(
@@ -181,13 +190,18 @@ internal constructor(
     @PublishedApi
     internal var child: JsonPathNode<V, *>? = null
 
+    /**
+     * @param serialName we can't detect overridden serial names so if you have `@SerialName` set,
+     * then you will need to pass this through here.
+     */
     inline fun <reified V2 : Any?> then(
         property: KProperty1<V, V2>,
+        serialName: String? = null,
         block: JsonPathNode<V, V2>.() -> Unit = {}
     ): JsonPathNode<R, V> {
         child = JsonPathNode<V, V2>(
             //parent = this,
-            propertyName = property.name,
+            propertyName = serialName ?: property.name,
             receiverDescriptor = valueDescriptor,
             valueDescriptor = serializer<V2>().descriptor
         ).also(block)
@@ -201,11 +215,12 @@ internal constructor(
      */
     inline fun <reified V2 : Any?> thenList(
         property: KProperty1<V, Collection<V2>>,
+        serialName: String? = null,
         block: JsonPathNode<V, V2>.() -> Unit = {}
     ): JsonPathNode<R, V> {
         child = JsonPathNode<V, V2>(
             //parent = this,
-            propertyName = property.name,
+            propertyName = serialName ?: property.name,
             receiverDescriptor = valueDescriptor,
             valueDescriptor = serializer<Collection<V2>>().descriptor
         ).also(block)

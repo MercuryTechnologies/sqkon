@@ -54,6 +54,14 @@ class JsonPathBuilderTest {
     }
 
     @Test
+    fun build_with_serialName_class_builder() {
+        val builder = TestObject::serialName.builder(serialName = "different_name")
+        // Should use the serial name annotation override
+        assertEquals(expected = "\$.different_name", actual = builder.buildPath())
+    }
+
+
+    @Test
     @Ignore("Need to expand creating tree json paths")
     fun build_with_list() {
         val builder = TestObject::list.thenFromList(TestObjectChild::createdAt)
