@@ -9,6 +9,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.Clock
 import org.junit.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 import kotlin.time.Duration.Companion.seconds
 
 class KeyValueStorageTest {
@@ -245,6 +246,19 @@ class KeyValueStorageTest {
         val actualAfterDelete = testObjectStorage.selectAll().first()
         assertEquals(expected.size - 1, actualAfterDelete.size)
     }
+
+    @Test
+    fun delete_byEntityAttributeList() = runTest {
+        val expected = (1..10).map { num ->
+            TestObject(attributes = listOf("${num}1", "${num}2"))
+        }.associateBy { it.id }
+        testObjectStorage.insertAll(expected)
+        val expect = expected.values.toList()[1]
+        testObjectStorage.delete(where = TestObject::attributes eq "22")
+        val result = testObjectStorage.selectByKey(expect.id).first()
+        assertNull(result)
+    }
+
 
     @Test
     fun count() = runTest {

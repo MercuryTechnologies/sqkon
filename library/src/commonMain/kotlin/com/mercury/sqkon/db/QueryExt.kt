@@ -8,6 +8,8 @@ data class Eq<T : Any?>(
     override fun toSqlString(keyColumn: String, valueColumn: String): String {
         return "($keyColumn like '${builder.buildPath()}' AND $valueColumn = '$value')"
     }
+
+    override fun identifier(): String = "${builder.fieldNames().joinToString()}eq"
 }
 
 infix fun <T : Any?> JsonPathBuilder<T>.eq(value: String?): Eq<T> =
@@ -23,6 +25,8 @@ data class GreaterThan<T : Any?>(
     override fun toSqlString(keyColumn: String, valueColumn: String): String {
         return "($keyColumn like '${builder.buildPath()}' AND $valueColumn > '$value')"
     }
+
+    override fun identifier(): String = "${builder.fieldNames().joinToString()}gt"
 }
 
 infix fun <T> JsonPathBuilder<T>.gt(value: String?): GreaterThan<T> =
@@ -38,6 +42,8 @@ data class LessThan<T : Any?>(
     override fun toSqlString(keyColumn: String, valueColumn: String): String {
         return "($keyColumn LIKE '${builder.buildPath()}' AND $valueColumn < '$value')"
     }
+
+    override fun identifier(): String = "${builder.fieldNames().joinToString()}lt"
 }
 
 infix fun <T> JsonPathBuilder<T>.lt(value: String?): LessThan<T> =
@@ -51,6 +57,8 @@ data class And<T : Any>(private val left: Where<T>, private val right: Where<T>)
         return "(${left.toSqlString(keyColumn, valueColumn)} " +
                 "AND ${right.toSqlString(keyColumn, valueColumn)})"
     }
+
+    override fun identifier(): String = "${left.identifier()}and${right.identifier()}"
 }
 
 infix fun <T : Any> Where<T>.and(other: Where<T>): Where<T> = And(this, other)
@@ -60,6 +68,8 @@ data class Or<T : Any>(private val left: Where<T>, private val right: Where<T>) 
         return "(${left.toSqlString(keyColumn, valueColumn)} " +
                 "OR ${right.toSqlString(keyColumn, valueColumn)})"
     }
+
+    override fun identifier(): String = "${left.identifier()}or${right.identifier()}"
 }
 
 infix fun <T : Any> Where<T>.or(other: Where<T>): Where<T> = Or(this, other)
@@ -67,12 +77,18 @@ infix fun <T : Any> Where<T>.or(other: Where<T>): Where<T> = Or(this, other)
 abstract class Where<T : Any?> {
     // TODO use prepared statement bindings for the values
     abstract fun toSqlString(keyColumn: String, valueColumn: String): String
+    abstract fun identifier(): String
     override fun toString(): String = toSqlString(keyColumn = "*", valueColumn = "*")
 }
 
 fun Where<*>?.toSqlString(keyColumn: String, valueColumn: String): String {
     this ?: return ""
     return this.toSqlString(keyColumn, valueColumn)
+}
+
+fun Where<*>?.identifier(): String? {
+    this ?: return null
+    return this.identifier()
 }
 
 data class OrderBy<T>(

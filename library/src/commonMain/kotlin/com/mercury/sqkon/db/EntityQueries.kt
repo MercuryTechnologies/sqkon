@@ -109,12 +109,14 @@ class EntityQueries(
         override fun <R> execute(mapper: (SqlCursor) -> QueryResult<R>): QueryResult<R> {
             val orderBy = orderBy.toSqlString()
             val where = where.toSqlString("tree.fullkey", "tree.value")
-                .let { if (it.isNotEmpty()) " AND ($it)" else "" }
+                .let { if (it.isNotBlank()) " AND ($it)" else "" }
             val whereEntityKey = if (entityKey != null) " AND entity_key = ?" else ""
+            val withTree =
+                if (where.isNotBlank() || orderBy.isNotBlank()) ", json_tree(entity.value, '$') as tree" else ""
             val sql = """
                 SELECT DISTINCT entity.entity_name, entity.entity_key, entity.added_at, entity.updated_at, entity.expires_at, 
                 json_extract(entity.value, '$') value
-                FROM entity, json_tree(entity.value, '$') as tree
+                FROM entity$withTree
                 WHERE entity.entity_name = ?$whereEntityKey$where
                 $orderBy
             """.trimIndent()
@@ -144,7 +146,7 @@ class EntityQueries(
         where: Where<*>? = null,
     ) {
         //TODO add where for identifier (needs to use binding parameters)
-        val identifier = identifier("delete", entityKey, where.toString())
+        val identifier = identifier("delete", entityKey, where.identifier())
         val whereSubQuerySql =
             where.toSqlString(keyColumn = "tree.fullkey", valueColumn = "tree.value").let {
                 if (it.isBlank()) return@let ""
