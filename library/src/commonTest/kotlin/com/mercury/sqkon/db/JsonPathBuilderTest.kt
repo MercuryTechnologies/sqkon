@@ -4,7 +4,6 @@ import com.mercury.sqkon.TestObject
 import com.mercury.sqkon.TestObjectChild
 import com.mercury.sqkon.TestValue
 import org.junit.Test
-import kotlin.test.Ignore
 import kotlin.test.assertEquals
 
 class JsonPathBuilderTest {
@@ -62,10 +61,25 @@ class JsonPathBuilderTest {
 
 
     @Test
-    @Ignore("Need to expand creating tree json paths")
-    fun build_with_list() {
+    fun build_with_list_builder() {
+        val builder = TestObject::list.builderFromList {
+            then(TestObjectChild::createdAt)
+        }
+        assertEquals(expected = "\$.list[%].createdAt", actual = builder.buildPath())
+    }
+
+    @Test
+    fun build_with_list_then() {
         val builder = TestObject::list.thenFromList(TestObjectChild::createdAt)
-        assertEquals(expected = "\$.list[*].createdAt", actual = builder.buildPath())
+        assertEquals(expected = "\$.list[%].createdAt", actual = builder.buildPath())
+    }
+
+    @Test
+    fun build_with_list_path() {
+        val builder = TestObject::class.withList(TestObject::list) {
+            then(TestObjectChild::createdAt)
+        }
+        assertEquals(expected = "\$.list[%].createdAt", actual = builder.buildPath())
     }
 
 }

@@ -21,6 +21,7 @@ data class TestObject(
     val serialName: String? = null,
     val child: TestObjectChild = TestObjectChild(),
     val list: List<TestObjectChild> = List(2) { TestObjectChild() },
+    val attributes: List<String>? = (1..10).map { it.toString() }
 )
 
 

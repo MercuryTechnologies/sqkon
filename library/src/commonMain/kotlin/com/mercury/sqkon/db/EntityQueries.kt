@@ -108,14 +108,17 @@ class EntityQueries(
 
         override fun <R> execute(mapper: (SqlCursor) -> QueryResult<R>): QueryResult<R> {
             val orderBy = orderBy.toSqlString()
+            val where = where.toSqlString("tree.fullkey", "tree.value")
+                .let { if (it.isNotEmpty()) " AND ($it)" else "" }
+            val whereEntityKey = if (entityKey != null) " AND entity_key = ?" else ""
             val sql = """
-                SELECT entity.entity_name, entity.entity_key, entity.added_at, entity.updated_at, entity.expires_at, 
+                SELECT DISTINCT entity.entity_name, entity.entity_key, entity.added_at, entity.updated_at, entity.expires_at, 
                 json_extract(entity.value, '$') value
-                FROM entity 
-                WHERE entity_name = ? ${if (entityKey != null) "AND entity_key = ?" else ""} 
-                ${where.toSqlString().let { if (it.isNotEmpty()) "AND ($it)" else "" }}
+                FROM entity, json_tree(entity.value, '$') as tree
+                WHERE entity.entity_name = ?$whereEntityKey$where
                 $orderBy
             """.trimIndent()
+            println("Sql $sql")
             return try {
                 driver.executeQuery(
                     identifier = identifier,
@@ -141,20 +144,35 @@ class EntityQueries(
         where: Where<*>? = null,
     ) {
         //TODO add where for identifier (needs to use binding parameters)
-        val identifier = identifier("delete", entityKey)
+        val identifier = identifier("delete", entityKey, where.toString())
+        val whereSubQuerySql =
+            where.toSqlString(keyColumn = "tree.fullkey", valueColumn = "tree.value").let {
+                if (it.isBlank()) return@let ""
+                """
+                | AND entity_key = (SELECT entity_key FROM entity, json_tree(entity.value, '$') as tree
+                | WHERE entity.entity_name = ? AND $it)
+                """.trimMargin().replace("\n", " ")
+            }
+        val whereEntityKey = if (entityKey != null) " AND entity_key = ?" else ""
         val sql = """
-            DELETE FROM entity 
-            WHERE entity_name = ? ${if (entityKey != null) "AND entity_key = ?" else ""}
-            ${where.toSqlString().let { if (it.isNotEmpty()) "AND ($it)" else "" }}
+            DELETE FROM entity WHERE entity_name = ?$whereEntityKey$whereSubQuerySql
         """.trimIndent()
         try {
+            val paramCount =
+                (1 + (if (entityKey != null) 1 else 0) + (if (whereSubQuerySql.isNotBlank()) 1 else 0))
             driver.execute(
                 identifier = identifier,
                 sql = sql.replace('\n', ' '),
-                parameters = (1 + if (entityKey != null) 1 else 0)
+                parameters = paramCount,
             ) {
-                bindString(0, entityName)
-                if (entityKey != null) bindString(1, entityKey)
+                var index = 0
+                bindString(index, entityName); index++
+                if (entityKey != null) {
+                    bindString(index, entityKey); index++
+                }
+                if (whereSubQuerySql.isNotBlank()) {
+                    bindString(index, entityName); index++
+                }
             }.await()
         } catch (ex: SqlException) {
             println("SQL Error: $sql")

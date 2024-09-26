@@ -5,8 +5,8 @@ import kotlin.reflect.KProperty1
 data class Eq<T : Any?>(
     private val builder: JsonPathBuilder<T>, private val value: String?,
 ) : Where<T>() {
-    override fun toSqlString(): String {
-        return "jsonb_extract(entity.value,'${builder.buildPath()}') = '$value'"
+    override fun toSqlString(keyColumn: String, valueColumn: String): String {
+        return "($keyColumn like '${builder.buildPath()}' AND $valueColumn = '$value')"
     }
 }
 
@@ -20,9 +20,8 @@ inline infix fun <reified T, reified V> KProperty1<T, V>.eq(value: String?): Eq<
 data class GreaterThan<T : Any?>(
     private val builder: JsonPathBuilder<T>, private val value: String?,
 ) : Where<T>() {
-
-    override fun toSqlString(): String {
-        return "jsonb_extract(entity.value,'${builder.buildPath()}') > '$value'"
+    override fun toSqlString(keyColumn: String, valueColumn: String): String {
+        return "($keyColumn like '${builder.buildPath()}' AND $valueColumn > '$value')"
     }
 }
 
@@ -36,9 +35,8 @@ inline infix fun <reified T, reified V> KProperty1<T, V>.gt(value: String?): Gre
 data class LessThan<T : Any?>(
     private val builder: JsonPathBuilder<T>, private val value: String?,
 ) : Where<T>() {
-
-    override fun toSqlString(): String {
-        return "jsonb_extract(entity.value,'${builder.buildPath()}') < '$value'"
+    override fun toSqlString(keyColumn: String, valueColumn: String): String {
+        return "($keyColumn LIKE '${builder.buildPath()}' AND $valueColumn < '$value')"
     }
 }
 
@@ -49,26 +47,32 @@ inline infix fun <reified T, reified V> KProperty1<T, V>.lt(value: String?): Les
     LessThan(this.builder(), value)
 
 data class And<T : Any>(private val left: Where<T>, private val right: Where<T>) : Where<T>() {
-    override fun toSqlString(): String = "(${left.toSqlString()} AND ${right.toSqlString()})"
+    override fun toSqlString(keyColumn: String, valueColumn: String): String {
+        return "(${left.toSqlString(keyColumn, valueColumn)} " +
+                "AND ${right.toSqlString(keyColumn, valueColumn)})"
+    }
 }
 
 infix fun <T : Any> Where<T>.and(other: Where<T>): Where<T> = And(this, other)
 
 data class Or<T : Any>(private val left: Where<T>, private val right: Where<T>) : Where<T>() {
-    override fun toSqlString(): String = "(${left.toSqlString()} OR ${right.toSqlString()})"
+    override fun toSqlString(keyColumn: String, valueColumn: String): String {
+        return "(${left.toSqlString(keyColumn, valueColumn)} " +
+                "OR ${right.toSqlString(keyColumn, valueColumn)})"
+    }
 }
 
 infix fun <T : Any> Where<T>.or(other: Where<T>): Where<T> = Or(this, other)
 
 abstract class Where<T : Any?> {
     // TODO use prepared statement bindings for the values
-    abstract fun toSqlString(): String
-    override fun toString(): String = toSqlString()
+    abstract fun toSqlString(keyColumn: String, valueColumn: String): String
+    override fun toString(): String = toSqlString(keyColumn = "*", valueColumn = "*")
 }
 
-fun Where<*>?.toSqlString(): String {
+fun Where<*>?.toSqlString(keyColumn: String, valueColumn: String): String {
     this ?: return ""
-    return this.toSqlString()
+    return this.toSqlString(keyColumn, valueColumn)
 }
 
 data class OrderBy<T>(

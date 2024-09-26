@@ -190,6 +190,23 @@ class KeyValueStorageTest {
     }
 
     @Test
+    fun select_byEntityAttributeList() = runTest {
+        val expected = (1..10).map { num ->
+            TestObject(attributes = listOf("${num}1", "${num}2"))
+        }.associateBy { it.id }
+        testObjectStorage.insertAll(expected)
+        val expect = expected.values.toList()[1]
+        val actualByAttributes = testObjectStorage.select(
+            where = TestObject::attributes eq "22",
+            orderBy = listOf(OrderBy(TestObject::child.then(TestObjectChild::createdAt)))
+        ).first()
+
+        println(expect.attributes)
+        assertEquals(1, actualByAttributes.size)
+        assertEquals(expect, actualByAttributes.first())
+    }
+
+    @Test
     fun deleteAll() = runTest {
         val expected = (0..10).map { TestObject() }.associateBy { it.id }
         testObjectStorage.insertAll(expected)

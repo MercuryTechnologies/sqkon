@@ -2,6 +2,7 @@ package com.mercury.sqkon.db
 
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.descriptors.StructureKind
 import kotlinx.serialization.serializer
 import kotlin.reflect.KClass
 import kotlin.reflect.KProperty1
@@ -89,15 +90,18 @@ class JsonPathBuilder<R : Any?>
         return this.filter { node -> return@filter !node.receiverDescriptor.isInline }
     }
 
+    @OptIn(ExperimentalSerializationApi::class)
     fun fieldNames(): List<String> {
-        // TOOD: support @SerialName as the serialized name in the db would be different
-        return nodes().map { it.propertyName }
+        return nodes().map {
+            when (it.valueDescriptor.kind) {
+                StructureKind.LIST -> "${it.propertyName}[%]"
+                else -> it.propertyName
+            }
+        }
     }
 
     fun buildPath(): String {
-        val nodes = nodes()
-        // TODO add support for lists
-        return nodes.joinToString(".", prefix = "\$.") { it.propertyName }
+        return fieldNames().joinToString(".", prefix = "\$.")
     }
 }
 
