@@ -18,8 +18,6 @@ data class Eq<T : Any?>(
             }
         )
     }
-
-    override fun identifier(): String = "${builder.fieldNames().joinToString()}eq"
 }
 
 infix fun <T : Any?> JsonPathBuilder<T>.eq(value: String?): Eq<T> =
@@ -45,8 +43,6 @@ data class GreaterThan<T : Any?>(
             }
         )
     }
-
-    override fun identifier(): String = "${builder.fieldNames().joinToString()}gt"
 }
 
 infix fun <T> JsonPathBuilder<T>.gt(value: String?): GreaterThan<T> =
@@ -72,8 +68,6 @@ data class LessThan<T : Any?>(
             }
         )
     }
-
-    override fun identifier(): String = "${builder.fieldNames().joinToString()}lt"
 }
 
 infix fun <T> JsonPathBuilder<T>.lt(value: String?): LessThan<T> =
@@ -96,8 +90,6 @@ data class And<T : Any>(private val left: Where<T>, private val right: Where<T>)
             }
         )
     }
-
-    override fun identifier(): String = "${left.identifier()}and${right.identifier()}"
 }
 
 infix fun <T : Any> Where<T>.and(other: Where<T>): Where<T> = And(this, other)
@@ -116,20 +108,12 @@ data class Or<T : Any>(private val left: Where<T>, private val right: Where<T>) 
         )
 
     }
-
-    override fun identifier(): String = "${left.identifier()}or${right.identifier()}"
 }
 
 infix fun <T : Any> Where<T>.or(other: Where<T>): Where<T> = Or(this, other)
 
 abstract class Where<T : Any?> {
     abstract fun toSqlQuery(increment: Int): SqlQuery
-    abstract fun identifier(): String
-}
-
-fun Where<*>?.identifier(): String? {
-    this ?: return null
-    return this.identifier()
 }
 
 data class OrderBy<T>(
@@ -180,7 +164,14 @@ data class SqlQuery(
     val parameters: Int = 0,
     val bindArgs: AutoIncrementSqlPreparedStatement.() -> Unit = {},
     val orderBy: String? = null,
-)
+) {
+    fun identifier(): Int {
+        var result = from?.hashCode() ?: 0
+        result = 31 * result + (where?.hashCode() ?: 0)
+        result = 31 * result + (orderBy?.hashCode() ?: 0)
+        return result
+    }
+}
 
 fun List<SqlQuery>.buildFrom(prefix: String = ", ") = mapNotNull { it.from }
     .joinToString(", ") { it }
@@ -190,7 +181,16 @@ fun List<SqlQuery>.buildWhere(prefix: String = "WHERE") = mapNotNull { it.where 
     .joinToString(" AND ") { it }
     .let { if (it.isNotBlank()) "$prefix $it" else "" }
 
+fun List<SqlQuery>.buildOrderBy(prefix: String = "ORDER BY") = mapNotNull { it.orderBy }
+    .joinToString(", ") { it }
+    .let { if (it.isNotBlank()) "$prefix $it" else "" }
+
+
 fun List<SqlQuery>.sumParameters(): Int = sumOf { it.parameters }
+
+fun List<SqlQuery>.identifier(): Int = fold(0) { acc, sqlQuery ->
+    31 * acc + sqlQuery.identifier()
+}
 
 class AutoIncrementSqlPreparedStatement(
     private var index: Int = 0,

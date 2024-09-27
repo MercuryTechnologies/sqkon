@@ -92,13 +92,6 @@ class EntityQueries(
         mapper: (SqlCursor) -> T,
     ) : Query<T>(mapper) {
 
-        private val identifier: Int = identifier(
-            "select",
-            if (entityKey != null) "key" else null,
-            where.identifier(),
-            orderBy.identifier()
-        )
-
         override fun addListener(listener: Listener) {
             driver.addListener("entity_$entityName", listener = listener)
         }
@@ -116,18 +109,14 @@ class EntityQueries(
                 addAll(listOfNotNull(where?.toSqlQuery(increment = 1)))
                 addAll(orderBy.toSqlQueries())
             }
-            val buildWhere = queries.mapNotNull { it.where }.joinToString(" AND ") { it }
-                .let { if (it.isNotBlank()) " WHERE $it" else "" }
-            val buildOrderBy = queries
-                .mapNotNull { it.orderBy }.joinToString(", ") { it }
-                .let { if (it.isNotBlank()) " ORDER BY $it" else "" }
+            val identifier: Int = identifier(
+                "select", queries.identifier().toString(),
+            )
             val sql = """
-                SELECT DISTINCT entity.entity_name, entity.entity_key, entity.added_at, entity.updated_at, entity.expires_at, 
-                json_extract(entity.value, '$') value
-                FROM entity${queries.buildFrom()}
-                $buildWhere
-                $buildOrderBy
-            """.trimIndent()
+                SELECT DISTINCT entity.entity_name, entity.entity_key, entity.added_at, 
+                entity.updated_at, entity.expires_at, json_extract(entity.value, '$') value
+                FROM entity${queries.buildFrom()} ${queries.buildWhere()} ${queries.buildOrderBy()}
+            """.trimIndent().replace('\n', ' ')
             println("Sql $sql")
             return try {
                 driver.executeQuery(
@@ -153,7 +142,6 @@ class EntityQueries(
         entityKey: String? = null,
         where: Where<*>? = null,
     ) {
-        val identifier = identifier("delete", entityKey, where.identifier())
         val queries = buildList {
             add(SqlQuery(where = "entity_name = ?", bindArgs = { bindString(entityName) }))
             if (entityKey != null) {
@@ -161,13 +149,12 @@ class EntityQueries(
             }
             addAll(listOfNotNull(where?.toSqlQuery(increment = 1)))
         }
+        val identifier = identifier("delete", queries.identifier().toString())
         val whereSubQuerySql = if (queries.size <= 1) ""
         else """
             AND entity_key = (SELECT entity_key FROM entity${queries.buildFrom()} ${queries.buildWhere()})
-            """.trimMargin().replace("\n", " ")
-        val sql = """
-            DELETE FROM entity WHERE entity_name = ? $whereSubQuerySql
-        """.trimIndent()
+            """.trimIndent()
+        val sql = "DELETE FROM entity WHERE entity_name = ? $whereSubQuerySql"
         try {
             driver.execute(
                 identifier = identifier,
