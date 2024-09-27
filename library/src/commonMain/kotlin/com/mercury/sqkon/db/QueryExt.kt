@@ -77,18 +77,10 @@ inline infix fun <reified T, reified V> KProperty1<T, V>.lt(value: String?): Les
     LessThan(this.builder(), value)
 
 data class And<T : Any>(private val left: Where<T>, private val right: Where<T>) : Where<T>() {
-
     override fun toSqlQuery(increment: Int): SqlQuery {
         val leftQuery = left.toSqlQuery(increment * 10)
         val rightQuery = right.toSqlQuery((increment * 10) + 1)
-        return SqlQuery(
-            where = "(${leftQuery.where} AND ${rightQuery.where})",
-            parameters = leftQuery.parameters + rightQuery.parameters,
-            bindArgs = {
-                leftQuery.bindArgs(this)
-                rightQuery.bindArgs(this)
-            }
-        )
+        return SqlQuery(leftQuery, rightQuery, operator = "AND")
     }
 }
 
@@ -98,15 +90,7 @@ data class Or<T : Any>(private val left: Where<T>, private val right: Where<T>) 
     override fun toSqlQuery(increment: Int): SqlQuery {
         val leftQuery = left.toSqlQuery(increment * 10)
         val rightQuery = right.toSqlQuery((increment * 10) + 1)
-        return SqlQuery(
-            where = "(${leftQuery.where} OR ${rightQuery.where})",
-            parameters = leftQuery.parameters + rightQuery.parameters,
-            bindArgs = {
-                leftQuery.bindArgs(this)
-                rightQuery.bindArgs(this)
-            }
-        )
-
+        return SqlQuery(leftQuery, rightQuery, operator = "OR")
     }
 }
 
@@ -165,6 +149,16 @@ data class SqlQuery(
     val bindArgs: AutoIncrementSqlPreparedStatement.() -> Unit = {},
     val orderBy: String? = null,
 ) {
+    constructor(left: SqlQuery, right: SqlQuery, operator: String) : this(
+        from = listOfNotNull(left.from, right.from).joinToString(", "),
+        where = "(${left.where} $operator ${right.where})",
+        parameters = left.parameters + right.parameters,
+        bindArgs = {
+            left.bindArgs(this)
+            right.bindArgs(this)
+        }
+    )
+
     fun identifier(): Int {
         var result = from?.hashCode() ?: 0
         result = 31 * result + (where?.hashCode() ?: 0)

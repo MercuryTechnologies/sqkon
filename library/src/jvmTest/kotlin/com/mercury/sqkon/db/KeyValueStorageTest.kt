@@ -191,6 +191,28 @@ class KeyValueStorageTest {
     }
 
     @Test
+    fun select_byAndEntityChildField() = runTest {
+        val insert = (1..10).map {
+            TestObject(child = TestObjectChild(createdAt = Clock.System.now().plus(it.seconds)))
+        }.associateBy { it.id }
+        testObjectStorage.insertAll(insert)
+        val expect1 = TestObject(name = "ThisName", description = "ThatDescription")
+        val expect2 = TestObject(name = "ThatName", description = "ThisDescription")
+        testObjectStorage.insert(expect1.id, expect1)
+        testObjectStorage.insert(expect2.id, expect2)
+        val actual1 = testObjectStorage.select(
+            where = (TestObject::name eq "ThisName")
+                .and(TestObject::description eq "ThatDescription")
+        ).first()
+        val actual2 = testObjectStorage.select(
+            where = (TestObject::name eq "ThisName").or(TestObject::description eq "ThatName")
+        ).first()
+
+        assertEquals(expect1, actual1.first())
+        assertEquals(expect1, actual2.first())
+    }
+
+    @Test
     fun select_byEntityAttributeList() = runTest {
         val expected = (1..10).map { num ->
             TestObject(attributes = listOf("${num}1", "${num}2"))
