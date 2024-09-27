@@ -93,8 +93,9 @@ class EntityQueries(
     ) : Query<T>(mapper) {
 
         private val identifier: Int = identifier(
-            "select", if (entityKey != null) "key" else null,
-            //TODO add where for identifier (needs to use binding parameters)
+            "select",
+            if (entityKey != null) "key" else null,
+            where.identifier(),
             orderBy.identifier()
         )
 
@@ -107,18 +108,31 @@ class EntityQueries(
         }
 
         override fun <R> execute(mapper: (SqlCursor) -> QueryResult<R>): QueryResult<R> {
-            val orderBy = orderBy.toSqlString()
-            val where = where.toSqlString("tree.fullkey", "tree.value")
+            val orderByQueries = orderBy.toSqlQuery()
+//            var queries = buildList {
+//                if (entityKey != null) add(
+//                    SqlQuery(where = "entity_key = ?")
+//                )
+//            }
+            val orderFrom = orderByQueries
+                .mapNotNull { it.from }.joinToString(", ") { it }
+                .let { if (it.isNotBlank()) ", $it" else "" }
+            val orderWhere = orderByQueries
+                .mapNotNull { it.where }.joinToString(" AND ") { it }
+                .let { if (it.isNotBlank()) " AND ($it)" else "" }
+            val orderOrderBy = orderByQueries
+                .mapNotNull { it.orderBy }.joinToString(", ") { it }
+                .let { if (it.isNotBlank()) " ORDER BY $it" else "" }
+            val where = where.toSqlString(keyColumn = "tree.fullkey", valueColumn = "tree.value")
                 .let { if (it.isNotBlank()) " AND ($it)" else "" }
             val whereEntityKey = if (entityKey != null) " AND entity_key = ?" else ""
-            val withTree =
-                if (where.isNotBlank() || orderBy.isNotBlank()) ", json_tree(entity.value, '$') as tree" else ""
+            val withTree = if (where.isNotBlank()) ", json_tree(entity.value, '$') as tree" else ""
             val sql = """
                 SELECT DISTINCT entity.entity_name, entity.entity_key, entity.added_at, entity.updated_at, entity.expires_at, 
                 json_extract(entity.value, '$') value
-                FROM entity$withTree
-                WHERE entity.entity_name = ?$whereEntityKey$where
-                $orderBy
+                FROM entity$withTree$orderFrom
+                WHERE entity.entity_name = ?$whereEntityKey$where$orderWhere
+                $orderOrderBy
             """.trimIndent()
             println("Sql $sql")
             return try {

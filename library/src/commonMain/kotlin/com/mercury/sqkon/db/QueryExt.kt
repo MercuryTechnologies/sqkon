@@ -1,5 +1,6 @@
 package com.mercury.sqkon.db
 
+import app.cash.sqldelight.db.SqlPreparedStatement
 import kotlin.reflect.KProperty1
 
 data class Eq<T : Any?>(
@@ -109,15 +110,18 @@ inline fun <reified T, reified V> OrderBy(
     property: KProperty1<T, V>, direction: OrderDirection? = null,
 ) = OrderBy(property.builder(), direction)
 
-fun <T : Any> List<OrderBy<T>>.toSqlString(): String {
-    return if (isEmpty()) {
-        ""
-    } else {
-        "ORDER BY ${
-            joinToString(", ") {
-                "jsonb_extract(entity.value, '${it.path}') ${it.direction?.value ?: ""}".trim()
-            }
-        }"
+fun <T : Any> List<OrderBy<T>>.toSqlQuery(): List<SqlQuery> {
+    if (isEmpty()) return emptyList()
+    return mapIndexed { index, orderBy ->
+        val treeName = "order_$index"
+        SqlQuery(
+            from = "json_tree(entity.value, '$') as $treeName",
+            where = "$treeName.fullkey LIKE '${orderBy.path}'",
+//            bindArgs = {
+//                bindString()
+//            },
+            orderBy = "$treeName.value ${orderBy.direction?.value ?: ""}",
+        )
     }
 }
 
@@ -128,3 +132,40 @@ enum class OrderDirection(val value: String) {
 }
 
 internal fun <T : Any> List<OrderBy<T>>.identifier(): String = joinToString("_") { it.identifier() }
+
+data class SqlQuery(
+    val from: String? = null,
+    val where: String? = null,
+    val bindArgs: AutoIncrementSqlPreparedStatement.() -> Unit = {},
+    val orderBy: String? = null,
+)
+
+class AutoIncrementSqlPreparedStatement(
+    private var index: Int = 0,
+    private val preparedStatement: SqlPreparedStatement,
+) {
+    fun bindBoolean(boolean: Boolean?) {
+        preparedStatement.bindBoolean(index, boolean)
+        index++
+    }
+
+    fun bindBytes(bytes: ByteArray?) {
+        preparedStatement.bindBytes(index, bytes)
+        index++
+    }
+
+    fun bindDouble(double: Double?) {
+        preparedStatement.bindDouble(index, double)
+        index++
+    }
+
+    fun bindLong(long: Long?) {
+        preparedStatement.bindLong(index, long)
+        index++
+    }
+
+    fun bindString(string: String?) {
+        preparedStatement.bindString(index, string)
+        index++
+    }
+}
