@@ -6,8 +6,17 @@ import kotlin.reflect.KProperty1
 data class Eq<T : Any?>(
     private val builder: JsonPathBuilder<T>, private val value: String?,
 ) : Where<T>() {
-    override fun toSqlString(keyColumn: String, valueColumn: String): String {
-        return "($keyColumn like '${builder.buildPath()}' AND $valueColumn = '$value')"
+    override fun toSqlQuery(increment: Int): SqlQuery {
+        val treeName = "eq_$increment"
+        return SqlQuery(
+            from = "json_tree(entity.value, '$') as $treeName",
+            where = "($treeName.fullkey LIKE ? AND $treeName.value = ?)",
+            parameters = 2,
+            bindArgs = {
+                bindString(builder.buildPath())
+                bindString(value)
+            }
+        )
     }
 
     override fun identifier(): String = "${builder.fieldNames().joinToString()}eq"
@@ -23,8 +32,18 @@ inline infix fun <reified T, reified V> KProperty1<T, V>.eq(value: String?): Eq<
 data class GreaterThan<T : Any?>(
     private val builder: JsonPathBuilder<T>, private val value: String?,
 ) : Where<T>() {
-    override fun toSqlString(keyColumn: String, valueColumn: String): String {
-        return "($keyColumn like '${builder.buildPath()}' AND $valueColumn > '$value')"
+
+    override fun toSqlQuery(increment: Int): SqlQuery {
+        val treeName = "gt_$increment"
+        return SqlQuery(
+            from = "json_tree(entity.value, '$') as $treeName",
+            where = "($treeName.fullkey LIKE ? AND $treeName.value > ?)",
+            parameters = 2,
+            bindArgs = {
+                bindString(builder.buildPath())
+                bindString(value)
+            }
+        )
     }
 
     override fun identifier(): String = "${builder.fieldNames().joinToString()}gt"
@@ -40,8 +59,18 @@ inline infix fun <reified T, reified V> KProperty1<T, V>.gt(value: String?): Gre
 data class LessThan<T : Any?>(
     private val builder: JsonPathBuilder<T>, private val value: String?,
 ) : Where<T>() {
-    override fun toSqlString(keyColumn: String, valueColumn: String): String {
-        return "($keyColumn LIKE '${builder.buildPath()}' AND $valueColumn < '$value')"
+
+    override fun toSqlQuery(increment: Int): SqlQuery {
+        val treeName = "lt_$increment"
+        return SqlQuery(
+            from = "json_tree(entity.value, '$') as $treeName",
+            where = "($treeName.fullkey LIKE ? AND $treeName.value < ?)",
+            parameters = 2,
+            bindArgs = {
+                bindString(builder.buildPath())
+                bindString(value)
+            }
+        )
     }
 
     override fun identifier(): String = "${builder.fieldNames().joinToString()}lt"
@@ -54,9 +83,18 @@ inline infix fun <reified T, reified V> KProperty1<T, V>.lt(value: String?): Les
     LessThan(this.builder(), value)
 
 data class And<T : Any>(private val left: Where<T>, private val right: Where<T>) : Where<T>() {
-    override fun toSqlString(keyColumn: String, valueColumn: String): String {
-        return "(${left.toSqlString(keyColumn, valueColumn)} " +
-                "AND ${right.toSqlString(keyColumn, valueColumn)})"
+
+    override fun toSqlQuery(increment: Int): SqlQuery {
+        val leftQuery = left.toSqlQuery(increment * 10)
+        val rightQuery = right.toSqlQuery((increment * 10) + 1)
+        return SqlQuery(
+            where = "(${leftQuery.where} AND ${rightQuery.where})",
+            parameters = leftQuery.parameters + rightQuery.parameters,
+            bindArgs = {
+                leftQuery.bindArgs(this)
+                rightQuery.bindArgs(this)
+            }
+        )
     }
 
     override fun identifier(): String = "${left.identifier()}and${right.identifier()}"
@@ -65,9 +103,18 @@ data class And<T : Any>(private val left: Where<T>, private val right: Where<T>)
 infix fun <T : Any> Where<T>.and(other: Where<T>): Where<T> = And(this, other)
 
 data class Or<T : Any>(private val left: Where<T>, private val right: Where<T>) : Where<T>() {
-    override fun toSqlString(keyColumn: String, valueColumn: String): String {
-        return "(${left.toSqlString(keyColumn, valueColumn)} " +
-                "OR ${right.toSqlString(keyColumn, valueColumn)})"
+    override fun toSqlQuery(increment: Int): SqlQuery {
+        val leftQuery = left.toSqlQuery(increment * 10)
+        val rightQuery = right.toSqlQuery((increment * 10) + 1)
+        return SqlQuery(
+            where = "(${leftQuery.where} OR ${rightQuery.where})",
+            parameters = leftQuery.parameters + rightQuery.parameters,
+            bindArgs = {
+                leftQuery.bindArgs(this)
+                rightQuery.bindArgs(this)
+            }
+        )
+
     }
 
     override fun identifier(): String = "${left.identifier()}or${right.identifier()}"
@@ -76,15 +123,8 @@ data class Or<T : Any>(private val left: Where<T>, private val right: Where<T>) 
 infix fun <T : Any> Where<T>.or(other: Where<T>): Where<T> = Or(this, other)
 
 abstract class Where<T : Any?> {
-    // TODO use prepared statement bindings for the values
-    abstract fun toSqlString(keyColumn: String, valueColumn: String): String
+    abstract fun toSqlQuery(increment: Int): SqlQuery
     abstract fun identifier(): String
-    override fun toString(): String = toSqlString(keyColumn = "*", valueColumn = "*")
-}
-
-fun Where<*>?.toSqlString(keyColumn: String, valueColumn: String): String {
-    this ?: return ""
-    return this.toSqlString(keyColumn, valueColumn)
 }
 
 fun Where<*>?.identifier(): String? {
@@ -110,7 +150,7 @@ inline fun <reified T, reified V> OrderBy(
     property: KProperty1<T, V>, direction: OrderDirection? = null,
 ) = OrderBy(property.builder(), direction)
 
-fun <T : Any> List<OrderBy<T>>.toSqlQuery(): List<SqlQuery> {
+fun <T : Any> List<OrderBy<T>>.toSqlQueries(): List<SqlQuery> {
     if (isEmpty()) return emptyList()
     return mapIndexed { index, orderBy ->
         val treeName = "order_$index"
@@ -131,14 +171,26 @@ enum class OrderDirection(val value: String) {
     DESC(value = "DESC")
 }
 
+// TODO change to SqlQuery.identifier
 internal fun <T : Any> List<OrderBy<T>>.identifier(): String = joinToString("_") { it.identifier() }
 
 data class SqlQuery(
     val from: String? = null,
     val where: String? = null,
+    val parameters: Int = 0,
     val bindArgs: AutoIncrementSqlPreparedStatement.() -> Unit = {},
     val orderBy: String? = null,
 )
+
+fun List<SqlQuery>.buildFrom(prefix: String = ", ") = mapNotNull { it.from }
+    .joinToString(", ") { it }
+    .let { if (it.isNotBlank()) "$prefix$it" else "" }
+
+fun List<SqlQuery>.buildWhere(prefix: String = "WHERE") = mapNotNull { it.where }
+    .joinToString(" AND ") { it }
+    .let { if (it.isNotBlank()) "$prefix $it" else "" }
+
+fun List<SqlQuery>.sumParameters(): Int = sumOf { it.parameters }
 
 class AutoIncrementSqlPreparedStatement(
     private var index: Int = 0,

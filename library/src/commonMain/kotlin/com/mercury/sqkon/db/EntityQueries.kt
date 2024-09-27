@@ -108,37 +108,24 @@ class EntityQueries(
         }
 
         override fun <R> execute(mapper: (SqlCursor) -> QueryResult<R>): QueryResult<R> {
-            val orderByQueries = orderBy.toSqlQuery()
             val queries = buildList {
                 add(SqlQuery(where = "entity_name = ?", bindArgs = { bindString(entityName) }))
                 if (entityKey != null) {
                     add(SqlQuery(where = "entity_key = ?", bindArgs = { bindString(entityKey) }))
                 }
-                addAll(orderByQueries)
+                addAll(listOfNotNull(where?.toSqlQuery(increment = 1)))
+                addAll(orderBy.toSqlQueries())
             }
-            val buildFrom = queries.mapNotNull { it.from }.joinToString(", ") { it }
-                .let { if (it.isNotBlank()) ", $it" else "" }
             val buildWhere = queries.mapNotNull { it.where }.joinToString(" AND ") { it }
-                .ifBlank { "" }
-            val buildOrderBy = orderByQueries
+                .let { if (it.isNotBlank()) " WHERE $it" else "" }
+            val buildOrderBy = queries
                 .mapNotNull { it.orderBy }.joinToString(", ") { it }
                 .let { if (it.isNotBlank()) " ORDER BY $it" else "" }
-
-            val where = where.toSqlString(keyColumn = "tree.fullkey", valueColumn = "tree.value")
-                .let {
-                    when {
-                        it.isNotBlank() && buildWhere.isNotBlank() -> "WHERE ($it) AND $buildWhere"
-                        it.isNotBlank() -> "WHERE $it"
-                        buildWhere.isNotBlank() -> "WHERE $buildWhere"
-                        else -> ""
-                    }
-                }
-            val withTree = if (where.isNotBlank()) ", json_tree(entity.value, '$') as tree" else ""
             val sql = """
                 SELECT DISTINCT entity.entity_name, entity.entity_key, entity.added_at, entity.updated_at, entity.expires_at, 
                 json_extract(entity.value, '$') value
-                FROM entity$withTree$buildFrom
-                $where
+                FROM entity${queries.buildFrom()}
+                $buildWhere
                 $buildOrderBy
             """.trimIndent()
             println("Sql $sql")
@@ -147,7 +134,7 @@ class EntityQueries(
                     identifier = identifier,
                     sql = sql.replace('\n', ' '),
                     mapper = mapper,
-                    parameters = (1 + if (entityKey != null) 1 else 0)
+                    parameters = queries.sumParameters(),
                 ) {
                     val binder = AutoIncrementSqlPreparedStatement(preparedStatement = this)
                     queries.forEach { it.bindArgs(binder) }
@@ -166,35 +153,31 @@ class EntityQueries(
         entityKey: String? = null,
         where: Where<*>? = null,
     ) {
-        //TODO add where for identifier (needs to use binding parameters)
         val identifier = identifier("delete", entityKey, where.identifier())
-        val whereSubQuerySql =
-            where.toSqlString(keyColumn = "tree.fullkey", valueColumn = "tree.value").let {
-                if (it.isBlank()) return@let ""
-                """
-                | AND entity_key = (SELECT entity_key FROM entity, json_tree(entity.value, '$') as tree
-                | WHERE entity.entity_name = ? AND $it)
-                """.trimMargin().replace("\n", " ")
+        val queries = buildList {
+            add(SqlQuery(where = "entity_name = ?", bindArgs = { bindString(entityName) }))
+            if (entityKey != null) {
+                add(SqlQuery(where = "entity_key = ?", bindArgs = { bindString(entityKey) }))
             }
-        val whereEntityKey = if (entityKey != null) " AND entity_key = ?" else ""
+            addAll(listOfNotNull(where?.toSqlQuery(increment = 1)))
+        }
+        val whereSubQuerySql = if (queries.size <= 1) ""
+        else """
+            AND entity_key = (SELECT entity_key FROM entity${queries.buildFrom()} ${queries.buildWhere()})
+            """.trimMargin().replace("\n", " ")
         val sql = """
-            DELETE FROM entity WHERE entity_name = ?$whereEntityKey$whereSubQuerySql
+            DELETE FROM entity WHERE entity_name = ? $whereSubQuerySql
         """.trimIndent()
         try {
-            val paramCount =
-                (1 + (if (entityKey != null) 1 else 0) + (if (whereSubQuerySql.isNotBlank()) 1 else 0))
             driver.execute(
                 identifier = identifier,
                 sql = sql.replace('\n', ' '),
-                parameters = paramCount,
+                parameters = 1 + if (queries.size > 1) queries.sumParameters() else 0,
             ) {
-                var index = 0
-                bindString(index, entityName); index++
-                if (entityKey != null) {
-                    bindString(index, entityKey); index++
-                }
-                if (whereSubQuerySql.isNotBlank()) {
-                    bindString(index, entityName); index++
+                bindString(0, entityName)
+                val preparedStatement = AutoIncrementSqlPreparedStatement(1, this)
+                if (queries.size > 1) {
+                    queries.forEach { q -> q.bindArgs(preparedStatement) }
                 }
             }.await()
         } catch (ex: SqlException) {
