@@ -36,7 +36,7 @@ import kotlin.reflect.typeOf
  * Classes like [OrderBy] and [Where] operators take [JsonPathBuilder] or [KProperty1] to build
  * the path for sql queries.
  */
-class JsonPathBuilder<R : Any?>
+class JsonPathBuilder<R : Any>
 @PublishedApi internal constructor(
     @PublishedApi internal val receiverDescriptor: SerialDescriptor,
 ) {
@@ -107,7 +107,7 @@ class JsonPathBuilder<R : Any?>
 
 // Builder Methods to start building paths
 
-inline fun <reified R, reified V> KProperty1<R, V>.builder(
+inline fun <reified R : Any, reified V> KProperty1<R, V>.builder(
     serialName: String? = null,
     block: JsonPathNode<R, V>.() -> Unit = {}
 ): JsonPathBuilder<R> {
@@ -115,14 +115,14 @@ inline fun <reified R, reified V> KProperty1<R, V>.builder(
         .with(property = this, serialName = serialName, block = block)
 }
 
-inline fun <reified R : Any, reified V : Any> KProperty1<R, Collection<V>>.builderFromList(
+inline fun <reified R : Any, reified V> KProperty1<R, Collection<V>>.builderFromList(
     block: JsonPathNode<R, V>.() -> Unit = {}
 ): JsonPathBuilder<R> {
     return JsonPathBuilder<R>(receiverDescriptor = serializer(typeOf<R>()).descriptor)
         .withList(property = this, block = block)
 }
 
-inline fun <reified R : Any?, reified V : Any?, reified V2 : Any?> KProperty1<R, V>.then(
+inline fun <reified R : Any, reified V : Any?, reified V2 : Any?> KProperty1<R, V>.then(
     property: KProperty1<V, V2>,
     fromSerialName: String? = null,
     thenSerialName: String? = null,
@@ -134,7 +134,7 @@ inline fun <reified R : Any?, reified V : Any?, reified V2 : Any?> KProperty1<R,
         }
 }
 
-inline fun <reified R : Any?, reified V : Any?, reified V2 : Any?> KProperty1<R, Collection<V>>.thenFromList(
+inline fun <reified R : Any, reified V, reified V2> KProperty1<R, Collection<V>>.thenFromList(
     property: KProperty1<V, V2>,
     fromSerialName: String? = null,
     thenSerialName: String? = null,
@@ -147,7 +147,7 @@ inline fun <reified R : Any?, reified V : Any?, reified V2 : Any?> KProperty1<R,
 }
 
 
-inline fun <reified R : Any?, reified V : Any?, reified V2 : Any?> KProperty1<R, V>.thenList(
+inline fun <reified R : Any, reified V, reified V2> KProperty1<R, V>.thenList(
     property: KProperty1<V, Collection<V2>>,
     block: JsonPathNode<V, V2>.() -> Unit = {}
 ): JsonPathBuilder<R> {
@@ -158,7 +158,7 @@ inline fun <reified R : Any?, reified V : Any?, reified V2 : Any?> KProperty1<R,
 }
 
 @Suppress("UnusedReceiverParameter")
-inline fun <reified R : Any, reified V : Any?> KClass<R>.with(
+inline fun <reified R : Any, reified V> KClass<R>.with(
     property: KProperty1<R, V>,
     block: JsonPathNode<R, V>.() -> Unit = {}
 ): JsonPathBuilder<R> {

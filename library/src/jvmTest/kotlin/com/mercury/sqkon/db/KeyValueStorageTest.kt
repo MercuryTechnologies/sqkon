@@ -77,7 +77,6 @@ class KeyValueStorageTest {
             .associateBy { it.id }
         testObjectStorage.insertAll(expected)
 
-
         val actual = testObjectStorage.selectAll(
             orderBy = listOf(
                 OrderBy(TestObject::value, direction = OrderDirection.ASC),

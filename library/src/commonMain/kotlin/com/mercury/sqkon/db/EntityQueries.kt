@@ -117,7 +117,6 @@ class EntityQueries(
                 entity.updated_at, entity.expires_at, json_extract(entity.value, '$') value
                 FROM entity${queries.buildFrom()} ${queries.buildWhere()} ${queries.buildOrderBy()}
             """.trimIndent().replace('\n', ' ')
-            println("Sql $sql")
             return try {
                 driver.executeQuery(
                     identifier = identifier,

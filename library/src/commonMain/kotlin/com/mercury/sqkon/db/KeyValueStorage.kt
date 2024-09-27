@@ -17,7 +17,8 @@ import kotlin.reflect.typeOf
 /**
  * Base interaction to the database.
  *
- * @param json if providing your own, recommend using [SqkonJson]  builder.
+ * @param serializer if providing your own, recommend using [SqkonJson] to make sure you create
+ *  fields consistently.
  */
 open class KeyValueStorage<T : Any>(
     protected val entityName: String,
@@ -94,7 +95,7 @@ open class KeyValueStorage<T : Any>(
             .select(
                 entityName,
                 mapper = {
-                    serializer.deserialize(type, it) ?: error("Failed to deserialize value")
+                    serializer.deserialize<T>(type, it) ?: error("Failed to deserialize value")
                 },
                 where = where,
                 orderBy = orderBy,

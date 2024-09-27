@@ -3,7 +3,7 @@ package com.mercury.sqkon.db
 import app.cash.sqldelight.db.SqlPreparedStatement
 import kotlin.reflect.KProperty1
 
-data class Eq<T : Any?>(
+data class Eq<T : Any>(
     private val builder: JsonPathBuilder<T>, private val value: String?,
 ) : Where<T>() {
     override fun toSqlQuery(increment: Int): SqlQuery {
@@ -20,14 +20,14 @@ data class Eq<T : Any?>(
     }
 }
 
-infix fun <T : Any?> JsonPathBuilder<T>.eq(value: String?): Eq<T> =
+infix fun <T : Any> JsonPathBuilder<T>.eq(value: String?): Eq<T> =
     Eq(builder = this, value = value)
 
-inline infix fun <reified T, reified V> KProperty1<T, V>.eq(value: String?): Eq<T> =
+inline infix fun <reified T : Any, reified V> KProperty1<T, V>.eq(value: String?): Eq<T> =
     Eq(this.builder(), value)
 
 
-data class GreaterThan<T : Any?>(
+data class GreaterThan<T : Any>(
     private val builder: JsonPathBuilder<T>, private val value: String?,
 ) : Where<T>() {
 
@@ -45,14 +45,14 @@ data class GreaterThan<T : Any?>(
     }
 }
 
-infix fun <T> JsonPathBuilder<T>.gt(value: String?): GreaterThan<T> =
+infix fun <T : Any> JsonPathBuilder<T>.gt(value: String?): GreaterThan<T> =
     GreaterThan(builder = this, value = value)
 
-inline infix fun <reified T, reified V> KProperty1<T, V>.gt(value: String?): GreaterThan<T> =
+inline infix fun <reified T : Any, reified V> KProperty1<T, V>.gt(value: String?): GreaterThan<T> =
     GreaterThan(this.builder(), value)
 
 
-data class LessThan<T : Any?>(
+data class LessThan<T : Any>(
     private val builder: JsonPathBuilder<T>, private val value: String?,
 ) : Where<T>() {
 
@@ -70,10 +70,10 @@ data class LessThan<T : Any?>(
     }
 }
 
-infix fun <T> JsonPathBuilder<T>.lt(value: String?): LessThan<T> =
+infix fun <T : Any> JsonPathBuilder<T>.lt(value: String?): LessThan<T> =
     LessThan(builder = this, value = value)
 
-inline infix fun <reified T, reified V> KProperty1<T, V>.lt(value: String?): LessThan<T> =
+inline infix fun <reified T : Any, reified V> KProperty1<T, V>.lt(value: String?): LessThan<T> =
     LessThan(this.builder(), value)
 
 data class And<T : Any>(private val left: Where<T>, private val right: Where<T>) : Where<T>() {
@@ -96,11 +96,11 @@ data class Or<T : Any>(private val left: Where<T>, private val right: Where<T>) 
 
 infix fun <T : Any> Where<T>.or(other: Where<T>): Where<T> = Or(this, other)
 
-abstract class Where<T : Any?> {
+abstract class Where<T : Any> {
     abstract fun toSqlQuery(increment: Int): SqlQuery
 }
 
-data class OrderBy<T>(
+data class OrderBy<T : Any>(
     private val builder: JsonPathBuilder<T>,
     /**
      * Sqlite defaults to ASC when not specified
@@ -114,7 +114,7 @@ data class OrderBy<T>(
     }
 }
 
-inline fun <reified T, reified V> OrderBy(
+inline fun <reified T : Any, reified V> OrderBy(
     property: KProperty1<T, V>, direction: OrderDirection? = null,
 ) = OrderBy(property.builder(), direction)
 
