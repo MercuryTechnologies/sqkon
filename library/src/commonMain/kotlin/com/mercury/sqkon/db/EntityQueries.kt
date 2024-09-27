@@ -109,7 +109,7 @@ class EntityQueries(
 
         override fun <R> execute(mapper: (SqlCursor) -> QueryResult<R>): QueryResult<R> {
             val orderByQueries = orderBy.toSqlQuery()
-            var queries = buildList {
+            val queries = buildList {
                 add(SqlQuery(where = "entity_name = ?", bindArgs = { bindString(entityName) }))
                 if (entityKey != null) {
                     add(SqlQuery(where = "entity_key = ?", bindArgs = { bindString(entityKey) }))
