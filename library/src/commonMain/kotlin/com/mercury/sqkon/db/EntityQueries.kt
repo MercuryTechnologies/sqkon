@@ -109,30 +109,37 @@ class EntityQueries(
 
         override fun <R> execute(mapper: (SqlCursor) -> QueryResult<R>): QueryResult<R> {
             val orderByQueries = orderBy.toSqlQuery()
-//            var queries = buildList {
-//                if (entityKey != null) add(
-//                    SqlQuery(where = "entity_key = ?")
-//                )
-//            }
-            val orderFrom = orderByQueries
-                .mapNotNull { it.from }.joinToString(", ") { it }
+            var queries = buildList {
+                add(SqlQuery(where = "entity_name = ?", bindArgs = { bindString(entityName) }))
+                if (entityKey != null) {
+                    add(SqlQuery(where = "entity_key = ?", bindArgs = { bindString(entityKey) }))
+                }
+                addAll(orderByQueries)
+            }
+            val buildFrom = queries.mapNotNull { it.from }.joinToString(", ") { it }
                 .let { if (it.isNotBlank()) ", $it" else "" }
-            val orderWhere = orderByQueries
-                .mapNotNull { it.where }.joinToString(" AND ") { it }
-                .let { if (it.isNotBlank()) " AND ($it)" else "" }
-            val orderOrderBy = orderByQueries
+            val buildWhere = queries.mapNotNull { it.where }.joinToString(" AND ") { it }
+                .ifBlank { "" }
+            val buildOrderBy = orderByQueries
                 .mapNotNull { it.orderBy }.joinToString(", ") { it }
                 .let { if (it.isNotBlank()) " ORDER BY $it" else "" }
+
             val where = where.toSqlString(keyColumn = "tree.fullkey", valueColumn = "tree.value")
-                .let { if (it.isNotBlank()) " AND ($it)" else "" }
-            val whereEntityKey = if (entityKey != null) " AND entity_key = ?" else ""
+                .let {
+                    when {
+                        it.isNotBlank() && buildWhere.isNotBlank() -> "WHERE ($it) AND $buildWhere"
+                        it.isNotBlank() -> "WHERE $it"
+                        buildWhere.isNotBlank() -> "WHERE $buildWhere"
+                        else -> ""
+                    }
+                }
             val withTree = if (where.isNotBlank()) ", json_tree(entity.value, '$') as tree" else ""
             val sql = """
                 SELECT DISTINCT entity.entity_name, entity.entity_key, entity.added_at, entity.updated_at, entity.expires_at, 
                 json_extract(entity.value, '$') value
-                FROM entity$withTree$orderFrom
-                WHERE entity.entity_name = ?$whereEntityKey$where$orderWhere
-                $orderOrderBy
+                FROM entity$withTree$buildFrom
+                $where
+                $buildOrderBy
             """.trimIndent()
             println("Sql $sql")
             return try {
@@ -142,8 +149,8 @@ class EntityQueries(
                     mapper = mapper,
                     parameters = (1 + if (entityKey != null) 1 else 0)
                 ) {
-                    bindString(0, entityName)
-                    if (entityKey != null) bindString(1, entityKey)
+                    val binder = AutoIncrementSqlPreparedStatement(preparedStatement = this)
+                    queries.forEach { it.bindArgs(binder) }
                 }
             } catch (ex: SqlException) {
                 println("SQL Error: $sql")

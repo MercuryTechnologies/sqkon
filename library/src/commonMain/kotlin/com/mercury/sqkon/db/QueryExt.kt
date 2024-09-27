@@ -116,10 +116,10 @@ fun <T : Any> List<OrderBy<T>>.toSqlQuery(): List<SqlQuery> {
         val treeName = "order_$index"
         SqlQuery(
             from = "json_tree(entity.value, '$') as $treeName",
-            where = "$treeName.fullkey LIKE '${orderBy.path}'",
-//            bindArgs = {
-//                bindString()
-//            },
+            where = "$treeName.fullkey LIKE ?",
+            bindArgs = {
+                bindString(orderBy.path)
+            },
             orderBy = "$treeName.value ${orderBy.direction?.value ?: ""}",
         )
     }
