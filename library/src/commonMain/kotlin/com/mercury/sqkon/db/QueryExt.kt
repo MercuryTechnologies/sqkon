@@ -26,6 +26,28 @@ infix fun <T : Any> JsonPathBuilder<T>.eq(value: String?): Eq<T> =
 inline infix fun <reified T : Any, reified V> KProperty1<T, V>.eq(value: String?): Eq<T> =
     Eq(this.builder(), value)
 
+data class Like<T : Any>(
+    private val builder: JsonPathBuilder<T>, private val value: String?,
+) : Where<T>() {
+    override fun toSqlQuery(increment: Int): SqlQuery {
+        val treeName = "eq_$increment"
+        return SqlQuery(
+            from = "json_tree(entity.value, '$') as $treeName",
+            where = "($treeName.fullkey LIKE ? AND $treeName.value LIKE ?)",
+            parameters = 2,
+            bindArgs = {
+                bindString(builder.buildPath())
+                bindString(value)
+            }
+        )
+    }
+}
+
+infix fun <T : Any> JsonPathBuilder<T>.like(value: String?): Like<T> =
+    Like(builder = this, value = value)
+
+inline infix fun <reified T : Any, reified V> KProperty1<T, V>.like(value: String?): Like<T> =
+    Like(this.builder(), value)
 
 data class GreaterThan<T : Any>(
     private val builder: JsonPathBuilder<T>, private val value: String?,
@@ -138,9 +160,6 @@ enum class OrderDirection(val value: String) {
     ASC(value = "ASC"),
     DESC(value = "DESC")
 }
-
-// TODO change to SqlQuery.identifier
-internal fun <T : Any> List<OrderBy<T>>.identifier(): String = joinToString("_") { it.identifier() }
 
 data class SqlQuery(
     val from: String? = null,

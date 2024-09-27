@@ -61,9 +61,9 @@ publishing {
 
         // Provide artifacts information requited by Maven Central
         pom {
-            name.set("sqkon")
-            description.set("Kotlin Multiplatform library")
-            //url.set("") todo
+            name.set("Sqkon")
+            description.set("Kotlin Multiplatform library for working with JSON")
+            url.set("https://github.com/MercuryTechnologies/sqkon")
 
             licenses {
                 license {
@@ -73,13 +73,14 @@ publishing {
             }
             developers {
                 developer {
-                    //id.set("") todo
-                    //name.set("") todo
-                    //email.set("") todo
+                    id.set("MercuryTechnologies")
+                    name.set("Mercury")
+                    // email.set("mobile@mercury.com")
                 }
             }
             scm {
-                //url.set("") todo
+                url.set("https://github.com/MercuryTechnologies/sqkon")
+                connection.set("scm:git:git@github.com:MercuryTechnologies/sqkon.git")
             }
         }
     }
