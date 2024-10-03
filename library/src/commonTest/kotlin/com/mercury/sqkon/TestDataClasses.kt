@@ -31,6 +31,11 @@ data class TestObjectChild(
     val updatedAt: Instant = Clock.System.now(),
 )
 
+@Serializable
+data class UnSerializable(
+    val differentField: String
+)
+
 @JvmInline
 @Serializable
 value class TestValue(val test: String)

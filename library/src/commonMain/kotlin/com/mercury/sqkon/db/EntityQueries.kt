@@ -60,37 +60,34 @@ class EntityQueries(
         }
     }
 
-    fun <T : Any> select(
+    fun select(
         entityName: String,
         entityKey: String? = null,
-        mapper: (value: String) -> T,
-        where: Where<T>? = null,
-        orderBy: List<OrderBy<T>> = emptyList(),
-    ): Query<T> = SelectQuery(
+        where: Where<*>? = null,
+        orderBy: List<OrderBy<*>> = emptyList(),
+    ): Query<Entity> = SelectQuery(
         entityName = entityName,
         entityKey = entityKey,
         where = where,
         orderBy = orderBy
     ) { cursor ->
         Entity(
-            cursor.getString(0)!!,
-            cursor.getString(1)!!,
-            cursor.getLong(2)!!,
-            cursor.getLong(3)!!,
-            cursor.getLong(4),
-            cursor.getString(5)!!,
-        ).let { entity ->
-            mapper(entity.value_)
-        }
+            entity_name = cursor.getString(0)!!,
+            entity_key = cursor.getString(1)!!,
+            added_at = cursor.getLong(2)!!,
+            updated_at = cursor.getLong(3)!!,
+            expires_at = cursor.getLong(4),
+            value_ = cursor.getString(5)!!,
+        )
     }
 
-    private inner class SelectQuery<out T : Any>(
+    private inner class SelectQuery(
         private val entityName: String,
         private val entityKey: String? = null,
-        private val where: Where<T>? = null,
-        private val orderBy: List<OrderBy<T>>,
-        mapper: (SqlCursor) -> T,
-    ) : Query<T>(mapper) {
+        private val where: Where<*>? = null,
+        private val orderBy: List<OrderBy<*>>,
+        mapper: (SqlCursor) -> Entity,
+    ) : Query<Entity>(mapper) {
 
         override fun addListener(listener: Listener) {
             driver.addListener("entity_$entityName", listener = listener)

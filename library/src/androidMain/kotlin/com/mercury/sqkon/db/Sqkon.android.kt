@@ -2,6 +2,7 @@ package com.mercury.sqkon.db
 
 import android.content.Context
 import com.mercury.sqkon.db.serialization.SqkonJson
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.serialization.json.Json
 
 /**
@@ -9,9 +10,10 @@ import kotlinx.serialization.json.Json
  */
 fun Sqkon(
     context: Context,
+    scope: CoroutineScope,
     json: Json = SqkonJson { }
 ): Sqkon {
     val factory = DriverFactory(context)
     val entities = createEntityQueries(factory)
-    return Sqkon(entities, json)
+    return Sqkon(entities, scope, json)
 }

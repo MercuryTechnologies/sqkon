@@ -4,13 +4,17 @@ import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import app.cash.sqldelight.coroutines.mapToOne
 import app.cash.sqldelight.coroutines.mapToOneOrNull
+import com.mercury.sqkon.db.KeyValueStorage.Config.DeserializePolicy
 import com.mercury.sqkon.db.serialization.KotlinSqkonSerializer
 import com.mercury.sqkon.db.serialization.SqkonJson
 import com.mercury.sqkon.db.serialization.SqkonSerializer
 import com.mercury.sqkon.db.utils.nowMillis
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
 
@@ -23,9 +27,10 @@ import kotlin.reflect.typeOf
 open class KeyValueStorage<T : Any>(
     protected val entityName: String,
     protected val entityQueries: EntityQueries,
+    protected val scope: CoroutineScope,
     protected val type: KType,
     protected val serializer: SqkonSerializer = KotlinSqkonSerializer(),
-    protected val dispatcher: CoroutineDispatcher = Dispatchers.Default,
+    protected val config: Config = Config(),
     // TODO expiresAt
 ) {
 
@@ -79,12 +84,10 @@ open class KeyValueStorage<T : Any>(
             .select(
                 entityName = entityName,
                 entityKey = key,
-                mapper = {
-                    serializer.deserialize<T>(type, it) ?: error("Failed to deserialize value")
-                },
             )
             .asFlow()
-            .mapToOneOrNull(dispatcher)
+            .mapToOneOrNull(config.dispatcher)
+            .map { it.deserialize() }
     }
 
     fun select(
@@ -94,14 +97,15 @@ open class KeyValueStorage<T : Any>(
         return entityQueries
             .select(
                 entityName,
-                mapper = {
-                    serializer.deserialize<T>(type, it) ?: error("Failed to deserialize value")
-                },
                 where = where,
                 orderBy = orderBy,
             )
             .asFlow()
-            .mapToList(dispatcher)
+            .mapToList(config.dispatcher)
+            .map { list ->
+                if (list.isEmpty()) return@map emptyList<T>()
+                list.mapNotNull { entity -> entity.deserialize() }
+            }
     }
 
     /**
@@ -141,23 +145,61 @@ open class KeyValueStorage<T : Any>(
     fun count(): Flow<Long> {
         return entityQueries.count(entityName)
             .asFlow()
-            .mapToOne(dispatcher)
+            .mapToOne(config.dispatcher)
+    }
+
+    private fun <T : Any> Entity?.deserialize(): T? {
+        this ?: return null
+        return try {
+            println("value_: ${this.value_}")
+            serializer.deserialize(type, value_) ?: error("Failed to deserialize value")
+        } catch (e: Exception) {
+            when (config.deserializePolicy) {
+                DeserializePolicy.ERROR -> throw e
+                DeserializePolicy.DELETE -> {
+                    scope.launch { deleteByKey(entity_key) }
+                    null
+                }
+            }
+        }
+    }
+
+    data class Config(
+        val deserializePolicy: DeserializePolicy = DeserializePolicy.ERROR,
+        val dispatcher: CoroutineDispatcher = Dispatchers.Default,
+    ) {
+        enum class DeserializePolicy {
+            /**
+             * Will throw an error if the value can't be deserialized.
+             * It is up to you do handle and recover from the error.
+             */
+            ERROR,
+
+            /**
+             * Will delete and return null if the value can't be deserialized.
+             */
+            DELETE,
+        }
     }
 
 }
 
 /**
- * @param json if providing your own, recommend using [SqkonJson]  builder.
+ * @param serializer if providing your own, recommend using [SqkonJson]  builder.
  */
 inline fun <reified T : Any> keyValueStorage(
     entityName: String,
     entityQueries: EntityQueries,
+    scope: CoroutineScope,
     serializer: SqkonSerializer = KotlinSqkonSerializer(),
+    config: KeyValueStorage.Config = KeyValueStorage.Config(),
 ): KeyValueStorage<T> {
     return KeyValueStorage(
         entityName = entityName,
         entityQueries = entityQueries,
+        scope = scope,
         type = typeOf<T>(),
         serializer = serializer,
+        config = config,
     )
 }

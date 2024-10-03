@@ -3,10 +3,13 @@ package com.mercury.sqkon.db
 import com.mercury.sqkon.TestObject
 import com.mercury.sqkon.TestObjectChild
 import com.mercury.sqkon.until
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.Clock
+import org.junit.After
 import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -14,10 +17,16 @@ import kotlin.time.Duration.Companion.seconds
 
 class KeyValueStorageTest {
 
+    private val mainScope = MainScope()
     private val entityQueries = createEntityQueries()
     private val testObjectStorage = keyValueStorage<TestObject>(
-        "test-object", entityQueries
+        "test-object", entityQueries, mainScope
     )
+
+    @After
+    fun tearDown() {
+        mainScope.cancel()
+    }
 
     @Test
     fun insert() = runTest {

@@ -2,6 +2,7 @@ package com.mercury.sqkon.db
 
 import com.mercury.sqkon.db.serialization.KotlinSqkonSerializer
 import com.mercury.sqkon.db.serialization.SqkonJson
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.serialization.json.Json
 
 /**
@@ -24,6 +25,7 @@ import kotlinx.serialization.json.Json
  */
 class Sqkon internal constructor(
     @PublishedApi internal val entityQueries: EntityQueries,
+    @PublishedApi internal val scope: CoroutineScope,
     json: Json = SqkonJson {}
 ) {
 
@@ -38,7 +40,7 @@ class Sqkon internal constructor(
      * @param name the name of the entity to store.
      */
     inline fun <reified T : Any> keyValueStorage(name: String): KeyValueStorage<T> {
-        return keyValueStorage<T>(name, entityQueries, serializer)
+        return keyValueStorage<T>(name, entityQueries, scope, serializer)
     }
 
 }

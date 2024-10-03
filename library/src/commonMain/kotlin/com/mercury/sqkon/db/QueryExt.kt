@@ -130,17 +130,18 @@ data class OrderBy<T : Any>(
     internal val direction: OrderDirection? = null,
 ) {
     val path: String = builder.buildPath()
-
-    fun identifier(): String {
-        return "order_by_${builder.fieldNames()}${direction?.value?.let { "_$it" }}"
-    }
 }
 
 inline fun <reified T : Any, reified V> OrderBy(
     property: KProperty1<T, V>, direction: OrderDirection? = null,
 ) = OrderBy(property.builder(), direction)
 
-fun <T : Any> List<OrderBy<T>>.toSqlQueries(): List<SqlQuery> {
+enum class OrderDirection(val value: String) {
+    ASC(value = "ASC"),
+    DESC(value = "DESC")
+}
+
+fun List<OrderBy<*>>.toSqlQueries(): List<SqlQuery> {
     if (isEmpty()) return emptyList()
     return mapIndexed { index, orderBy ->
         val treeName = "order_$index"
@@ -153,12 +154,6 @@ fun <T : Any> List<OrderBy<T>>.toSqlQueries(): List<SqlQuery> {
             orderBy = "$treeName.value ${orderBy.direction?.value ?: ""}",
         )
     }
-}
-
-
-enum class OrderDirection(val value: String) {
-    ASC(value = "ASC"),
-    DESC(value = "DESC")
 }
 
 data class SqlQuery(
