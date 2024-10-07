@@ -67,7 +67,7 @@ class DeserializationTest {
         val resultList = testObjectStorageDelete.selectAll().first()
         assertEquals(0, resultList.size)
 
-        until { testObjectStorage.count().first() == 0L }
+        until { testObjectStorage.count().first() == 0 }
         // Should have been deleted
         assertEquals(0, testObjectStorage.count().first())
     }

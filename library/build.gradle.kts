@@ -21,16 +21,16 @@ kotlin {
         commonMain.dependencies {
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.sqlDelight.coroutines)
-            implementation(libs.kotlinx.serialization.json.get().toString()) {
-                // Fix https://github.com/Kotlin/kotlinx.serialization/issues/2810
-                exclude("org.jetbrains.kotlin")
-            }
+            implementation(libs.kotlinx.serialization.json)
             implementation(libs.kotlinx.datetime)
+            implementation(libs.paging.common)
+            // Don't include other paging, just the base to generate pageable queries
         }
 
         commonTest.dependencies {
             implementation(libs.kotlinx.coroutines.test)
             implementation(kotlin("test"))
+            implementation(libs.paging.testing)
         }
 
         androidMain.dependencies {

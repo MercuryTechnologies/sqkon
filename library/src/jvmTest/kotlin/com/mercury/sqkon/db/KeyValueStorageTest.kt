@@ -149,6 +149,40 @@ class KeyValueStorageTest {
         assertEquals(expect, actualsById.first())
     }
 
+    @Test
+    fun select_withLimit1() = runTest {
+        val expected = (0..10).map {
+            TestObject(child = TestObjectChild(createdAt = Clock.System.now().plus(it.seconds)))
+        }.associateBy { it.id }
+        testObjectStorage.insertAll(expected)
+
+        val expect = expected.values.toList()[0]
+        val actualsByLimit = testObjectStorage.select(
+            limit = 1,
+            orderBy = listOf(OrderBy(TestObject::child.then(TestObjectChild::createdAt)))
+        ).first()
+
+        assertEquals(1, actualsByLimit.size)
+        assertEquals(expect, actualsByLimit.first())
+    }
+
+    @Test
+    fun select_withLimitAndOffset1() = runTest {
+        val expected = (0..10).map {
+            TestObject(child = TestObjectChild(createdAt = Clock.System.now().plus(it.seconds)))
+        }.associateBy { it.id }
+        testObjectStorage.insertAll(expected)
+
+        val expect = expected.values.toList()[1]
+        val actualsByLimit = testObjectStorage.select(
+            limit = 1, offset = 1,
+            orderBy = listOf(OrderBy(TestObject::child.then(TestObjectChild::createdAt))),
+        ).first()
+
+        assertEquals(1, actualsByLimit.size)
+        assertEquals(expect, actualsByLimit.first())
+    }
+
 
     @Test
     fun select_byEntityInlineValue() = runTest {
@@ -232,7 +266,6 @@ class KeyValueStorageTest {
             orderBy = listOf(OrderBy(TestObject::child.then(TestObjectChild::createdAt)))
         ).first()
 
-        println(expect.attributes)
         assertEquals(1, actualByAttributes.size)
         assertEquals(expect, actualByAttributes.first())
     }
@@ -298,7 +331,7 @@ class KeyValueStorageTest {
         val expected = (0..10).map { TestObject() }.associateBy { it.id }
         testObjectStorage.insertAll(expected)
         val ten = testObjectStorage.count().first()
-        assertEquals(expected.size.toLong(), ten)
+        assertEquals(expected.size, ten)
     }
 
     @Test
@@ -378,7 +411,7 @@ class KeyValueStorageTest {
 
     @Test
     fun selectCount_flowUpdatesOnChange() = runTest {
-        val results: MutableList<Long> = mutableListOf()
+        val results: MutableList<Int> = mutableListOf()
         backgroundScope.launch {
             testObjectStorage.count().collect { results.add(it) }
         }

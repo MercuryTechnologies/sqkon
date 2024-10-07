@@ -65,11 +65,15 @@ class EntityQueries(
         entityKey: String? = null,
         where: Where<*>? = null,
         orderBy: List<OrderBy<*>> = emptyList(),
+        limit: Long? = null,
+        offset: Long? = null,
     ): Query<Entity> = SelectQuery(
         entityName = entityName,
         entityKey = entityKey,
         where = where,
-        orderBy = orderBy
+        orderBy = orderBy,
+        limit = limit,
+        offset = offset,
     ) { cursor ->
         Entity(
             entity_name = cursor.getString(0)!!,
@@ -86,6 +90,8 @@ class EntityQueries(
         private val entityKey: String? = null,
         private val where: Where<*>? = null,
         private val orderBy: List<OrderBy<*>>,
+        private val limit: Long? = null,
+        private val offset: Long? = null,
         mapper: (SqlCursor) -> Entity,
     ) : Query<Entity>(mapper) {
 
@@ -107,22 +113,28 @@ class EntityQueries(
                 addAll(orderBy.toSqlQueries())
             }
             val identifier: Int = identifier(
-                "select", queries.identifier().toString(),
+                "select",
+                queries.identifier().toString(),
+                limit?.let { "limit" },
+                offset?.let { "offset" },
             )
             val sql = """
                 SELECT DISTINCT entity.entity_name, entity.entity_key, entity.added_at, 
                 entity.updated_at, entity.expires_at, json_extract(entity.value, '$') value
                 FROM entity${queries.buildFrom()} ${queries.buildWhere()} ${queries.buildOrderBy()}
+                ${limit?.let { "LIMIT ?" } ?: ""} ${offset?.let { "OFFSET ?" } ?: ""}
             """.trimIndent().replace('\n', ' ')
             return try {
                 driver.executeQuery(
                     identifier = identifier,
                     sql = sql.replace('\n', ' '),
                     mapper = mapper,
-                    parameters = queries.sumParameters(),
+                    parameters = queries.sumParameters() + (if (limit != null) 1 else 0) + (if (offset != null) 1 else 0),
                 ) {
                     val binder = AutoIncrementSqlPreparedStatement(preparedStatement = this)
                     queries.forEach { it.bindArgs(binder) }
+                    if (limit != null) binder.bindLong(limit)
+                    if (offset != null) binder.bindLong(offset)
                 }
             } catch (ex: SqlException) {
                 println("SQL Error: $sql")
@@ -173,16 +185,18 @@ class EntityQueries(
         }
     }
 
-    fun count(entityName: String): Query<Long> = CountQuery(entityName) { cursor ->
-        cursor.getLong(0)!!
+    fun count(
+        entityName: String,
+        where: Where<*>? = null
+    ): Query<Int> = CountQuery(entityName, where) { cursor ->
+        cursor.getLong(0)!!.toInt()
     }
 
     private inner class CountQuery<out T : Any>(
         private val entityName: String,
+        private val where: Where<*>? = null,
         mapper: (SqlCursor) -> T,
     ) : Query<T>(mapper) {
-
-        private val identifier: Int = identifier("count")
 
         override fun addListener(listener: Query.Listener) {
             driver.addListener("entity_$entityName", listener = listener)
@@ -192,15 +206,30 @@ class EntityQueries(
             driver.removeListener("entity_$entityName", listener = listener)
         }
 
-        override fun <R> execute(mapper: (SqlCursor) -> QueryResult<R>): QueryResult<R> =
-            driver.executeQuery(
-                identifier = identifier,
-                sql = """SELECT COUNT(*) FROM entity WHERE entity_name = ?""",
-                mapper = mapper,
-                parameters = 1
-            ) {
-                bindString(0, entityName)
+        override fun <R> execute(mapper: (SqlCursor) -> QueryResult<R>): QueryResult<R> {
+            val queries = buildList {
+                add(SqlQuery(where = "entity_name = ?", bindArgs = { bindString(entityName) }))
+                addAll(listOfNotNull(where?.toSqlQuery(increment = 1)))
             }
+            val identifier: Int = identifier("count", queries.identifier().toString())
+            val sql = """
+                SELECT COUNT(*) FROM entity${queries.buildFrom()} ${queries.buildWhere()}
+            """.trimIndent().replace('\n', ' ')
+            return try {
+                driver.executeQuery(
+                    identifier = identifier,
+                    sql = sql,
+                    mapper = mapper,
+                    parameters = queries.sumParameters(),
+                ) {
+                    val binder = AutoIncrementSqlPreparedStatement(preparedStatement = this)
+                    queries.forEach { it.bindArgs(binder) }
+                }
+            } catch (ex: SqlException) {
+                println("SQL Error: $sql")
+                throw ex
+            }
+        }
 
         override fun toString(): String = "count"
     }

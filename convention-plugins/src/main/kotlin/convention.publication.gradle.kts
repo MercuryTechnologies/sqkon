@@ -67,15 +67,14 @@ publishing {
 
             licenses {
                 license {
-                    name.set("MIT")
-                    url.set("https://opensource.org/licenses/MIT")
+                    name.set("APACHE 2.0")
+                    url.set("https://www.apache.org/licenses/LICENSE-2.0")
                 }
             }
             developers {
                 developer {
                     id.set("MercuryTechnologies")
                     name.set("Mercury")
-                    // email.set("mobile@mercury.com")
                 }
             }
             scm {
