@@ -7,12 +7,12 @@ plugins {
 }
 
 scmVersion {
-    nextVersion {
-        suffix = "alpha"
-    }
+    nextVersion { suffix.set("alpha") }
+    versionCreator("versionWithCommitHash")
 }
 
-allprojects {
-//    scmVersion
-    //project.version = scmVersion.version
+version = scmVersion.version
+
+subprojects {
+    project.version = rootProject.version
 }
