@@ -1,11 +1,11 @@
 # Sqkon
 
+![sqkon](assets/logo.png)
+
 Sqkon (/sk-on/) A Kotlin Multiplatform KeyValue Store with the ability to query on values using
 SQLite and JSONB.
 
 ## Usage
-
-
 
 ```kotlin
 // Create a new instance of Sqkon
