@@ -3,11 +3,9 @@ plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlinx.serialization)
     alias(libs.plugins.sqlDelight)
-    alias(libs.plugins.axion.release)
 }
 
 group = "com.mercury.sqkon"
-version = scmVersion.version
 
 kotlin {
     applyDefaultHierarchyTemplate()
