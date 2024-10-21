@@ -10,7 +10,7 @@ SQLite and JSONB.
 ```kotlin
 // Create a new instance of Sqkon
 val sqkon = Sqkon(
-   context = context // (only for Android)
+    context = context // (only for Android)
 )
 
 // Create a Store for each type/entity you want to create 
@@ -43,21 +43,15 @@ data class Merchant(
 
 **TODO PUBLISH TO MAVEN CENTRAL GH ACTIONS**
 
-1) Registering a Sonatype account as described here:
-   https://dev.to/kotlin/how-to-build-and-publish-a-kotlin-multiplatform-library-going-public-4a8k
-2) Add developer id, name, email and the project url to
-   `/convention-plugins/src/main/kotlin/convention.publication.gradle.kts`
-3) Add the secrets to `local.properties`:
+### Publish to github packages
 
-```
-signing.keyId=...
-signing.password=...
-signing.secretKeyRingFile=...
-ossrhUsername=...
-ossrhPassword=...
-```
+Creating a new release will publish the artifacts to GitHub Packages.
 
-4) Run `./gradlew :core:publishAllPublicationsToSonatypeRepository`
+If publishing locally you will need `GITHUB_ACTOR` and `GITHUB_TOKEN` environment variables set with
+repository write permissions.
+
+`./gradlew publishToGitHubPackages`
+
 
 ### Build platform artifacts
 
