@@ -1,4 +1,5 @@
 import com.vanniktech.maven.publish.MavenPublishPlugin
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
     alias(libs.plugins.multiplatform).apply(false)
@@ -30,6 +31,9 @@ subprojects {
                 }
             }
         }
+    }
+    tasks.withType<KotlinCompile>().configureEach {
+        compilerOptions.freeCompilerArgs.add("-Xexpect-actual-classes")
     }
 }
 
