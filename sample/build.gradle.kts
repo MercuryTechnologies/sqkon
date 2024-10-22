@@ -38,5 +38,5 @@ android {
 dependencies {
     //noinspection UseTomlInstead
     //https://maven.pkg.github.com/MercuryTechnologies/sqkon/com/mercury/sqkon/library-android/0.1.0-alpha01/library-android-0.1.0-alpha01.pom	355 ms	0 B	0 B/s
-    implementation("com.mercury.sqkon:library-android:1.0.0-alpha01")
+    //implementation("com.mercury.sqkon:library-android:1.0.0-alpha01")
 }
