@@ -1,3 +1,4 @@
+import com.vanniktech.maven.publish.MavenPublishBaseExtension
 import com.vanniktech.maven.publish.MavenPublishPlugin
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
@@ -7,18 +8,26 @@ plugins {
     alias(libs.plugins.kotlinx.serialization).apply(false)
     alias(libs.plugins.sqlDelight).apply(false)
     alias(libs.plugins.maven.publish).apply(false)
+    alias(libs.plugins.android.application) apply false
+    alias(libs.plugins.kotlin.android) apply false
 }
 
+group = findProperty("GROUP").toString()
+version = System.getenv("RELEASE_VERSION")?.takeIf { it.isNotBlank() }
+    ?: findProperty("VERSION_NAME").toString()
+
 allprojects {
-    group = findProperty("GROUP").toString()
-    version = System.getenv("RELEASE_VERSION")?.takeIf { it.isNotBlank() }
-        ?: findProperty("VERSION_NAME").toString()
+    group = rootProject.group
+    version = rootProject.version
 }
 
 subprojects {
     plugins.withType<MavenPublishPlugin>().configureEach {
         extensions.findByType<PublishingExtension>()?.also { publishing ->
-            logger.lifecycle("Publishing ${project.group}:${project.name}:${project.version}")
+            logger.lifecycle("Publishing ${project.name}:${version}")
+            publishing.publications.withType<MavenPublication>().configureEach {
+                this.version = project.version.toString()
+            }
             publishing.repositories {
                 // GitHub Packages
                 maven {
@@ -38,8 +47,8 @@ subprojects {
 }
 
 tasks.register("version") {
-    notCompatibleWithConfigurationCache("Version task is not compatible with configuration cache")
+    inputs.property("version", project.version)
     doLast {
-        println("Version: $version")
+        inputs.properties["version"]?.let { println("Version: $it") }
     }
 }
