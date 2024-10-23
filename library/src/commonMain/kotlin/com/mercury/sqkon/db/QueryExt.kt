@@ -148,9 +148,8 @@ fun List<OrderBy<*>>.toSqlQueries(): List<SqlQuery> {
         SqlQuery(
             from = "json_tree(entity.value, '$') as $treeName",
             where = "$treeName.fullkey LIKE ?",
-            bindArgs = {
-                bindString(orderBy.path)
-            },
+            parameters = 1,
+            bindArgs = { bindString(orderBy.path) },
             orderBy = "$treeName.value ${orderBy.direction?.value ?: ""}",
         )
     }

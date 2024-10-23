@@ -1,4 +1,6 @@
 [versions]
+androidx-monitor = "1.7.2"
+androidx-runner = "1.6.2"
 kotlin = "2.0.21"
 agp = "8.7.1"
 kotlinx-coroutines = "1.9.0"
@@ -8,6 +10,8 @@ paging = "3.3.0-alpha02-0.5.1"
 sqlDelight = "2.0.2"
 
 [libraries]
+androidx-test-monitor = { module = "androidx.test:monitor", version.ref = "androidx-monitor" }
+androidx-test-runner = { module = "androidx.test:runner", version.ref = "androidx-runner" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinx-coroutines" }
 kotlinx-coroutines-swing = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-swing", version.ref = "kotlinx-coroutines" }

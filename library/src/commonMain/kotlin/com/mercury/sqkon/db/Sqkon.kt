@@ -26,7 +26,7 @@ import kotlinx.serialization.json.Json
 class Sqkon internal constructor(
     @PublishedApi internal val entityQueries: EntityQueries,
     @PublishedApi internal val scope: CoroutineScope,
-    json: Json = SqkonJson {}
+    json: Json = SqkonJson {},
 ) {
 
     @PublishedApi

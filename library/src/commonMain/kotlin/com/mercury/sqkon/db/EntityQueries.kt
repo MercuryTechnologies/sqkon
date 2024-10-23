@@ -105,9 +105,21 @@ class EntityQueries(
 
         override fun <R> execute(mapper: (SqlCursor) -> QueryResult<R>): QueryResult<R> {
             val queries = buildList {
-                add(SqlQuery(where = "entity_name = ?", bindArgs = { bindString(entityName) }))
+                add(
+                    SqlQuery(
+                        where = "entity_name = ?",
+                        parameters = 1,
+                        bindArgs = { bindString(entityName) },
+                    )
+                )
                 if (entityKey != null) {
-                    add(SqlQuery(where = "entity_key = ?", bindArgs = { bindString(entityKey) }))
+                    add(
+                        SqlQuery(
+                            where = "entity_key = ?",
+                            parameters = 1,
+                            bindArgs = { bindString(entityKey) }
+                        )
+                    )
                 }
                 addAll(listOfNotNull(where?.toSqlQuery(increment = 1)))
                 addAll(orderBy.toSqlQueries())
@@ -151,10 +163,16 @@ class EntityQueries(
         where: Where<*>? = null,
     ) {
         val queries = buildList {
-            add(SqlQuery(where = "entity_name = ?", bindArgs = { bindString(entityName) }))
-            if (entityKey != null) {
-                add(SqlQuery(where = "entity_key = ?", bindArgs = { bindString(entityKey) }))
-            }
+            add(SqlQuery(
+                where = "entity_name = ?",
+                parameters = 1,
+                bindArgs = { bindString(entityName) }
+            ))
+            if (entityKey != null) add(SqlQuery(
+                where = "entity_key = ?",
+                parameters = 1,
+                bindArgs = { bindString(entityKey) }
+            ))
             addAll(listOfNotNull(where?.toSqlQuery(increment = 1)))
         }
         val identifier = identifier("delete", queries.identifier().toString())
@@ -208,7 +226,11 @@ class EntityQueries(
 
         override fun <R> execute(mapper: (SqlCursor) -> QueryResult<R>): QueryResult<R> {
             val queries = buildList {
-                add(SqlQuery(where = "entity_name = ?", bindArgs = { bindString(entityName) }))
+                add(SqlQuery(
+                    where = "entity_name = ?",
+                    parameters = 1,
+                    bindArgs = { bindString(entityName) }
+                ))
                 addAll(listOfNotNull(where?.toSqlQuery(increment = 1)))
             }
             val identifier: Int = identifier("count", queries.identifier().toString())

@@ -11,9 +11,10 @@ import kotlinx.serialization.json.Json
 fun Sqkon(
     context: Context,
     scope: CoroutineScope,
-    json: Json = SqkonJson { }
+    json: Json = SqkonJson { },
+    inMemory: Boolean = false,
 ): Sqkon {
-    val factory = DriverFactory(context)
+    val factory = DriverFactory(context, if (inMemory) null else "sqkon.db")
     val entities = createEntityQueries(factory)
     return Sqkon(entities, scope, json)
 }

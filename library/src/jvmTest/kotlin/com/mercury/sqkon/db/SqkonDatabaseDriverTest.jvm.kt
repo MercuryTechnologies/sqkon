@@ -1,6 +1,6 @@
 package com.mercury.sqkon.db
 
 
-fun createEntityQueries(): EntityQueries {
+actual fun createEntityQueries(): EntityQueries {
     return createEntityQueries(DriverFactory())
 }

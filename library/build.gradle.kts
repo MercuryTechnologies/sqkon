@@ -1,3 +1,7 @@
+import com.android.build.api.variant.HasUnitTestBuilder
+import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
+import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSetTree
+
 plugins {
     alias(libs.plugins.multiplatform)
     alias(libs.plugins.android.library)
@@ -42,16 +46,30 @@ kotlin {
         }
 
     }
+    @OptIn(ExperimentalKotlinGradlePluginApi::class)
+    compilerOptions {
+        freeCompilerArgs.add("-Xexpect-actual-classes")
+    }
 
+    androidTarget {
+        @OptIn(ExperimentalKotlinGradlePluginApi::class)
+        instrumentedTestVariant.sourceSetTree.set(KotlinSourceSetTree.test)
+    }
 }
 
 android {
     namespace = "com.mercury.sqkon"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
-        minSdk = 21
+        minSdk = 23
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
+}
+
+dependencies {
+    androidTestImplementation(libs.androidx.test.monitor)
+    androidTestImplementation(libs.androidx.test.runner)
 }
 
 sqldelight {
@@ -62,5 +80,12 @@ sqldelight {
             generateAsync = true
             packageName.set("com.mercury.sqkon.db")
         }
+    }
+}
+
+androidComponents {
+    beforeVariants {
+        it.enableAndroidTest = true
+        (it as HasUnitTestBuilder).enableUnitTest = false
     }
 }
