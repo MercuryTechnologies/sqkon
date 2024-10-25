@@ -27,6 +27,8 @@ class Sqkon internal constructor(
     @PublishedApi internal val entityQueries: EntityQueries,
     @PublishedApi internal val scope: CoroutineScope,
     json: Json = SqkonJson {},
+    @PublishedApi
+    internal val config: KeyValueStorage.Config = KeyValueStorage.Config(),
 ) {
 
     @PublishedApi
@@ -38,9 +40,14 @@ class Sqkon internal constructor(
      *
      * @param T the type of the entity to store.
      * @param name the name of the entity to store.
+     * @param config configuration for the KeyValueStorage. Overrides the default configuration
+     *  passed into Sqkon.
      */
-    inline fun <reified T : Any> keyValueStorage(name: String): KeyValueStorage<T> {
-        return keyValueStorage<T>(name, entityQueries, scope, serializer)
+    inline fun <reified T : Any> keyValueStorage(
+        name: String,
+        config: KeyValueStorage.Config = this.config,
+    ): KeyValueStorage<T> {
+        return keyValueStorage<T>(name, entityQueries, scope, serializer, config)
     }
 
 }
