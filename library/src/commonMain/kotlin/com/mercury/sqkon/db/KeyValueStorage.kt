@@ -55,9 +55,9 @@ open class KeyValueStorage<T : Any>(
         entityQueries.insertEntity(entity, ignoreIfExists)
     }
 
-    suspend fun insertAll(values: Map<String, T>) {
+    suspend fun insertAll(values: Map<String, T>, ignoreIfExists: Boolean = false) {
         entityQueries.transaction {
-            values.forEach { (key, value) -> insert(key, value) }
+            values.forEach { (key, value) -> insert(key, value, ignoreIfExists) }
         }
     }
 
