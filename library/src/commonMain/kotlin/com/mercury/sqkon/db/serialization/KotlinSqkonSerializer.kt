@@ -32,9 +32,13 @@ class KotlinSqkonSerializer(
  * - `ignoreUnknownKeys = true` is generally recommended to allow for removing fields from classes.
  * - `encodeDefaults` = true, is required to be able to query on default values, otherwise that field
  *     is missing in the db.
+ * - `useArrayPolymorphism = true` is required for polymorphic serialization when you use value
+ *     classes without custom descriptors
  */
 fun SqkonJson(builder: JsonBuilder.() -> Unit) = Json {
     ignoreUnknownKeys = true
     encodeDefaults = true
+    // https://github.com/Kotlin/kotlinx.serialization/issues/2049#issuecomment-1271536271
+    useArrayPolymorphism = true
     builder()
 }

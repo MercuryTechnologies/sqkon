@@ -21,7 +21,8 @@ data class TestObject(
     val serialName: String? = null,
     val child: TestObjectChild = TestObjectChild(),
     val list: List<TestObjectChild> = List(2) { TestObjectChild() },
-    val attributes: List<String>? = (1..10).map { it.toString() }
+    val attributes: List<String>? = (1..10).map { it.toString() },
+    val sealed: TestSealed = TestSealed.Impl2("value"),
 )
 
 
@@ -39,3 +40,17 @@ data class UnSerializable(
 @JvmInline
 @Serializable
 value class TestValue(val test: String)
+
+
+@Serializable
+sealed interface TestSealed {
+    @Serializable
+    @SerialName("Impl")
+    data class Impl(val value: String) : TestSealed
+
+    @JvmInline
+    @Serializable
+    @SerialName("Impl2")
+    value class Impl2(val value: String) : TestSealed
+
+}
