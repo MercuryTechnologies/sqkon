@@ -63,14 +63,14 @@ class EntityQueries(
 
     fun select(
         entityName: String,
-        entityKey: String? = null,
+        entityKeys: Collection<String>? = null,
         where: Where<*>? = null,
         orderBy: List<OrderBy<*>> = emptyList(),
         limit: Long? = null,
         offset: Long? = null,
     ): Query<Entity> = SelectQuery(
         entityName = entityName,
-        entityKey = entityKey,
+        entityKeys = entityKeys,
         where = where,
         orderBy = orderBy,
         limit = limit,
@@ -88,7 +88,7 @@ class EntityQueries(
 
     private inner class SelectQuery(
         private val entityName: String,
-        private val entityKey: String? = null,
+        private val entityKeys: Collection<String>? = null,
         private val where: Where<*>? = null,
         private val orderBy: List<OrderBy<*>>,
         private val limit: Long? = null,
@@ -113,12 +113,22 @@ class EntityQueries(
                         bindArgs = { bindString(entityName) },
                     )
                 )
-                if (entityKey != null) {
-                    add(
+                when (entityKeys?.size) {
+                    null, 0 -> {}
+
+                    1 -> add(
                         SqlQuery(
                             where = "entity_key = ?",
                             parameters = 1,
-                            bindArgs = { bindString(entityKey) }
+                            bindArgs = { bindString(entityKeys.first()) },
+                        )
+                    )
+
+                    else -> add(
+                        SqlQuery(
+                            where = "entity_key IN (${entityKeys.joinToString(",") { "?" }})",
+                            parameters = entityKeys.size,
+                            bindArgs = { entityKeys.forEach { bindString(it) } },
                         )
                     )
                 }

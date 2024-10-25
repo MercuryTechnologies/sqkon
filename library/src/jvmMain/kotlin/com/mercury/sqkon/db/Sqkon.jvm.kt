@@ -9,6 +9,7 @@ fun Sqkon(
     scope: CoroutineScope,
     json: Json = SqkonJson { },
     jdbcUrl: String = JdbcSqliteDriver.IN_MEMORY,
+    config: KeyValueStorage.Config = KeyValueStorage.Config(),
 ): Sqkon {
     val factory = DriverFactory(jdbcUrl)
     val entities = createEntityQueries(factory)

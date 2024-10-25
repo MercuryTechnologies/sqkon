@@ -84,18 +84,37 @@ open class KeyValueStorage<T : Any>(
 
     /**
      * Select by key.
-     *
-     * Note, using where will be less performant than selecting by key.
      */
     fun selectByKey(key: String): Flow<T?> {
         return entityQueries
             .select(
                 entityName = entityName,
-                entityKey = key,
+                entityKeys = listOf(key),
             )
             .asFlow()
             .mapToOneOrNull(config.dispatcher)
             .map { it.deserialize() }
+    }
+
+    /**
+     * Select by keys with optional ordering
+     */
+    fun selectByKeys(
+        keys: Collection<String>,
+        orderBy: List<OrderBy<T>> = emptyList(),
+    ): Flow<List<T>> {
+        return entityQueries
+            .select(
+                entityName = entityName,
+                entityKeys = keys,
+                orderBy = orderBy,
+            )
+            .asFlow()
+            .mapToList(config.dispatcher)
+            .map { list ->
+                if (list.isEmpty()) return@map emptyList<T>()
+                list.mapNotNull { entity -> entity.deserialize() }
+            }
     }
 
     fun select(

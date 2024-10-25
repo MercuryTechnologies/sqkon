@@ -13,8 +13,9 @@ fun Sqkon(
     scope: CoroutineScope,
     json: Json = SqkonJson { },
     inMemory: Boolean = false,
+    config: KeyValueStorage.Config = KeyValueStorage.Config(),
 ): Sqkon {
     val factory = DriverFactory(context, if (inMemory) null else "sqkon.db")
     val entities = createEntityQueries(factory)
-    return Sqkon(entities, scope, json)
+    return Sqkon(entities, scope, json, config)
 }
