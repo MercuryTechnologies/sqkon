@@ -36,7 +36,13 @@ open class KeyValueStorage<T : Any>(
     // TODO expiresAt
 ) {
 
-    suspend fun insert(key: String, value: T) {
+    /**
+     * Insert a row.
+     *
+     * @param ignoreIfExists if true, will not insert if a row with the same key already exists.
+     *  Otherwise, throw primary key constraint violation. Useful for "upserting".
+     */
+    suspend fun insert(key: String, value: T, ignoreIfExists: Boolean = false) {
         val now = nowMillis()
         val entity = Entity(
             entity_name = entityName,
@@ -46,7 +52,7 @@ open class KeyValueStorage<T : Any>(
             expires_at = null,
             value_ = serializer.serialize(type, value) ?: error("Failed to serialize value")
         )
-        entityQueries.insertEntity(entity)
+        entityQueries.insertEntity(entity, ignoreIfExists)
     }
 
     suspend fun insertAll(values: Map<String, T>) {

@@ -10,12 +10,13 @@ class EntityQueries(
     driver: SqlDriver,
 ) : SuspendingTransacterImpl(driver) {
 
-    suspend fun insertEntity(entity: Entity) {
-        val identifier = identifier("insert")
+    suspend fun insertEntity(entity: Entity, ignoreIfExists: Boolean) {
+        val identifier = identifier("insert", ignoreIfExists.toString())
+        val orIgnore = if (ignoreIfExists) "OR IGNORE" else ""
         driver.execute(
             identifier = identifier,
             sql = """
-            INSERT INTO entity (entity_name, entity_key, added_at, updated_at, expires_at, value) 
+            INSERT $orIgnore INTO entity (entity_name, entity_key, added_at, updated_at, expires_at, value) 
             VALUES (?, ?, ?, ?, ?, jsonb(?))
             """.trimIndent(),
             parameters = 6
@@ -205,7 +206,7 @@ class EntityQueries(
 
     fun count(
         entityName: String,
-        where: Where<*>? = null
+        where: Where<*>? = null,
     ): Query<Int> = CountQuery(entityName, where) { cursor ->
         cursor.getLong(0)!!.toInt()
     }
