@@ -1,16 +1,16 @@
 import com.vanniktech.maven.publish.MavenPublishBaseExtension
-import com.vanniktech.maven.publish.MavenPublishPlugin
+import com.vanniktech.maven.publish.MavenPublishBasePlugin
 import com.vanniktech.maven.publish.SonatypeHost
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-    alias(libs.plugins.multiplatform).apply(false)
     alias(libs.plugins.android.library).apply(false)
+    alias(libs.plugins.multiplatform).apply(false)
     alias(libs.plugins.kotlinx.serialization).apply(false)
     alias(libs.plugins.sqlDelight).apply(false)
-    alias(libs.plugins.maven.publish).apply(false)
     alias(libs.plugins.android.application) apply false
     alias(libs.plugins.kotlin.android) apply false
+    alias(libs.plugins.maven.publish).apply(false)
 }
 
 group = findProperty("GROUP").toString()
@@ -23,13 +23,19 @@ allprojects {
 }
 
 subprojects {
-    plugins.withType<MavenPublishPlugin>().configureEach {
-        extensions.findByType<PublishingExtension>()?.also { publishing ->
+    plugins.withType<MavenPublishBasePlugin>().configureEach {
+        extensions.configure<MavenPublishBaseExtension> {
+            logger.lifecycle("Configuring Maven Publishing for ${name}:${version}")
+            publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL, automaticRelease = true)
+            // https://github.com/vanniktech/gradle-maven-publish-plugin/issues/865
+            //signAllPublications()
+        }
+        extensions.configure<PublishingExtension> {
             logger.lifecycle("Publishing ${project.name}:${version}")
-            publishing.publications.withType<MavenPublication>().configureEach {
+            publications.withType<MavenPublication>().configureEach {
                 this.version = project.version.toString()
             }
-            publishing.repositories {
+            repositories {
                 // GitHub Packages
                 maven {
                     name = "GitHubPackages"
@@ -40,13 +46,6 @@ subprojects {
                     }
                 }
             }
-        }
-        extensions.findByType<MavenPublishBaseExtension>()?.also { mavenPublishing ->
-            mavenPublishing.publishToMavenCentral(
-                SonatypeHost.CENTRAL_PORTAL,
-                automaticRelease = true
-            )
-            mavenPublishing.signAllPublications()
         }
     }
     tasks.withType<KotlinCompile>().configureEach {

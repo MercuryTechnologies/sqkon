@@ -90,3 +90,8 @@ androidComponents {
         (it as HasUnitTestBuilder).enableUnitTest = false
     }
 }
+
+// https://github.com/vanniktech/gradle-maven-publish-plugin/issues/865
+mavenPublishing {
+    signAllPublications()
+}
