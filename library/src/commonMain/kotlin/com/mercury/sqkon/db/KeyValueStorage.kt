@@ -1,6 +1,7 @@
 package com.mercury.sqkon.db
 
 import app.cash.paging.PagingSource
+import app.cash.sqldelight.SuspendingTransacter
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import app.cash.sqldelight.coroutines.mapToOne
@@ -34,13 +35,16 @@ open class KeyValueStorage<T : Any>(
     protected val serializer: SqkonSerializer = KotlinSqkonSerializer(),
     protected val config: Config = Config(),
     // TODO expiresAt
-) {
+) : SuspendingTransacter by entityQueries {
 
     /**
      * Insert a row.
      *
      * @param ignoreIfExists if true, will not insert if a row with the same key already exists.
      *  Otherwise, throw primary key constraint violation. Useful for "upserting".
+     *
+     *  @see update
+     *  @see upsert
      */
     suspend fun insert(key: String, value: T, ignoreIfExists: Boolean = false) {
         val now = nowMillis()
@@ -55,12 +59,29 @@ open class KeyValueStorage<T : Any>(
         entityQueries.insertEntity(entity, ignoreIfExists)
     }
 
+    /**
+     * Insert multiple rows.
+     *
+     * @param ignoreIfExists if true, will not insert if a row with the same key already exists.
+     *
+     * @see updateAll
+     * @see upsertAll
+     */
     suspend fun insertAll(values: Map<String, T>, ignoreIfExists: Boolean = false) {
-        entityQueries.transaction {
+        transaction {
             values.forEach { (key, value) -> insert(key, value, ignoreIfExists) }
         }
     }
 
+    /**
+     * Update a row. If the row does not exist, it will update nothing, use [insert] if you want to
+     * insert if the row does not exist.
+     *
+     * We also provide [upsert] convenience function to insert or update.
+     *
+     * @see insert
+     * @see upsert
+     */
     suspend fun update(key: String, value: T) {
         entityQueries.updateEntity(
             entityName = entityName,
@@ -71,8 +92,46 @@ open class KeyValueStorage<T : Any>(
         )
     }
 
+    /**
+     * Convenience function to insert collection of rows. If the row does not exist, ti will update
+     * nothing, use [insert] if you want to insert if the row does not exist.
+     *
+     * @see insertAll
+     * @see upsertAll
+     */
     suspend fun updateAll(values: Map<String, T>) {
-        entityQueries.transaction { values.forEach { (key, value) -> update(key, value) } }
+        transaction { values.forEach { (key, value) -> update(key, value) } }
+    }
+
+
+    /**
+     * Convenience function to insert a new row or update an existing row.
+     *
+     * @see insert
+     * @see update
+     */
+    suspend fun upsert(key: String, value: T) {
+        transaction {
+            update(key, value)
+            insert(key, value, ignoreIfExists = true)
+        }
+    }
+
+    /**
+     * Convenience function to insert new or update existing multiple rows.
+     *
+     * Basically an alias for [updateAll] and [insertAll] with ignoreIfExists set to true.
+     *
+     * @see insertAll
+     * @see updateAll
+     */
+    suspend fun upsertAll(values: Map<String, T>) {
+        transaction {
+            values.forEach { (key, value) ->
+                update(key, value)
+                insert(key, value, ignoreIfExists = true)
+            }
+        }
     }
 
     /**
@@ -84,20 +143,17 @@ open class KeyValueStorage<T : Any>(
 
     /**
      * Select by key.
+     *
+     * Key selection will always be more performant than using where clause. Keys are indexed.
      */
     fun selectByKey(key: String): Flow<T?> {
-        return entityQueries
-            .select(
-                entityName = entityName,
-                entityKeys = listOf(key),
-            )
-            .asFlow()
-            .mapToOneOrNull(config.dispatcher)
-            .map { it.deserialize() }
+        return selectByKeys(listOf(key)).map { it.firstOrNull() }
     }
 
     /**
      * Select by keys with optional ordering
+     *
+     * Key selection will always be more performant than using where clause. Keys are indexed.
      */
     fun selectByKeys(
         keys: Collection<String>,
@@ -117,6 +173,17 @@ open class KeyValueStorage<T : Any>(
             }
     }
 
+    /**
+     * Select using where clause. If where is null, all rows will be selected.
+     *
+     * Simple example with where and orderBy:
+     * ```
+     * val merchantsFlow = store.select(
+     *  where = Merchant::category like "Restaurant",
+     *  orderBy = listOf(OrderBy(Merchant::createdAt, OrderDirection.DESC))
+     * )
+     * ```
+     */
     fun select(
         where: Where<T>? = null,
         orderBy: List<OrderBy<T>> = emptyList(),

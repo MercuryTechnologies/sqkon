@@ -3,6 +3,9 @@ package com.mercury.sqkon.db
 import app.cash.sqldelight.db.SqlPreparedStatement
 import kotlin.reflect.KProperty1
 
+/**
+ * Equivalent to `=` in SQL
+ */
 data class Eq<T : Any>(
     private val builder: JsonPathBuilder<T>, private val value: String?,
 ) : Where<T>() {
@@ -20,17 +23,81 @@ data class Eq<T : Any>(
     }
 }
 
+/**
+ * Equivalent to `=` in SQL
+ */
 infix fun <T : Any> JsonPathBuilder<T>.eq(value: String?): Eq<T> =
     Eq(builder = this, value = value)
 
+/**
+ * Equivalent to `=` in SQL
+ */
 inline infix fun <reified T : Any, reified V> KProperty1<T, V>.eq(value: String?): Eq<T> =
     Eq(this.builder(), value)
 
+/**
+ * Equivalent to `!=` in SQL
+ */
+data class NotEq<T : Any>(
+    private val builder: JsonPathBuilder<T>, private val value: String?,
+) : Where<T>() {
+    override fun toSqlQuery(increment: Int): SqlQuery {
+        return Not(Eq(builder = builder, value = value)).toSqlQuery(increment)
+    }
+}
+
+/**
+ * Equivalent to `!=` in SQL
+ */
+infix fun <T : Any> JsonPathBuilder<T>.neq(value: String?): NotEq<T> =
+    NotEq(builder = this, value = value)
+
+/**
+ * Equivalent to `!=` in SQL
+ */
+inline infix fun <reified T : Any, reified V> KProperty1<T, V>.neq(value: String?): NotEq<T> =
+    NotEq(this.builder(), value)
+
+/**
+ * Equivalent to `IN` in SQL
+ */
+data class In<T : Any>(
+    private val builder: JsonPathBuilder<T>, private val value: Collection<String>,
+) : Where<T>() {
+    override fun toSqlQuery(increment: Int): SqlQuery {
+        val treeName = "in_$increment"
+        return SqlQuery(
+            from = "json_tree(entity.value, '$') as $treeName",
+            where = "($treeName.fullkey LIKE ? AND $treeName.value IN (${value.joinToString(",") { "?" }}))",
+            parameters = 1 + value.size,
+            bindArgs = {
+                bindString(builder.buildPath())
+                value.forEach { bindString(it) }
+            }
+        )
+    }
+}
+
+/**
+ * Equivalent to `IN` in SQL
+ */
+infix fun <T : Any> JsonPathBuilder<T>.inList(value: Collection<String>): In<T> =
+    In(builder = this, value = value)
+
+/**
+ * Equivalent to `IN` in SQL
+ */
+inline infix fun <reified T : Any, reified V> KProperty1<T, V>.inList(value: Collection<String>): In<T> =
+    In(this.builder(), value)
+
+/**
+ * Equivalent to `LIKE` in SQL
+ */
 data class Like<T : Any>(
     private val builder: JsonPathBuilder<T>, private val value: String?,
 ) : Where<T>() {
     override fun toSqlQuery(increment: Int): SqlQuery {
-        val treeName = "eq_$increment"
+        val treeName = "like_$increment"
         return SqlQuery(
             from = "json_tree(entity.value, '$') as $treeName",
             where = "($treeName.fullkey LIKE ? AND $treeName.value LIKE ?)",
@@ -43,12 +110,21 @@ data class Like<T : Any>(
     }
 }
 
+/**
+ * Equivalent to `LIKE` in SQL
+ */
 infix fun <T : Any> JsonPathBuilder<T>.like(value: String?): Like<T> =
     Like(builder = this, value = value)
 
+/**
+ * Equivalent to `LIKE` in SQL
+ */
 inline infix fun <reified T : Any, reified V> KProperty1<T, V>.like(value: String?): Like<T> =
     Like(this.builder(), value)
 
+/**
+ * Equivalent to `>` in SQL
+ */
 data class GreaterThan<T : Any>(
     private val builder: JsonPathBuilder<T>, private val value: String?,
 ) : Where<T>() {
@@ -67,13 +143,22 @@ data class GreaterThan<T : Any>(
     }
 }
 
+/**
+ * Equivalent to `>` in SQL
+ */
 infix fun <T : Any> JsonPathBuilder<T>.gt(value: String?): GreaterThan<T> =
     GreaterThan(builder = this, value = value)
 
+/**
+ * Equivalent to `>` in SQL
+ */
 inline infix fun <reified T : Any, reified V> KProperty1<T, V>.gt(value: String?): GreaterThan<T> =
     GreaterThan(this.builder(), value)
 
 
+/**
+ * Equivalent to `<` in SQL
+ */
 data class LessThan<T : Any>(
     private val builder: JsonPathBuilder<T>, private val value: String?,
 ) : Where<T>() {
@@ -92,12 +177,45 @@ data class LessThan<T : Any>(
     }
 }
 
+/**
+ * Equivalent to `<` in SQL
+ */
 infix fun <T : Any> JsonPathBuilder<T>.lt(value: String?): LessThan<T> =
     LessThan(builder = this, value = value)
 
+/**
+ * Equivalent to `<` in SQL
+ */
 inline infix fun <reified T : Any, reified V> KProperty1<T, V>.lt(value: String?): LessThan<T> =
     LessThan(this.builder(), value)
 
+
+/**
+ * Equivalent to `NOT ($where)` in SQL
+ *
+ * This just wraps the passed in where clause.
+ */
+data class Not<T : Any>(private val where: Where<T>) : Where<T>() {
+    override fun toSqlQuery(increment: Int): SqlQuery {
+        val query = where.toSqlQuery(increment)
+        return SqlQuery(
+            from = query.from,
+            where = "NOT (${query.where})",
+            parameters = query.parameters,
+            bindArgs = query.bindArgs,
+            orderBy = query.orderBy
+        )
+    }
+}
+
+/**
+ * Equivalent to `NOT ($where)` in SQL
+ */
+fun <T : Any> not(where: Where<T>): Not<T> = Not(where)
+
+/**
+ * Equivalent to `AND` in SQL
+ */
 data class And<T : Any>(private val left: Where<T>, private val right: Where<T>) : Where<T>() {
     override fun toSqlQuery(increment: Int): SqlQuery {
         val leftQuery = left.toSqlQuery(increment * 10)
@@ -106,8 +224,14 @@ data class And<T : Any>(private val left: Where<T>, private val right: Where<T>)
     }
 }
 
+/**
+ * Equivalent to `AND` in SQL
+ */
 infix fun <T : Any> Where<T>.and(other: Where<T>): Where<T> = And(this, other)
 
+/**
+ * Equivalent to `OR` in SQL
+ */
 data class Or<T : Any>(private val left: Where<T>, private val right: Where<T>) : Where<T>() {
     override fun toSqlQuery(increment: Int): SqlQuery {
         val leftQuery = left.toSqlQuery(increment * 10)
@@ -116,6 +240,9 @@ data class Or<T : Any>(private val left: Where<T>, private val right: Where<T>) 
     }
 }
 
+/**
+ * Equivalent to `OR` in SQL
+ */
 infix fun <T : Any> Where<T>.or(other: Where<T>): Where<T> = Or(this, other)
 
 abstract class Where<T : Any> {
@@ -180,22 +307,22 @@ data class SqlQuery(
     }
 }
 
-fun List<SqlQuery>.buildFrom(prefix: String = ", ") = mapNotNull { it.from }
+internal fun List<SqlQuery>.buildFrom(prefix: String = ", ") = mapNotNull { it.from }
     .joinToString(", ") { it }
     .let { if (it.isNotBlank()) "$prefix$it" else "" }
 
-fun List<SqlQuery>.buildWhere(prefix: String = "WHERE") = mapNotNull { it.where }
+internal fun List<SqlQuery>.buildWhere(prefix: String = "WHERE") = mapNotNull { it.where }
     .joinToString(" AND ") { it }
     .let { if (it.isNotBlank()) "$prefix $it" else "" }
 
-fun List<SqlQuery>.buildOrderBy(prefix: String = "ORDER BY") = mapNotNull { it.orderBy }
+internal fun List<SqlQuery>.buildOrderBy(prefix: String = "ORDER BY") = mapNotNull { it.orderBy }
     .joinToString(", ") { it }
     .let { if (it.isNotBlank()) "$prefix $it" else "" }
 
 
-fun List<SqlQuery>.sumParameters(): Int = sumOf { it.parameters }
+internal fun List<SqlQuery>.sumParameters(): Int = sumOf { it.parameters }
 
-fun List<SqlQuery>.identifier(): Int = fold(0) { acc, sqlQuery ->
+internal fun List<SqlQuery>.identifier(): Int = fold(0) { acc, sqlQuery ->
     31 * acc + sqlQuery.identifier()
 }
 

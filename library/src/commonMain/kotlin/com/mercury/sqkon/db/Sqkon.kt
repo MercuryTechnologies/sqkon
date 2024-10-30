@@ -21,7 +21,6 @@ import kotlinx.serialization.json.Json
  * val merchant = merchantStore.selectByKey("123").first()
  * val merchants = merchantStore.select(where = Merchant::category like "Restaurant")
  * ```
- *
  */
 class Sqkon internal constructor(
     @PublishedApi internal val entityQueries: EntityQueries,
