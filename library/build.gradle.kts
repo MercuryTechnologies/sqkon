@@ -3,8 +3,8 @@ import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSetTree
 
 plugins {
-    alias(libs.plugins.multiplatform)
     alias(libs.plugins.android.library)
+    alias(libs.plugins.multiplatform)
     alias(libs.plugins.kotlinx.serialization)
     alias(libs.plugins.sqlDelight)
     alias(libs.plugins.maven.publish)
@@ -12,10 +12,10 @@ plugins {
 
 kotlin {
     applyDefaultHierarchyTemplate()
-    jvmToolchain(11)
     androidTarget {
         publishLibraryVariants("release")
     }
+    jvmToolchain(11)
     jvm()
 
     sourceSets {
