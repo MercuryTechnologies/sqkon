@@ -5,10 +5,16 @@ import app.cash.sqldelight.SuspendingTransacterImpl
 import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.db.SqlCursor
 import app.cash.sqldelight.db.SqlDriver
+import kotlinx.coroutines.delay
+import org.jetbrains.annotations.VisibleForTesting
 
 class EntityQueries(
     driver: SqlDriver,
 ) : SuspendingTransacterImpl(driver) {
+
+    // Used to slow down insert/updates for testing
+    @VisibleForTesting
+    internal var slowWrite: Boolean = false
 
     suspend fun insertEntity(entity: Entity, ignoreIfExists: Boolean) {
         val identifier = identifier("insert", ignoreIfExists.toString())
@@ -32,6 +38,7 @@ class EntityQueries(
             emit("entity")
             emit("entity_${entity.entity_name}")
         }
+        if(slowWrite) delay(100)
     }
 
     suspend fun updateEntity(
@@ -59,6 +66,7 @@ class EntityQueries(
             emit("entity")
             emit("entity_${entityName}")
         }
+        if(slowWrite) delay(100)
     }
 
     fun select(
@@ -227,11 +235,11 @@ class EntityQueries(
         mapper: (SqlCursor) -> T,
     ) : Query<T>(mapper) {
 
-        override fun addListener(listener: Query.Listener) {
+        override fun addListener(listener: Listener) {
             driver.addListener("entity_$entityName", listener = listener)
         }
 
-        override fun removeListener(listener: Query.Listener) {
+        override fun removeListener(listener: Listener) {
             driver.removeListener("entity_$entityName", listener = listener)
         }
 

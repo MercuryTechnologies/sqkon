@@ -1,16 +1,21 @@
 package com.mercury.sqkon.db
 
+import app.cash.turbine.test
+import app.cash.turbine.turbineScope
 import com.mercury.sqkon.TestObject
 import com.mercury.sqkon.TestObjectChild
+import com.mercury.sqkon.TestValue
 import com.mercury.sqkon.until
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.Clock
 import org.junit.After
 import org.junit.Test
+import kotlin.test.BeforeTest
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.time.Duration.Companion.seconds
@@ -60,6 +65,23 @@ class KeyValueStorageTest {
             child = inserted.child.copy(updatedAt = Clock.System.now())
         )
         testObjectStorage.update(updated.id, updated)
+        val actualUpdated = testObjectStorage.selectAll().first().first()
+        assertEquals(updated, actualUpdated)
+    }
+
+    @Test
+    fun upsert() = runTest {
+        val inserted = TestObject()
+        testObjectStorage.upsert(inserted.id, inserted)
+        val actualInserted = testObjectStorage.selectAll().first().first()
+        assertEquals(inserted, actualInserted)
+        val updated = inserted.copy(
+            name = "Updated Name",
+            value = 12345,
+            description = "Updated Description",
+            child = inserted.child.copy(updatedAt = Clock.System.now())
+        )
+        testObjectStorage.upsert(updated.id, updated)
         val actualUpdated = testObjectStorage.selectAll().first().first()
         assertEquals(updated, actualUpdated)
     }
@@ -426,6 +448,61 @@ class KeyValueStorageTest {
         testObjectStorage.deleteAll()
         until { results.size == 3 }
         assertEquals(expected = 0, results[2])
+    }
+
+    @Test
+    fun selectCount_flowUpdatesOnUpsertOnce() = runTest {
+        entityQueries.slowWrite = true
+        val to1 = TestObject().also { testObjectStorage.upsert(it.id, it) }
+        testObjectStorage.selectAll(
+            orderBy = listOf(OrderBy(TestObject::child.then(TestObjectChild::createdAt)))
+        ).test {
+            assertEquals(listOf(to1), awaitItem())
+            // Insert new item
+            val to = TestObject()
+            testObjectStorage.upsert(to.id, to)
+            awaitItem().also {
+                assertEquals(2, it.size)
+                assertEquals(listOf(to1, to), it)
+            }
+            // Insert new item
+            TestObject().also { testObjectStorage.upsert(it.id, it) }
+            awaitItem()
+            // Update existing item
+            val new = to.copy(
+                name = "Updated Name",
+                value = 12345,
+                description = "Updated Description",
+                child = to.child.copy(updatedAt = Clock.System.now())
+            )
+            testObjectStorage.upsert(new.id, new)
+            awaitItem()
+            // Check only one update (not two) for the upsert
+            expectNoEvents()
+        }
+    }
+
+    @Test
+    fun selectCount_flowUpdatesOnUpsertAllOnce() = runTest {
+        entityQueries.slowWrite = true
+        val to1 = TestObject().also { testObjectStorage.upsert(it.id, it) }
+        val to2 = TestObject().also { testObjectStorage.upsert(it.id, it) }
+        testObjectStorage.selectAll(
+            orderBy = listOf(OrderBy(TestObject::child.then(TestObjectChild::createdAt)))
+        ).test {
+            assertEquals(listOf(to1, to2), awaitItem())
+            // Insert new item
+            val to3 = TestObject()
+            testObjectStorage.upsertAll(listOf(to3).associateBy { it.id })
+            awaitItem().also {
+                assertEquals(3, it.size)
+                assertEquals(listOf(to1, to2, to3), it)
+            }
+            expectNoEvents()
+            testObjectStorage.upsertAll(listOf(to1, to2, to3).associateBy { it.id })
+            awaitItem() // should only emit once for all the upserts
+            expectNoEvents()
+        }
     }
 
 

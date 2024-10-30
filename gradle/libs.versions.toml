@@ -8,6 +8,7 @@ kotlinx-serialization = { require = "1.7.3" }
 kotlinx-datetime = "0.6.1"
 paging = "3.3.0-alpha02-0.5.1"
 sqlDelight = "2.0.2"
+turbine = "1.2.0"
 
 [libraries]
 androidx-test-monitor = { module = "androidx.test:monitor", version.ref = "androidx-monitor" }
@@ -24,9 +25,10 @@ sqlDelight-driver-sqlite = { module = "app.cash.sqldelight:sqlite-driver", versi
 sqlDelight-driver-android = { module = "app.cash.sqldelight:android-driver", version.ref = "sqlDelight" }
 sqlDelight-coroutines = { module = "app.cash.sqldelight:coroutines-extensions", version.ref = "sqlDelight" }
 sqlite-requery-android = { module = "com.github.requery:sqlite-android", version = "3.45.0" }
-
 sqlDelight-driver-native = { module = "app.cash.sqldelight:native-driver", version.ref = "sqlDelight" }
 sqlDelight-driver-js = { module = "app.cash.sqldelight:web-worker-driver", version.ref = "sqlDelight" }
+turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
+
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

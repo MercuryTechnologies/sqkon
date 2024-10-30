@@ -32,6 +32,7 @@ kotlin {
             implementation(libs.kotlinx.coroutines.test)
             implementation(kotlin("test"))
             implementation(libs.paging.testing)
+            implementation(libs.turbine)
         }
 
         androidMain.dependencies {

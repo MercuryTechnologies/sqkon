@@ -5,7 +5,6 @@ import app.cash.sqldelight.SuspendingTransacter
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import app.cash.sqldelight.coroutines.mapToOne
-import app.cash.sqldelight.coroutines.mapToOneOrNull
 import com.mercury.sqkon.db.KeyValueStorage.Config.DeserializePolicy
 import com.mercury.sqkon.db.paging.OffsetQueryPagingSource
 import com.mercury.sqkon.db.serialization.KotlinSqkonSerializer
@@ -15,6 +14,7 @@ import com.mercury.sqkon.db.utils.nowMillis
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -110,11 +110,9 @@ open class KeyValueStorage<T : Any>(
      * @see insert
      * @see update
      */
-    suspend fun upsert(key: String, value: T) {
-        transaction {
-            update(key, value)
-            insert(key, value, ignoreIfExists = true)
-        }
+    suspend fun upsert(key: String, value: T) = transaction {
+        update(key, value)
+        insert(key, value, ignoreIfExists = true)
     }
 
     /**
@@ -125,12 +123,10 @@ open class KeyValueStorage<T : Any>(
      * @see insertAll
      * @see updateAll
      */
-    suspend fun upsertAll(values: Map<String, T>) {
-        transaction {
-            values.forEach { (key, value) ->
-                update(key, value)
-                insert(key, value, ignoreIfExists = true)
-            }
+    suspend fun upsertAll(values: Map<String, T>) = transaction {
+        values.forEach { (key, value) ->
+            update(key, value)
+            insert(key, value, ignoreIfExists = true)
         }
     }
 
