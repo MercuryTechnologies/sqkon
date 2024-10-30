@@ -46,8 +46,7 @@ subprojects {
                 SonatypeHost.CENTRAL_PORTAL,
                 automaticRelease = true
             )
-
-
+            mavenPublishing.signAllPublications()
         }
     }
     tasks.withType<KotlinCompile>().configureEach {
