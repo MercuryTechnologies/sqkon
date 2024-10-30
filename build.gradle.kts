@@ -1,5 +1,6 @@
 import com.vanniktech.maven.publish.MavenPublishBaseExtension
 import com.vanniktech.maven.publish.MavenPublishPlugin
+import com.vanniktech.maven.publish.SonatypeHost
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
@@ -39,6 +40,14 @@ subprojects {
                     }
                 }
             }
+        }
+        extensions.findByType<MavenPublishBaseExtension>()?.also { mavenPublishing ->
+            mavenPublishing.publishToMavenCentral(
+                SonatypeHost.CENTRAL_PORTAL,
+                automaticRelease = true
+            )
+
+
         }
     }
     tasks.withType<KotlinCompile>().configureEach {

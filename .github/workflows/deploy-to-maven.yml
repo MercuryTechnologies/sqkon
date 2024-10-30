@@ -1,0 +1,35 @@
+name: Create and publish a release to Maven Central
+
+on:
+  workflow_dispatch:
+  release:
+    types: [released] # Will trigger on (pre)released creation
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Java JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '21'
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+#      - name: Import GPG Key
+#        uses: crazy-max/ghaction-import-gpg@v6
+#        env:
+#          GPG_PRIVATE_KEY: ${{ secrets.GPG_SIGNING_KEY }}
+#          PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+
+      - name: Build and publish
+        run: ./gradlew publishAllPublicationsToMavenCentralRepository --no-configuration-cache
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_VERSION: ${{ github.event.release.name }}
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.GPG_SIGNING_KEY }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.GPG_PASSPHRASE }}
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.CENTRAL_PORTAL_USERNAME }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.CENTRAL_PORTAL_PASSWORD }}
