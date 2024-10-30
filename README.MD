@@ -43,28 +43,13 @@ data class Merchant(
 )
 ```
 
-### Publish to MavenCentral
-
-**TODO PUBLISH TO MAVEN CENTRAL GH ACTIONS**
-
-### Publish to github packages
-
-Creating a new release will publish the artifacts to GitHub Packages.
-
-If publishing locally you will need `GITHUB_ACTOR` and `GITHUB_TOKEN` environment variables set with
-repository write permissions.
-
-`./gradlew publishToGitHubPackages`
-
 
 ### Build platform artifacts
 
 #### Android aar
 
 - Run `./gradlew :core:assembleRelease`
-- Output: `/core/build/outputs/aar/core-release.aar`
 
 #### JVM jar
 
 - Run `./gradlew :core:jvmJar`
-- Output: `/core/build/libs/core-jvm-1.0.jar`
