@@ -43,6 +43,37 @@ data class Merchant(
 )
 ```
 
+## Installation
+
+### Gradle
+
+Multiplatform projects (Android, JVM, iOS (coming soon))
+
+```kotlin
+commonMain {
+    dependencies {
+        implementation("com.mercury.sqkon:library:1.0.0-alpha01")
+    }
+}
+```
+
+Or you can use the platform specific dependencies, e.g: Android only:
+
+```kotlin
+dependencies {
+    implementation("com.mercury.sqkon:library-android:1.0.0-alpha01")
+}
+```
+
+## Project Requirements
+
+The project is built upon [SQLDelight](https://github.com/sqldelight/sqldelight) 
+and [kotlinx.serialization](https://github.com/Kotlin/kotlinx.serialization), these are transitive 
+dependencies, but you will not be able to use the library with applying the 
+kotlinx-serialization plugin. If you are not using kotlinx serialization, I suggest you read about it
+here: https://github.com/Kotlin/kotlinx.serialization.
+
+```kotlin 
 
 ### Build platform artifacts
 
