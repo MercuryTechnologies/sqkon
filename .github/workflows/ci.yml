@@ -1,0 +1,35 @@
+name: Create and publish a release to Maven Central
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  #run-android-tests:
+  jvm-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Java JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '21'
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build and publish
+        run: ./gradlew jvmTest
+
+      - name: JUnit Report
+        uses: mikepenz/action-junit-report@v4
+        if: always()
+        with:
+          check_name: jvm-tests
+          report_paths: '**/build/test-results/jvmTest/**/*.xml'
+          require_tests: true
+

@@ -5,6 +5,10 @@
 Sqkon (/sk-on/) A Kotlin Multiplatform KeyValue Store with the ability to query on values using
 SQLite and JSONB.
 
+![Maven Central Version](https://img.shields.io/maven-central/v/com.mercury.sqkon/library)
+![GitHub branch status](https://img.shields.io/github/checks-status/MercuryTechnologies/sqkon/main)
+
+
 ## Usage
 
 ```kotlin
