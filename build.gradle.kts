@@ -1,5 +1,4 @@
 import com.vanniktech.maven.publish.MavenPublishBaseExtension
-import com.vanniktech.maven.publish.MavenPublishBasePlugin
 import com.vanniktech.maven.publish.SonatypeHost
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
@@ -23,12 +22,11 @@ allprojects {
 }
 
 subprojects {
-    plugins.withType<MavenPublishBasePlugin>().configureEach {
+    plugins.withId("com.vanniktech.maven.publish") {
         extensions.configure<MavenPublishBaseExtension> {
             logger.lifecycle("Configuring Maven Publishing for ${name}:${version}")
             publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL, automaticRelease = true)
-            // https://github.com/vanniktech/gradle-maven-publish-plugin/issues/865
-            //signAllPublications()
+            signAllPublications()
         }
         extensions.configure<PublishingExtension> {
             logger.lifecycle("Publishing ${project.name}:${version}")
