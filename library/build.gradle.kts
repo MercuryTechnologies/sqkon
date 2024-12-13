@@ -25,6 +25,7 @@ kotlin {
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.kotlinx.datetime)
             implementation(libs.paging.common)
+            implementation("org.jetbrains.compose.runtime:runtime:1.7.1")
             // Don't include other paging, just the base to generate pageable queries
         }
 
