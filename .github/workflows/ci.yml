@@ -22,6 +22,9 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      - name: Validation SqlDelight Migration
+        run: ./gradlew validateSqlDelightMigration
+
       - name: Build and publish
         run: ./gradlew jvmTest
 
