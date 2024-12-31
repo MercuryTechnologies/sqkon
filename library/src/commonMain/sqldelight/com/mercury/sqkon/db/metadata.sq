@@ -1,0 +1,20 @@
+import kotlinx.datetime.Instant;
+
+CREATE TABLE metadata (
+    entity_name TEXT NOT NULL PRIMARY KEY,
+    lastReadAt INTEGER AS Instant,
+    lastWriteAt INTEGER AS Instant
+);
+
+selectByEntityName:
+SELECT * FROM metadata WHERE entity_name = ?;
+
+upsertRead {
+    UPDATE metadata SET lastReadAt = :lastReadAt WHERE entity_name = :entity_name;
+    INSERT OR IGNORE INTO metadata (entity_name, lastReadAt) VALUES (:entity_name, :lastReadAt);
+}
+
+upsertWrite {
+    UPDATE metadata SET lastWriteAt = :lastWriteAt WHERE entity_name = :entity_name;
+    INSERT OR IGNORE INTO metadata (entity_name, lastWriteAt) VALUES (:entity_name, :lastWriteAt);
+}

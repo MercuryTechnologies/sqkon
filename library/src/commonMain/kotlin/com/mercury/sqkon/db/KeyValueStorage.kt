@@ -2,9 +2,11 @@ package com.mercury.sqkon.db
 
 import app.cash.paging.PagingSource
 import app.cash.sqldelight.SuspendingTransacter
+import app.cash.sqldelight.TransactionCallbacks
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import app.cash.sqldelight.coroutines.mapToOne
+import app.cash.sqldelight.coroutines.mapToOneNotNull
 import com.mercury.sqkon.db.KeyValueStorage.Config.DeserializePolicy
 import com.mercury.sqkon.db.paging.OffsetQueryPagingSource
 import com.mercury.sqkon.db.serialization.KotlinSqkonSerializer
@@ -14,10 +16,12 @@ import com.mercury.sqkon.db.utils.nowMillis
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import kotlinx.datetime.Clock
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
 
@@ -30,6 +34,7 @@ import kotlin.reflect.typeOf
 open class KeyValueStorage<T : Any>(
     protected val entityName: String,
     protected val entityQueries: EntityQueries,
+    protected val metadataQueries: MetadataQueries,
     protected val scope: CoroutineScope,
     protected val type: KType,
     protected val serializer: SqkonSerializer = KotlinSqkonSerializer(),
@@ -46,7 +51,7 @@ open class KeyValueStorage<T : Any>(
      *  @see update
      *  @see upsert
      */
-    suspend fun insert(key: String, value: T, ignoreIfExists: Boolean = false) {
+    suspend fun insert(key: String, value: T, ignoreIfExists: Boolean = false) = transaction {
         val now = nowMillis()
         val entity = Entity(
             entity_name = entityName,
@@ -57,6 +62,7 @@ open class KeyValueStorage<T : Any>(
             value_ = serializer.serialize(type, value) ?: error("Failed to serialize value")
         )
         entityQueries.insertEntity(entity, ignoreIfExists)
+        updateWriteAt()
     }
 
     /**
@@ -82,7 +88,7 @@ open class KeyValueStorage<T : Any>(
      * @see insert
      * @see upsert
      */
-    suspend fun update(key: String, value: T) {
+    suspend fun update(key: String, value: T) = transaction {
         entityQueries.updateEntity(
             entityName = entityName,
             entityKey = key,
@@ -90,6 +96,7 @@ open class KeyValueStorage<T : Any>(
             expiresAt = null,
             value = serializer.serialize(type, value) ?: error("Failed to serialize value")
         )
+        updateWriteAt()
     }
 
     /**
@@ -163,6 +170,7 @@ open class KeyValueStorage<T : Any>(
             )
             .asFlow()
             .mapToList(config.dispatcher)
+            .onEach { updateReadAt() }
             .map { list ->
                 if (list.isEmpty()) return@map emptyList<T>()
                 list.mapNotNull { entity -> entity.deserialize() }
@@ -196,6 +204,7 @@ open class KeyValueStorage<T : Any>(
             )
             .asFlow()
             .mapToList(config.dispatcher)
+            .onEach { updateReadAt() }
             .map { list ->
                 if (list.isEmpty()) return@map emptyList<T>()
                 list.mapNotNull { entity -> entity.deserialize() }
@@ -223,7 +232,9 @@ open class KeyValueStorage<T : Any>(
                 orderBy = orderBy,
                 limit = limit.toLong(),
                 offset = offset.toLong()
-            )
+            ).also {
+                updateReadAt()
+            }
         },
         countQuery = entityQueries.count(entityName, where = where),
         transacter = entityQueries,
@@ -247,8 +258,8 @@ open class KeyValueStorage<T : Any>(
      * @see delete
      * @see deleteAll
      */
-    suspend fun deleteByKey(key: String) {
-        entityQueries.delete(entityName, entityKey = key)
+    suspend fun deleteByKey(key: String) = transaction {
+        entityQueries.delete(entityName, entityKey = key).also { updateWriteAt() }
     }
 
     /**
@@ -260,8 +271,8 @@ open class KeyValueStorage<T : Any>(
      * @see deleteAll
      * @see deleteByKey
      */
-    suspend fun delete(where: Where<T>? = null) {
-        entityQueries.delete(entityName, where = where)
+    suspend fun delete(where: Where<T>? = null) = transaction {
+        entityQueries.delete(entityName, where = where).also { updateWriteAt() }
     }
 
     fun count(): Flow<Int> {
@@ -269,6 +280,14 @@ open class KeyValueStorage<T : Any>(
             .asFlow()
             .mapToOne(config.dispatcher)
     }
+
+
+    // Metadata helpers
+    fun metadata(): Flow<Metadata> = metadataQueries
+        .selectByEntityName(entityName)
+        .asFlow()
+        .mapToOneNotNull(config.dispatcher)
+        .distinctUntilChanged()
 
     private fun <T : Any> Entity?.deserialize(): T? {
         this ?: return null
@@ -281,6 +300,29 @@ open class KeyValueStorage<T : Any>(
                     scope.launch { deleteByKey(entity_key) }
                     null
                 }
+            }
+        }
+    }
+
+    private fun updateReadAt() {
+        scope.launch(config.dispatcher) {
+            metadataQueries.upsertRead(Clock.System.now(), entityName)
+        }
+    }
+
+    private val writeTransactionCallbacks = mutableSetOf<TransactionCallbacks>()
+
+    /**
+     * Will run after the transaction is committed. This way inside of multiple inserts we only
+     * update the write_at once.
+     */
+    private fun TransactionCallbacks.updateWriteAt() {
+        if (this in writeTransactionCallbacks) return
+        writeTransactionCallbacks.add(this)
+        afterCommit {
+            writeTransactionCallbacks.remove(this)
+            scope.launch(config.dispatcher) {
+                runCatching { metadataQueries.upsertWrite(Clock.System.now(), entityName) }
             }
         }
     }
@@ -311,6 +353,7 @@ open class KeyValueStorage<T : Any>(
 inline fun <reified T : Any> keyValueStorage(
     entityName: String,
     entityQueries: EntityQueries,
+    metadataQueries: MetadataQueries,
     scope: CoroutineScope,
     serializer: SqkonSerializer = KotlinSqkonSerializer(),
     config: KeyValueStorage.Config = KeyValueStorage.Config(),
@@ -318,6 +361,7 @@ inline fun <reified T : Any> keyValueStorage(
     return KeyValueStorage(
         entityName = entityName,
         entityQueries = entityQueries,
+        metadataQueries = metadataQueries,
         scope = scope,
         type = typeOf<T>(),
         serializer = serializer,
