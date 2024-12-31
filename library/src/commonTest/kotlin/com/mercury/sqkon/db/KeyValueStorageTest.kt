@@ -19,9 +19,11 @@ import kotlin.time.Duration.Companion.seconds
 class KeyValueStorageTest {
 
     private val mainScope = MainScope()
-    private val entityQueries = createEntityQueries()
+    private val driver = driverFactory().createDriver()
+    private val entityQueries = EntityQueries(driver)
+    private val metadataQueries = MetadataQueries(driver)
     private val testObjectStorage = keyValueStorage<TestObject>(
-        "test-object", entityQueries, mainScope
+        "test-object", entityQueries, metadataQueries, mainScope
     )
 
     @After
