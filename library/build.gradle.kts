@@ -47,7 +47,6 @@ kotlin {
         }
 
     }
-    @OptIn(ExperimentalKotlinGradlePluginApi::class)
     compilerOptions {
         freeCompilerArgs.add("-Xexpect-actual-classes")
     }
@@ -80,6 +79,7 @@ sqldelight {
             // https://cashapp.github.io/sqldelight
             generateAsync = true
             packageName.set("com.mercury.sqkon.db")
+            schemaOutputDirectory.set(file("src/commonMain/sqldelight/databases"))
         }
     }
 }
