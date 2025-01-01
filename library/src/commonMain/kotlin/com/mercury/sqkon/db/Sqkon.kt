@@ -24,6 +24,7 @@ import kotlinx.serialization.json.Json
  */
 class Sqkon internal constructor(
     @PublishedApi internal val entityQueries: EntityQueries,
+    @PublishedApi internal val metadataQueries: MetadataQueries,
     @PublishedApi internal val scope: CoroutineScope,
     json: Json = SqkonJson {},
     @PublishedApi
@@ -46,7 +47,7 @@ class Sqkon internal constructor(
         name: String,
         config: KeyValueStorage.Config = this.config,
     ): KeyValueStorage<T> {
-        return keyValueStorage<T>(name, entityQueries, scope, serializer, config)
+        return keyValueStorage<T>(name, entityQueries, metadataQueries, scope, serializer, config)
     }
 
 }

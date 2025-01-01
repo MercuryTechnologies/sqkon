@@ -1,0 +1,7 @@
+import kotlinx.datetime.Instant;
+
+CREATE TABLE metadata (
+    entity_name TEXT NOT NULL PRIMARY KEY,
+    lastReadAt INTEGER AS Instant,
+    lastWriteAt INTEGER AS Instant
+);

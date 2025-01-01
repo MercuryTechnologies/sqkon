@@ -18,18 +18,22 @@ import kotlin.test.fail
 class DeserializationTest {
 
     private val mainScope = MainScope()
-    private val entityQueries = createEntityQueries()
+    private val driver = driverFactory().createDriver()
+    private val entityQueries = EntityQueries(driver)
+    private val metadataQueries = MetadataQueries(driver)
     private val testObjectStorage = keyValueStorage<TestObject>(
-        "test-object", entityQueries, mainScope
+        "test-object", entityQueries, metadataQueries, mainScope
     )
     private val testObjectStorageError = keyValueStorage<UnSerializable>(
-        "test-object", entityQueries, mainScope, config = KeyValueStorage.Config(
+        "test-object", entityQueries, metadataQueries, mainScope,
+        config = KeyValueStorage.Config(
             deserializePolicy = KeyValueStorage.Config.DeserializePolicy.ERROR // default
         )
     )
 
     private val testObjectStorageDelete = keyValueStorage<UnSerializable>(
-        "test-object", entityQueries, mainScope, config = KeyValueStorage.Config(
+        "test-object", entityQueries, metadataQueries, mainScope,
+        config = KeyValueStorage.Config(
             deserializePolicy = KeyValueStorage.Config.DeserializePolicy.DELETE
         )
     )

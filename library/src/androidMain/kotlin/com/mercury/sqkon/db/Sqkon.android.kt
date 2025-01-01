@@ -16,6 +16,8 @@ fun Sqkon(
     config: KeyValueStorage.Config = KeyValueStorage.Config(),
 ): Sqkon {
     val factory = DriverFactory(context, if (inMemory) null else "sqkon.db")
-    val entities = createEntityQueries(factory)
-    return Sqkon(entities, scope, json, config)
+    val driver = factory.createDriver()
+    val metadataQueries = MetadataQueries(driver)
+    val entityQueries = EntityQueries(driver)
+    return Sqkon(entityQueries, metadataQueries, scope, json, config)
 }
