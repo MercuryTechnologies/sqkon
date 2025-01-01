@@ -12,15 +12,18 @@ import com.mercury.sqkon.db.paging.OffsetQueryPagingSource
 import com.mercury.sqkon.db.serialization.KotlinSqkonSerializer
 import com.mercury.sqkon.db.serialization.SqkonJson
 import com.mercury.sqkon.db.serialization.SqkonSerializer
+import com.mercury.sqkon.db.utils.RequestHash
 import com.mercury.sqkon.db.utils.nowMillis
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.datetime.Clock
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
@@ -62,7 +65,7 @@ open class KeyValueStorage<T : Any>(
             value_ = serializer.serialize(type, value) ?: error("Failed to serialize value")
         )
         entityQueries.insertEntity(entity, ignoreIfExists)
-        updateWriteAt()
+        updateWriteAt(currentCoroutineContext()[RequestHash.Key]?.hash ?: entity.hashCode())
     }
 
     /**
@@ -73,7 +76,9 @@ open class KeyValueStorage<T : Any>(
      * @see updateAll
      * @see upsertAll
      */
-    suspend fun insertAll(values: Map<String, T>, ignoreIfExists: Boolean = false) {
+    suspend fun insertAll(
+        values: Map<String, T>, ignoreIfExists: Boolean = false
+    ) = withContext(RequestHash(values.hashCode())) {
         transaction {
             values.forEach { (key, value) -> insert(key, value, ignoreIfExists) }
         }
@@ -96,7 +101,7 @@ open class KeyValueStorage<T : Any>(
             expiresAt = null,
             value = serializer.serialize(type, value) ?: error("Failed to serialize value")
         )
-        updateWriteAt()
+        updateWriteAt(currentCoroutineContext()[RequestHash.Key]?.hash ?: key.hashCode())
     }
 
     /**
@@ -106,7 +111,7 @@ open class KeyValueStorage<T : Any>(
      * @see insertAll
      * @see upsertAll
      */
-    suspend fun updateAll(values: Map<String, T>) {
+    suspend fun updateAll(values: Map<String, T>) = withContext(RequestHash(values.hashCode())) {
         transaction { values.forEach { (key, value) -> update(key, value) } }
     }
 
@@ -117,9 +122,11 @@ open class KeyValueStorage<T : Any>(
      * @see insert
      * @see update
      */
-    suspend fun upsert(key: String, value: T) = transaction {
-        update(key, value)
-        insert(key, value, ignoreIfExists = true)
+    suspend fun upsert(key: String, value: T) = withContext(RequestHash(key.hashCode())) {
+        transaction {
+            update(key, value)
+            insert(key, value, ignoreIfExists = true)
+        }
     }
 
     /**
@@ -130,10 +137,12 @@ open class KeyValueStorage<T : Any>(
      * @see insertAll
      * @see updateAll
      */
-    suspend fun upsertAll(values: Map<String, T>) = transaction {
-        values.forEach { (key, value) ->
-            update(key, value)
-            insert(key, value, ignoreIfExists = true)
+    suspend fun upsertAll(values: Map<String, T>) = withContext(RequestHash(values.hashCode())) {
+        transaction {
+            values.forEach { (key, value) ->
+                update(key, value)
+                insert(key, value, ignoreIfExists = true)
+            }
         }
     }
 
@@ -203,8 +212,8 @@ open class KeyValueStorage<T : Any>(
                 offset = offset,
             )
             .asFlow()
-            .mapToList(config.dispatcher)
             .onEach { updateReadAt() }
+            .mapToList(config.dispatcher)
             .map { list ->
                 if (list.isEmpty()) return@map emptyList<T>()
                 list.mapNotNull { entity -> entity.deserialize() }
@@ -259,7 +268,8 @@ open class KeyValueStorage<T : Any>(
      * @see deleteAll
      */
     suspend fun deleteByKey(key: String) = transaction {
-        entityQueries.delete(entityName, entityKey = key).also { updateWriteAt() }
+        entityQueries.delete(entityName, entityKey = key)
+        updateWriteAt(currentCoroutineContext()[RequestHash.Key]?.hash ?: key.hashCode())
     }
 
     /**
@@ -272,7 +282,8 @@ open class KeyValueStorage<T : Any>(
      * @see deleteByKey
      */
     suspend fun delete(where: Where<T>? = null) = transaction {
-        entityQueries.delete(entityName, where = where).also { updateWriteAt() }
+        entityQueries.delete(entityName, where = where)
+        updateWriteAt(currentCoroutineContext()[RequestHash.Key]?.hash ?: where.hashCode())
     }
 
     fun count(): Flow<Int> {
@@ -282,7 +293,10 @@ open class KeyValueStorage<T : Any>(
     }
 
 
-    // Metadata helpers
+    /**
+     * Metadata for the entity, this will tell you the last time
+     * the entity store was read and written to, useful for cache invalidation.
+     */
     fun metadata(): Flow<Metadata> = metadataQueries
         .selectByEntityName(entityName)
         .asFlow()
@@ -306,24 +320,22 @@ open class KeyValueStorage<T : Any>(
 
     private fun updateReadAt() {
         scope.launch(config.dispatcher) {
-            metadataQueries.upsertRead(Clock.System.now(), entityName)
+            metadataQueries.upsertRead(entityName, Clock.System.now())
         }
     }
 
-    private val writeTransactionCallbacks = mutableSetOf<TransactionCallbacks>()
+    private val updateWriteHashes = mutableSetOf<Int>()
 
     /**
      * Will run after the transaction is committed. This way inside of multiple inserts we only
      * update the write_at once.
      */
-    private fun TransactionCallbacks.updateWriteAt() {
-        if (this in writeTransactionCallbacks) return
-        writeTransactionCallbacks.add(this)
+    private fun TransactionCallbacks.updateWriteAt(requestHash: Int) {
+        if (requestHash in updateWriteHashes) return
+        updateWriteHashes.add(requestHash)
         afterCommit {
-            writeTransactionCallbacks.remove(this)
-            scope.launch(config.dispatcher) {
-                runCatching { metadataQueries.upsertWrite(Clock.System.now(), entityName) }
-            }
+            updateWriteHashes.remove(requestHash)
+            scope.launch { metadataQueries.upsertWrite(entityName, Clock.System.now()) }
         }
     }
 

@@ -9,8 +9,8 @@ import kotlinx.coroutines.delay
 import org.jetbrains.annotations.VisibleForTesting
 
 class EntityQueries(
-    driver: SqlDriver,
-) : SuspendingTransacterImpl(driver) {
+    internal val sqlDriver: SqlDriver,
+) : SuspendingTransacterImpl(sqlDriver) {
 
     // Used to slow down insert/updates for testing
     @VisibleForTesting
