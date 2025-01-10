@@ -9,12 +9,12 @@ CREATE TABLE entity (
     updated_at INTEGER NOT NULL DEFAULT CURRENT_TIMESTAMP,
     -- UTC timestamp in milliseconds
     expires_at INTEGER,
+    -- JSONB Blob use jsonb_ operators
+    value BLOB AS String NOT NULL,
     -- UTC timestamp in milliseconds
     read_at INTEGER,
     -- UTC timestamp in milliseconds
     write_at INTEGER NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    -- JSONB Blob use jsonb_ operators
-    value BLOB AS String NOT NULL,
     PRIMARY KEY (entity_name, entity_key)
 );
 
