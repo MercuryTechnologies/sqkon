@@ -11,8 +11,19 @@ CREATE TABLE entity (
     expires_at INTEGER,
     -- JSONB Blob use jsonb_ operators
     value BLOB AS String NOT NULL,
+    -- UTC timestamp in milliseconds
+    read_at INTEGER,
+    -- UTC timestamp in milliseconds
+    write_at INTEGER NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (entity_name, entity_key)
 );
+
+-- Index read_at
+CREATE INDEX idx_entity_read_at ON entity (read_at);
+-- Index write_at
+CREATE INDEX idx_entity_write_at ON entity (write_at);
+-- Index expires_at
+CREATE INDEX idx_entity_expires_at ON entity (expires_at);
 
 -- insertEntity:
 -- INSERT INTO entity VALUES ?;

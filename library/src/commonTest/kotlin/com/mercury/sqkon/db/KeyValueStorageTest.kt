@@ -1,6 +1,7 @@
 package com.mercury.sqkon.db
 
 import app.cash.turbine.test
+import app.cash.turbine.turbineScope
 import com.mercury.sqkon.TestObject
 import com.mercury.sqkon.TestObjectChild
 import com.mercury.sqkon.until
@@ -19,9 +20,11 @@ import kotlin.time.Duration.Companion.seconds
 class KeyValueStorageTest {
 
     private val mainScope = MainScope()
-    private val entityQueries = createEntityQueries()
+    private val driver = driverFactory().createDriver()
+    private val entityQueries = EntityQueries(driver)
+    private val metadataQueries = MetadataQueries(driver)
     private val testObjectStorage = keyValueStorage<TestObject>(
-        "test-object", entityQueries, mainScope
+        "test-object", entityQueries, metadataQueries, mainScope
     )
 
     @After
@@ -377,55 +380,52 @@ class KeyValueStorageTest {
 
     @Test
     fun selectAllFlow_flowUpdatesOnUpdate() = runTest {
-        val expected = (0..10).map { TestObject() }
-            .associateBy { it.id }
-            .toSortedMap()
-        testObjectStorage.insertAll(expected)
-        val results: MutableList<List<TestObject>> = mutableListOf()
-        backgroundScope.launch {
-            testObjectStorage.selectAll(
+        turbineScope {
+            val expected = (0..10).map { TestObject() }
+                .associateBy { it.id }
+                .toSortedMap()
+            testObjectStorage.insertAll(expected)
+            val results = testObjectStorage.selectAll(
                 orderBy = listOf(OrderBy(TestObject::id, direction = OrderDirection.ASC))
-            ).collect { results.add(it) }
+            ).testIn(backgroundScope)
+
+            val first = results.awaitItem()
+            assertEquals(expected.size, first.size)
+
+            val updated = expected.values.toList()[5].copy(
+                name = "Updated Name",
+                value = 12345,
+                description = "Updated Description",
+                child = expected.values.toList()[5].child.copy(updatedAt = Clock.System.now())
+            )
+            testObjectStorage.update(updated.id, updated)
+            val second = results.awaitItem()
+            assertEquals(expected.size, second.size)
+            assertEquals(updated, second[5])
         }
-
-        until { results.size == 1 }
-        assertEquals(expected.size, results.first().size)
-
-        val updated = expected.values.toList()[5].copy(
-            name = "Updated Name",
-            value = 12345,
-            description = "Updated Description",
-            child = expected.values.toList()[5].child.copy(updatedAt = Clock.System.now())
-        )
-        testObjectStorage.update(updated.id, updated)
-        until { results.size == 2 }
-
-        assertEquals(expected.size, results[1].size)
-        assertEquals(updated, results[1][5])
     }
 
     @Test
     fun selectAllFlow_flowUpdatesOnDelete() = runTest {
-        val expected = (0..10).map { TestObject() }
-            .associateBy { it.id }
-            .toSortedMap()
-        testObjectStorage.insertAll(expected)
-        val results: MutableList<List<TestObject>> = mutableListOf()
-        backgroundScope.launch {
-            testObjectStorage.selectAll(
+        turbineScope {
+            val expected = (0..10).map { TestObject() }
+                .associateBy { it.id }
+                .toSortedMap()
+            testObjectStorage.insertAll(expected)
+            val results = testObjectStorage.selectAll(
                 orderBy = listOf(OrderBy(TestObject::id, direction = OrderDirection.ASC))
-            ).collect { results.add(it) }
+            ).testIn(backgroundScope)
+
+            val first = results.awaitItem()
+            assertEquals(expected.size, first.size)
+
+            val key = expected.keys.toList()[5]
+            testObjectStorage.deleteByKey(key)
+            val second = results.awaitItem()
+            assertEquals(expected.size - 1, second.size)
         }
-
-        until { results.size == 1 }
-        assertEquals(expected.size, results.first().size)
-
-        val key = expected.keys.toList()[5]
-        testObjectStorage.deleteByKey(key)
-        until { results.size == 2 }
-
-        assertEquals(expected.size - 1, results[1].size)
     }
+
 
     @Test
     fun selectCount_flowUpdatesOnChange() = runTest {

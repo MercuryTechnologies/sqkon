@@ -6,11 +6,13 @@ import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.db.SqlCursor
 import app.cash.sqldelight.db.SqlDriver
 import kotlinx.coroutines.delay
+import kotlinx.datetime.Clock
+import kotlinx.datetime.Instant
 import org.jetbrains.annotations.VisibleForTesting
 
 class EntityQueries(
-    driver: SqlDriver,
-) : SuspendingTransacterImpl(driver) {
+    internal val sqlDriver: SqlDriver,
+) : SuspendingTransacterImpl(sqlDriver) {
 
     // Used to slow down insert/updates for testing
     @VisibleForTesting
@@ -22,51 +24,55 @@ class EntityQueries(
         driver.execute(
             identifier = identifier,
             sql = """
-            INSERT $orIgnore INTO entity (entity_name, entity_key, added_at, updated_at, expires_at, value) 
-            VALUES (?, ?, ?, ?, ?, jsonb(?))
+            INSERT $orIgnore INTO entity (
+                entity_name, entity_key, added_at, updated_at, expires_at, write_at, value
+            ) 
+            VALUES (?, ?, ?, ?, ?, ?, jsonb(?))
             """.trimIndent(),
-            parameters = 6
+            parameters = 7
         ) {
             bindString(0, entity.entity_name)
             bindString(1, entity.entity_key)
             bindLong(2, entity.added_at)
             bindLong(3, entity.updated_at)
             bindLong(4, entity.expires_at)
-            bindString(5, entity.value_)
+            bindLong(5, entity.write_at)
+            bindString(6, entity.value_)
         }.await()
         notifyQueries(identifier) { emit ->
             emit("entity")
             emit("entity_${entity.entity_name}")
         }
-        if(slowWrite) delay(100)
+        if (slowWrite) delay(100)
     }
 
     suspend fun updateEntity(
         entityName: String,
         entityKey: String,
-        updatedAt: Long,
-        expiresAt: Long?,
+        expiresAt: Instant?,
         value: String,
     ) {
+        val now = Clock.System.now()
         val identifier = identifier("update")
         driver.execute(
             identifier = identifier,
             sql = """
-                UPDATE entity SET updated_at = ?, expires_at = ?, value = jsonb(?)
+                UPDATE entity SET updated_at = ?, expires_at = ?, write_at = ?, value = jsonb(?)
                 WHERE entity_name = ? AND entity_key = ?
             """.trimMargin(), 5
         ) {
-            bindLong(0, updatedAt)
-            bindLong(1, expiresAt)
-            bindString(2, value)
-            bindString(3, entityName)
-            bindString(4, entityKey)
+            bindLong(0, now.toEpochMilliseconds())
+            bindLong(1, expiresAt?.toEpochMilliseconds())
+            bindLong(2, now.toEpochMilliseconds())
+            bindString(3, value)
+            bindString(4, entityName)
+            bindString(5, entityKey)
         }.await()
         notifyQueries(identifier) { emit ->
             emit("entity")
             emit("entity_${entityName}")
         }
-        if(slowWrite) delay(100)
+        if (slowWrite) delay(100)
     }
 
     fun select(
@@ -76,6 +82,7 @@ class EntityQueries(
         orderBy: List<OrderBy<*>> = emptyList(),
         limit: Long? = null,
         offset: Long? = null,
+        expiresAt: Instant? = null,
     ): Query<Entity> = SelectQuery(
         entityName = entityName,
         entityKeys = entityKeys,
@@ -83,6 +90,7 @@ class EntityQueries(
         orderBy = orderBy,
         limit = limit,
         offset = offset,
+        expiresAt = expiresAt,
     ) { cursor ->
         Entity(
             entity_name = cursor.getString(0)!!,
@@ -90,7 +98,9 @@ class EntityQueries(
             added_at = cursor.getLong(2)!!,
             updated_at = cursor.getLong(3)!!,
             expires_at = cursor.getLong(4),
-            value_ = cursor.getString(5)!!,
+            read_at = cursor.getLong(5),
+            write_at = cursor.getLong(6)!!,
+            value_ = cursor.getString(7)!!,
         )
     }
 
@@ -101,6 +111,7 @@ class EntityQueries(
         private val orderBy: List<OrderBy<*>>,
         private val limit: Long? = null,
         private val offset: Long? = null,
+        private val expiresAt: Instant? = null,
         mapper: (SqlCursor) -> Entity,
     ) : Query<Entity>(mapper) {
 
@@ -119,6 +130,13 @@ class EntityQueries(
                         where = "entity_name = ?",
                         parameters = 1,
                         bindArgs = { bindString(entityName) },
+                    )
+                )
+                if (expiresAt != null) add(
+                    SqlQuery(
+                        where = "expires_at IS NULL OR expires_at >= ?",
+                        parameters = 1,
+                        bindArgs = { bindLong(expiresAt.toEpochMilliseconds()) },
                     )
                 )
                 when (entityKeys?.size) {
@@ -151,7 +169,8 @@ class EntityQueries(
             )
             val sql = """
                 SELECT DISTINCT entity.entity_name, entity.entity_key, entity.added_at, 
-                entity.updated_at, entity.expires_at, json_extract(entity.value, '$') value
+                entity.updated_at, entity.expires_at, entity.read_at, entity.write_at, 
+                json_extract(entity.value, '$') value
                 FROM entity${queries.buildFrom()} ${queries.buildWhere()} ${queries.buildOrderBy()}
                 ${limit?.let { "LIMIT ?" } ?: ""} ${offset?.let { "OFFSET ?" } ?: ""}
             """.trimIndent().replace('\n', ' ')
@@ -225,13 +244,15 @@ class EntityQueries(
     fun count(
         entityName: String,
         where: Where<*>? = null,
-    ): Query<Int> = CountQuery(entityName, where) { cursor ->
+        expiresAfter: Instant? = null
+    ): Query<Int> = CountQuery(entityName, where, expiresAfter) { cursor ->
         cursor.getLong(0)!!.toInt()
     }
 
     private inner class CountQuery<out T : Any>(
         private val entityName: String,
         private val where: Where<*>? = null,
+        private val expiresAfter: Instant? = null,
         mapper: (SqlCursor) -> T,
     ) : Query<T>(mapper) {
 
@@ -250,6 +271,13 @@ class EntityQueries(
                     parameters = 1,
                     bindArgs = { bindString(entityName) }
                 ))
+                if (expiresAfter != null) add(
+                    SqlQuery(
+                        where = "expires_at IS NULL OR expires_at >= ?",
+                        parameters = 1,
+                        bindArgs = { bindLong(expiresAfter.toEpochMilliseconds()) }
+                    )
+                )
                 addAll(listOfNotNull(where?.toSqlQuery(increment = 1)))
             }
             val identifier: Int = identifier("count", queries.identifier().toString())

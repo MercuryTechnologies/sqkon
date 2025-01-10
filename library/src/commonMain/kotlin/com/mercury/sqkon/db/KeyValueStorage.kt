@@ -2,22 +2,30 @@ package com.mercury.sqkon.db
 
 import app.cash.paging.PagingSource
 import app.cash.sqldelight.SuspendingTransacter
+import app.cash.sqldelight.TransactionCallbacks
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
 import app.cash.sqldelight.coroutines.mapToOne
+import app.cash.sqldelight.coroutines.mapToOneNotNull
 import com.mercury.sqkon.db.KeyValueStorage.Config.DeserializePolicy
 import com.mercury.sqkon.db.paging.OffsetQueryPagingSource
 import com.mercury.sqkon.db.serialization.KotlinSqkonSerializer
 import com.mercury.sqkon.db.serialization.SqkonJson
 import com.mercury.sqkon.db.serialization.SqkonSerializer
+import com.mercury.sqkon.db.utils.RequestHash
 import com.mercury.sqkon.db.utils.nowMillis
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.datetime.Clock
+import kotlinx.datetime.Instant
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
 
@@ -30,11 +38,11 @@ import kotlin.reflect.typeOf
 open class KeyValueStorage<T : Any>(
     protected val entityName: String,
     protected val entityQueries: EntityQueries,
+    protected val metadataQueries: MetadataQueries,
     protected val scope: CoroutineScope,
     protected val type: KType,
     protected val serializer: SqkonSerializer = KotlinSqkonSerializer(),
     protected val config: Config = Config(),
-    // TODO expiresAt
 ) : SuspendingTransacter by entityQueries {
 
     /**
@@ -46,30 +54,43 @@ open class KeyValueStorage<T : Any>(
      *  @see update
      *  @see upsert
      */
-    suspend fun insert(key: String, value: T, ignoreIfExists: Boolean = false) {
+    suspend fun insert(
+        key: String, value: T,
+        ignoreIfExists: Boolean = false,
+        expiresAt: Instant? = null,
+    ) = transaction {
         val now = nowMillis()
         val entity = Entity(
             entity_name = entityName,
             entity_key = key,
             added_at = now,
             updated_at = now,
-            expires_at = null,
+            expires_at = expiresAt?.toEpochMilliseconds(),
+            read_at = null,
+            write_at = now,
             value_ = serializer.serialize(type, value) ?: error("Failed to serialize value")
         )
         entityQueries.insertEntity(entity, ignoreIfExists)
+        updateWriteAt(currentCoroutineContext()[RequestHash.Key]?.hash ?: entity.hashCode())
     }
 
     /**
      * Insert multiple rows.
      *
      * @param ignoreIfExists if true, will not insert if a row with the same key already exists.
+     * @param expiresAt if set, will be used to expire the row when requesting data before it has
+     *  expired.
      *
      * @see updateAll
      * @see upsertAll
      */
-    suspend fun insertAll(values: Map<String, T>, ignoreIfExists: Boolean = false) {
+    suspend fun insertAll(
+        values: Map<String, T>,
+        ignoreIfExists: Boolean = false,
+        expiresAt: Instant? = null,
+    ) = withContext(RequestHash(values.hashCode())) {
         transaction {
-            values.forEach { (key, value) -> insert(key, value, ignoreIfExists) }
+            values.forEach { (key, value) -> insert(key, value, ignoreIfExists, expiresAt) }
         }
     }
 
@@ -79,40 +100,52 @@ open class KeyValueStorage<T : Any>(
      *
      * We also provide [upsert] convenience function to insert or update.
      *
+     * @param expiresAt if set, will be used to expire the row when requesting data before it has
+     *   expired.
      * @see insert
      * @see upsert
      */
-    suspend fun update(key: String, value: T) {
+    suspend fun update(key: String, value: T, expiresAt: Instant? = null) = transaction {
         entityQueries.updateEntity(
             entityName = entityName,
             entityKey = key,
-            updatedAt = nowMillis(),
-            expiresAt = null,
+            expiresAt = expiresAt,
             value = serializer.serialize(type, value) ?: error("Failed to serialize value")
         )
+        updateWriteAt(currentCoroutineContext()[RequestHash.Key]?.hash ?: key.hashCode())
     }
 
     /**
      * Convenience function to insert collection of rows. If the row does not exist, ti will update
      * nothing, use [insert] if you want to insert if the row does not exist.
      *
+     * @param expiresAt if set, will be used to expire the row when requesting data before it has
+     *  expired.
      * @see insertAll
      * @see upsertAll
      */
-    suspend fun updateAll(values: Map<String, T>) {
-        transaction { values.forEach { (key, value) -> update(key, value) } }
+    suspend fun updateAll(
+        values: Map<String, T>, expiresAt: Instant? = null
+    ) = withContext(RequestHash(values.hashCode())) {
+        transaction { values.forEach { (key, value) -> update(key, value, expiresAt) } }
     }
 
 
     /**
      * Convenience function to insert a new row or update an existing row.
      *
+     * @param expiresAt if set, will be used to expire the row when requesting data before it has
+     *   expired.
      * @see insert
      * @see update
      */
-    suspend fun upsert(key: String, value: T) = transaction {
-        update(key, value)
-        insert(key, value, ignoreIfExists = true)
+    suspend fun upsert(
+        key: String, value: T, expiresAt: Instant? = null
+    ) = withContext(RequestHash(key.hashCode())) {
+        transaction {
+            update(key, value, expiresAt = expiresAt)
+            insert(key, value, ignoreIfExists = true, expiresAt = expiresAt)
+        }
     }
 
     /**
@@ -120,21 +153,31 @@ open class KeyValueStorage<T : Any>(
      *
      * Basically an alias for [updateAll] and [insertAll] with ignoreIfExists set to true.
      *
+     * @param expiresAt if set, will be used to expire the row when requesting data before it has
+     *   expired.
      * @see insertAll
      * @see updateAll
      */
-    suspend fun upsertAll(values: Map<String, T>) = transaction {
-        values.forEach { (key, value) ->
-            update(key, value)
-            insert(key, value, ignoreIfExists = true)
+    suspend fun upsertAll(
+        values: Map<String, T>,
+        expiresAt: Instant? = null
+    ) = withContext(RequestHash(values.hashCode())) {
+        transaction {
+            values.forEach { (key, value) ->
+                update(key, value, expiresAt = expiresAt)
+                insert(key, value, ignoreIfExists = true, expiresAt = expiresAt)
+            }
         }
     }
 
     /**
      * Select all rows. Effectively an alias for [select] with no where set.
      */
-    fun selectAll(orderBy: List<OrderBy<T>> = emptyList()): Flow<List<T>> {
-        return select(where = null, orderBy = orderBy)
+    fun selectAll(
+        orderBy: List<OrderBy<T>> = emptyList(),
+        expiresAfter: Instant? = null,
+    ): Flow<List<T>> {
+        return select(where = null, orderBy = orderBy, expiresAfter = expiresAfter)
     }
 
     /**
@@ -163,6 +206,9 @@ open class KeyValueStorage<T : Any>(
             )
             .asFlow()
             .mapToList(config.dispatcher)
+            .onEach { list ->
+                updateReadAt(list.map { it.entity_key })
+            }
             .map { list ->
                 if (list.isEmpty()) return@map emptyList<T>()
                 list.mapNotNull { entity -> entity.deserialize() }
@@ -185,6 +231,7 @@ open class KeyValueStorage<T : Any>(
         orderBy: List<OrderBy<T>> = emptyList(),
         limit: Long? = null,
         offset: Long? = null,
+        expiresAfter: Instant? = null,
     ): Flow<List<T>> {
         return entityQueries
             .select(
@@ -193,12 +240,55 @@ open class KeyValueStorage<T : Any>(
                 orderBy = orderBy,
                 limit = limit,
                 offset = offset,
+                expiresAt = expiresAfter,
             )
             .asFlow()
             .mapToList(config.dispatcher)
+            .onEach { list -> updateReadAt(list.map { it.entity_key }) }
             .map { list ->
                 if (list.isEmpty()) return@map emptyList<T>()
                 list.mapNotNull { entity -> entity.deserialize() }
+            }
+    }
+
+    /**
+     * Select using where clause. If where is null, all rows will be selected.
+     *
+     * Simple example with where and orderBy:
+     * ```
+     * val merchantsFlow = store.select(
+     *  where = Merchant::category like "Restaurant",
+     *  orderBy = listOf(OrderBy(Merchant::createdAt, OrderDirection.DESC))
+     * )
+     * ```
+     *
+     * The result row is useful if you need metadata on the row level specific to Sqkon intead of
+     * your entity.
+     */
+    fun selectResult(
+        where: Where<T>? = null,
+        orderBy: List<OrderBy<T>> = emptyList(),
+        limit: Long? = null,
+        offset: Long? = null,
+        expiresAfter: Instant? = null,
+    ): Flow<List<ResultRow<T>>> {
+        return entityQueries
+            .select(
+                entityName,
+                where = where,
+                orderBy = orderBy,
+                limit = limit,
+                offset = offset,
+                expiresAt = expiresAfter,
+            )
+            .asFlow()
+            .mapToList(config.dispatcher)
+            .onEach { list -> updateReadAt(list.map { it.entity_key }) }
+            .map { list ->
+                if (list.isEmpty()) return@map emptyList<ResultRow<T>>()
+                list.mapNotNull { entity ->
+                    entity.deserialize<T>()?.let { v -> ResultRow(entity, v) }
+                }
             }
     }
 
@@ -210,11 +300,15 @@ open class KeyValueStorage<T : Any>(
      *
      * Note: Offset Paging is not very efficient on large datasets. Use wisely. We are working
      * on supporting [keyset paging](https://sqldelight.github.io/sqldelight/2.0.2/common/androidx_paging_multiplatform/#keyset-paging) in the future.
+     *
+     * @param expiresAfter null ignores expiresAt, will not return any row which has expired set
+     *   and is before expiresAfter. This is normally [Clock.System.now].
      */
     fun selectPagingSource(
         where: Where<T>? = null,
         orderBy: List<OrderBy<T>> = emptyList(),
         initialOffset: Int = 0,
+        expiresAfter: Instant? = null,
     ): PagingSource<Int, T> = OffsetQueryPagingSource(
         queryProvider = { limit, offset ->
             entityQueries.select(
@@ -222,8 +316,11 @@ open class KeyValueStorage<T : Any>(
                 where = where,
                 orderBy = orderBy,
                 limit = limit.toLong(),
-                offset = offset.toLong()
-            )
+                offset = offset.toLong(),
+                expiresAt = expiresAfter,
+            ).also { entities ->
+                updateReadAt(entities.executeAsList().map { it.entity_key })
+            }
         },
         countQuery = entityQueries.count(entityName, where = where),
         transacter = entityQueries,
@@ -247,8 +344,9 @@ open class KeyValueStorage<T : Any>(
      * @see delete
      * @see deleteAll
      */
-    suspend fun deleteByKey(key: String) {
+    suspend fun deleteByKey(key: String) = transaction {
         entityQueries.delete(entityName, entityKey = key)
+        updateWriteAt(currentCoroutineContext()[RequestHash.Key]?.hash ?: key.hashCode())
     }
 
     /**
@@ -260,15 +358,59 @@ open class KeyValueStorage<T : Any>(
      * @see deleteAll
      * @see deleteByKey
      */
-    suspend fun delete(where: Where<T>? = null) {
+    suspend fun delete(where: Where<T>? = null) = transaction {
         entityQueries.delete(entityName, where = where)
+        updateWriteAt(currentCoroutineContext()[RequestHash.Key]?.hash ?: where.hashCode())
     }
 
-    fun count(): Flow<Int> {
-        return entityQueries.count(entityName)
+    /**
+     * Purge all rows that have there `expired_at` field NOT null and less than (<) the date passed
+     * in. (Usually [Clock.System.now]).
+     *
+     * For example to have a 24 hour expiry you would insert with `expiresAt = Clock.System.now().plus(1.days)`.
+     * When querying you pass in select(expiresAfter = Clock.System.now()) to only get rows that have not expired.
+     * If you want to then clean-up/purge those expired rows, you would call this function.
+     *
+     * @see deleteStale
+     */
+    suspend fun deleteExpired(expiresAfter: Instant = Clock.System.now()) = transaction {
+        metadataQueries.purgeExpires(entityName, expiresAfter.toEpochMilliseconds())
+        updateWriteAt(currentCoroutineContext()[RequestHash.Key]?.hash ?: expiresAfter.hashCode())
+    }
+
+    /**
+     * Unlike [deleteExpired], this will clean up rows that have not been touched (read/written)
+     * before the passed in time.
+     *
+     * For example, you want to clean up rows that have not been read or written to in the last 24
+     * hours. You would call this function with `Clock.System.now().minus(1.days)`. This is not the same as
+     * [deleteExpired] which is based on the `expires_at` field.
+     *
+     * @see deleteExpired
+     */
+    suspend fun deleteStale(instant: Instant = Clock.System.now()) = transaction {
+        metadataQueries.purgeStale(entityName, instant.toEpochMilliseconds())
+        updateWriteAt(currentCoroutineContext()[RequestHash.Key]?.hash ?: instant.hashCode())
+    }
+
+    fun count(
+        where: Where<T>? = null,
+        expiresAfter: Instant? = null
+    ): Flow<Int> {
+        return entityQueries.count(entityName, where, expiresAfter)
             .asFlow()
             .mapToOne(config.dispatcher)
     }
+
+    /**
+     * Metadata for the entity, this will tell you the last time
+     * the entity store was read and written to, useful for cache invalidation.
+     */
+    fun metadata(): Flow<Metadata> = metadataQueries
+        .selectByEntityName(entityName)
+        .asFlow()
+        .mapToOneNotNull(config.dispatcher)
+        .distinctUntilChanged()
 
     private fun <T : Any> Entity?.deserialize(): T? {
         this ?: return null
@@ -282,6 +424,30 @@ open class KeyValueStorage<T : Any>(
                     null
                 }
             }
+        }
+    }
+
+    private fun updateReadAt(keys: Collection<String>) {
+        scope.launch(config.dispatcher) {
+            metadataQueries.upsertRead(entityName, Clock.System.now())
+            metadataQueries.updateReadForEntities(
+                Clock.System.now().toEpochMilliseconds(), entityName, keys
+            )
+        }
+    }
+
+    private val updateWriteHashes = mutableSetOf<Int>()
+
+    /**
+     * Will run after the transaction is committed. This way inside of multiple inserts we only
+     * update the write_at once.
+     */
+    private fun TransactionCallbacks.updateWriteAt(requestHash: Int) {
+        if (requestHash in updateWriteHashes) return
+        updateWriteHashes.add(requestHash)
+        afterCommit {
+            updateWriteHashes.remove(requestHash)
+            scope.launch { metadataQueries.upsertWrite(entityName, Clock.System.now()) }
         }
     }
 
@@ -311,6 +477,7 @@ open class KeyValueStorage<T : Any>(
 inline fun <reified T : Any> keyValueStorage(
     entityName: String,
     entityQueries: EntityQueries,
+    metadataQueries: MetadataQueries,
     scope: CoroutineScope,
     serializer: SqkonSerializer = KotlinSqkonSerializer(),
     config: KeyValueStorage.Config = KeyValueStorage.Config(),
@@ -318,6 +485,7 @@ inline fun <reified T : Any> keyValueStorage(
     return KeyValueStorage(
         entityName = entityName,
         entityQueries = entityQueries,
+        metadataQueries = metadataQueries,
         scope = scope,
         type = typeOf<T>(),
         serializer = serializer,
