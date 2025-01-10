@@ -17,8 +17,8 @@ INSERT INTO metadata (entity_name, lastReadAt)
         UPDATE SET lastReadAt = :lastReadAt
         WHERE entity_name = :entity_name;
 
-upsertReadForEntities:
-UPDATE entity SET read_at = CURRENT_TIMESTAMP
+updateReadForEntities:
+UPDATE entity SET read_at = :readAt
     WHERE entity_name = :entity_name AND entity_key IN :entity_keys;
 
 upsertWrite:
@@ -32,3 +32,8 @@ INSERT INTO metadata (entity_name, lastWriteAt)
 purgeExpires:
 DELETE FROM entity
     WHERE entity_name = :entity_name AND expires_at IS NOT NULL AND expires_at < :expiresAfter;
+
+purgeStale:
+DELETE FROM entity
+    WHERE entity_name = :entity_name
+    AND write_at < :instant AND (read_at IS NULL OR read_at < :instant);

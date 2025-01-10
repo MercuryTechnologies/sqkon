@@ -79,12 +79,10 @@ Sqkon doesn't provide default cache busting out of the box, but it does provide 
 this if that's what you require.
 
 - `KeyValueStore.selectResult` will expose a ResultRow with a `expiresAt`, `writeAt` and `readAt`
-  fields, with this you can handle cache busting yourself. We provide `deleteWhere` and
-  `deleteExpired`
-  methods to help with this.
-- Most methods support `expiresAt`, `expiresAfter` which let you set expiry times and to return
-  fields that expire after the time passed in, we don't auto purge fields that have "expired" use
-  use `deleteExpired` to remove them.
+  fields, with this you can handle cache busting yourself.
+- Most methods support `expiresAt`, `expiresAfter` which let you set expiry times, we don't auto purge fields that have "expired" use
+  use `deleteExpired` to remove them. We track `readAt`,`writeAt` when rows are read/written too.
+- We provide `deleteWhere`, `deleteExpired`, `deleteStale`, the docs explain there differences.
 
 ### Build platform artifacts
 

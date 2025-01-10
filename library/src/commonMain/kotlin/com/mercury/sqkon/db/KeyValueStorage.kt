@@ -364,12 +364,33 @@ open class KeyValueStorage<T : Any>(
     }
 
     /**
-     * Purge all rows that have expired in the past from the passed in date
-     * (Usually [Clock.System.now]).
+     * Purge all rows that have there `expired_at` field NOT null and less than (<) the date passed
+     * in. (Usually [Clock.System.now]).
+     *
+     * For example to have a 24 hour expiry you would insert with `expiresAt = Clock.System.now().plus(1.days)`.
+     * When querying you pass in select(expiresAfter = Clock.System.now()) to only get rows that have not expired.
+     * If you want to then clean-up/purge those expired rows, you would call this function.
+     *
+     * @see deleteStale
      */
     suspend fun deleteExpired(expiresAfter: Instant = Clock.System.now()) = transaction {
         metadataQueries.purgeExpires(entityName, expiresAfter.toEpochMilliseconds())
         updateWriteAt(currentCoroutineContext()[RequestHash.Key]?.hash ?: expiresAfter.hashCode())
+    }
+
+    /**
+     * Unlike [deleteExpired], this will clean up rows that have not been touched (read/written)
+     * before the passed in time.
+     *
+     * For example, you want to clean up rows that have not been read or written to in the last 24
+     * hours. You would call this function with `Clock.System.now().minus(1.days)`. This is not the same as
+     * [deleteExpired] which is based on the `expires_at` field.
+     *
+     * @see deleteExpired
+     */
+    suspend fun deleteStale(instant: Instant = Clock.System.now()) = transaction {
+        metadataQueries.purgeStale(entityName, instant.toEpochMilliseconds())
+        updateWriteAt(currentCoroutineContext()[RequestHash.Key]?.hash ?: instant.hashCode())
     }
 
     fun count(
@@ -409,7 +430,9 @@ open class KeyValueStorage<T : Any>(
     private fun updateReadAt(keys: Collection<String>) {
         scope.launch(config.dispatcher) {
             metadataQueries.upsertRead(entityName, Clock.System.now())
-            metadataQueries.upsertReadForEntities(entityName, keys)
+            metadataQueries.updateReadForEntities(
+                Clock.System.now().toEpochMilliseconds(), entityName, keys
+            )
         }
     }
 
