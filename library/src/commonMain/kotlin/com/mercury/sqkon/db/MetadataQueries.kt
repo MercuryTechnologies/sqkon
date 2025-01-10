@@ -12,6 +12,6 @@ internal fun MetadataQueries(driver: SqlDriver): MetadataQueries {
         metadataAdapter = Metadata.Adapter(
             lastWriteAtAdapter = InstantColumnAdapter(),
             lastReadAtAdapter = InstantColumnAdapter(),
-        )
+        ),
     )
 }

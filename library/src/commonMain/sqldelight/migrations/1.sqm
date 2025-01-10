@@ -5,3 +5,13 @@ CREATE TABLE metadata (
     lastReadAt INTEGER AS Instant,
     lastWriteAt INTEGER AS Instant
 );
+
+ALTER TABLE entity ADD COLUMN read_at INTEGER;
+ALTER TABLE entity ADD COLUMN write_at INTEGER NOT NULL DEFAULT CURRENT_TIMESTAMP;
+
+-- Index read_at
+CREATE INDEX idx_entity_read_at ON entity (read_at);
+-- Index write_at
+CREATE INDEX idx_entity_write_at ON entity (write_at);
+-- Index expires_at
+CREATE INDEX idx_entity_expires_at ON entity (expires_at);

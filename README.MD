@@ -8,7 +8,6 @@ SQLite and JSONB.
 ![Maven Central Version](https://img.shields.io/maven-central/v/com.mercury.sqkon/library)
 ![GitHub branch check runs](https://img.shields.io/github/check-runs/MercuryTechnologies/sqkon/main)
 
-
 ## Usage
 
 ```kotlin
@@ -67,13 +66,25 @@ dependencies {
 
 ## Project Requirements
 
-The project is built upon [SQLDelight](https://github.com/sqldelight/sqldelight) 
-and [kotlinx.serialization](https://github.com/Kotlin/kotlinx.serialization), these are transitive 
-dependencies, but you will not be able to use the library with applying the 
-kotlinx-serialization plugin. If you are not using kotlinx serialization, I suggest you read about it
+The project is built upon [SQLDelight](https://github.com/sqldelight/sqldelight)
+and [kotlinx.serialization](https://github.com/Kotlin/kotlinx.serialization), these are transitive
+dependencies, but you will not be able to use the library with applying the
+kotlinx-serialization plugin. If you are not using kotlinx serialization, I suggest you read about
+it
 here: https://github.com/Kotlin/kotlinx.serialization.
 
-```kotlin 
+## Expiry/Cache Busting
+
+Sqkon doesn't provide default cache busting out of the box, but it does provide the tools to do
+this if that's what you require.
+
+- `KeyValueStore.selectResult` will expose a ResultRow with a `expiresAt`, `writeAt` and `readAt`
+  fields, with this you can handle cache busting yourself. We provide `deleteWhere` and
+  `deleteExpired`
+  methods to help with this.
+- Most methods support `expiresAt`, `expiresAfter` which let you set expiry times and to return
+  fields that expire after the time passed in, we don't auto purge fields that have "expired" use
+  use `deleteExpired` to remove them.
 
 ### Build platform artifacts
 
