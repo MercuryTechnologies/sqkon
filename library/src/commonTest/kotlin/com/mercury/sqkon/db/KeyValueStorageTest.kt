@@ -317,6 +317,20 @@ class KeyValueStorageTest {
     }
 
     @Test
+    fun delete_byKeys() = runTest {
+        val expected = (0..10).map { TestObject() }.associateBy { it.id }
+        testObjectStorage.insertAll(expected)
+        val actual = testObjectStorage.selectAll().first()
+        assertEquals(expected.size, actual.size)
+
+        val key1 = expected.keys.toList()[5]
+        val key2 = expected.keys.toList()[6]
+        testObjectStorage.deleteByKeys(key1, key2)
+        val actualAfterDelete = testObjectStorage.selectAll().first()
+        assertEquals(expected.size - 2, actualAfterDelete.size)
+    }
+
+    @Test
     fun delete_byEntityId() = runTest {
         val expected = (0..10).map { TestObject() }.associateBy { it.id }
         testObjectStorage.insertAll(expected)

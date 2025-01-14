@@ -197,12 +197,14 @@ open class KeyValueStorage<T : Any>(
     fun selectByKeys(
         keys: Collection<String>,
         orderBy: List<OrderBy<T>> = emptyList(),
+        expiresAfter: Instant? = null,
     ): Flow<List<T>> {
         return entityQueries
             .select(
                 entityName = entityName,
                 entityKeys = keys,
                 orderBy = orderBy,
+                expiresAt = expiresAfter,
             )
             .asFlow()
             .mapToList(config.dispatcher)
@@ -344,8 +346,22 @@ open class KeyValueStorage<T : Any>(
      * @see delete
      * @see deleteAll
      */
-    suspend fun deleteByKey(key: String) = transaction {
-        entityQueries.delete(entityName, entityKey = key)
+    suspend fun deleteByKey(key: String) {
+        deleteByKeys(key)
+    }
+
+    /**
+     * Delete by keys.
+     *
+     * If you need to delete all rows, use [deleteAll].
+     * If you need to specify which rows to delete, use [delete] with a [Where]. Note, using where
+     * will be less performant than deleting by key.
+     *
+     * @see delete
+     * @see deleteAll
+     */
+    suspend fun deleteByKeys(vararg key: String) = transaction {
+        entityQueries.delete(entityName, entityKeys = key.toSet())
         updateWriteAt(currentCoroutineContext()[RequestHash.Key]?.hash ?: key.hashCode())
     }
 
@@ -388,9 +404,33 @@ open class KeyValueStorage<T : Any>(
      *
      * @see deleteExpired
      */
-    suspend fun deleteStale(instant: Instant = Clock.System.now()) = transaction {
-        metadataQueries.purgeStale(entityName, instant.toEpochMilliseconds())
-        updateWriteAt(currentCoroutineContext()[RequestHash.Key]?.hash ?: instant.hashCode())
+    suspend fun deleteStale(
+        writeInstant: Instant = Clock.System.now(),
+        readInstant: Instant = Clock.System.now()
+    ) = transaction {
+        metadataQueries.purgeStale(
+            entity_name = entityName,
+            writeInstant = writeInstant.toEpochMilliseconds(),
+            readInstant = readInstant.toEpochMilliseconds()
+        )
+        updateWriteAt(
+            currentCoroutineContext()[RequestHash.Key]?.hash
+                ?: (writeInstant.hashCode() + readInstant.hashCode())
+        )
+    }
+
+    /**
+     * Unlike [deleteExpired], this will clean up rows that have not been touched (read/written)
+     * before the passed in time.
+     *
+     * For example, you want to clean up rows that have not been read or written to in the last 24
+     * hours. You would call this function with `Clock.System.now().minus(1.days)`. This is not the same as
+     * [deleteExpired] which is based on the `expires_at` field.
+     *
+     * @see deleteExpired
+     */
+    suspend fun deleteState(instant: Instant = Clock.System.now()) {
+        deleteStale(instant, instant)
     }
 
     fun count(
