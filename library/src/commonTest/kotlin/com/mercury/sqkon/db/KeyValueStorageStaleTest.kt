@@ -34,7 +34,7 @@ class KeyValueStorageStaleTest {
             .toSortedMap()
         testObjectStorage.insertAll(expected)
         // Clean up older than now
-        testObjectStorage.deleteStale(instant = now)
+        testObjectStorage.deleteStale(writeInstant = now, readInstant = now)
         val actualAfterDelete = testObjectStorage.selectAll().first()
         assertEquals(expected.size, actualAfterDelete.size)
     }
@@ -48,7 +48,7 @@ class KeyValueStorageStaleTest {
         sleep(1)
         val now = Clock.System.now()
         // Clean up older than now
-        testObjectStorage.deleteStale(instant = now)
+        testObjectStorage.deleteStale(writeInstant = now, readInstant = now)
         val actualAfterDelete = testObjectStorage.selectAll().first()
         assertEquals(0, actualAfterDelete.size)
     }
@@ -65,7 +65,7 @@ class KeyValueStorageStaleTest {
         // write again so read is in the past
         testObjectStorage.updateAll(expected)
         // Read in the past write is after now
-        testObjectStorage.deleteStale(instant = now)
+        testObjectStorage.deleteStale(writeInstant = now, readInstant = now)
         val actualAfterDelete = testObjectStorage.selectAll().first()
         assertEquals(expected.size, actualAfterDelete.size)
     }
@@ -81,7 +81,7 @@ class KeyValueStorageStaleTest {
         sleep(10)
         val now = Clock.System.now()
         // Clean write and read are in the past
-        testObjectStorage.deleteStale(instant = now)
+        testObjectStorage.deleteStale(writeInstant = now, readInstant = now)
         val actualAfterDelete = testObjectStorage.selectResult().first()
         assertEquals(0, actualAfterDelete.size)
     }

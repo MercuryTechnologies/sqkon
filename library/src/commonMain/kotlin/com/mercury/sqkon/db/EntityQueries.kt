@@ -197,7 +197,7 @@ class EntityQueries(
 
     suspend fun delete(
         entityName: String,
-        entityKey: String? = null,
+        entityKeys: Collection<String>? = null,
         where: Where<*>? = null,
     ) {
         val queries = buildList {
@@ -206,19 +206,29 @@ class EntityQueries(
                 parameters = 1,
                 bindArgs = { bindString(entityName) }
             ))
-            if (entityKey != null) add(SqlQuery(
-                where = "entity_key = ?",
-                parameters = 1,
-                bindArgs = { bindString(entityKey) }
-            ))
+            when(entityKeys?.size) {
+                null, 0 -> {}
+                1 -> add(SqlQuery(
+                    where = "entity_key = ?",
+                    parameters = 1,
+                    bindArgs = { bindString(entityKeys.first()) }
+                ))
+                else -> add(SqlQuery(
+                    where = "entity_key IN (${entityKeys.joinToString(",") { "?" }})",
+                    parameters = entityKeys.size,
+                    bindArgs = { entityKeys.forEach { bindString(it) } }
+                ))
+            }
+
             addAll(listOfNotNull(where?.toSqlQuery(increment = 1)))
         }
         val identifier = identifier("delete", queries.identifier().toString())
         val whereSubQuerySql = if (queries.size <= 1) ""
         else """
-            AND entity_key = (SELECT entity_key FROM entity${queries.buildFrom()} ${queries.buildWhere()})
+            AND entity_key IN (SELECT entity_key FROM entity${queries.buildFrom()} ${queries.buildWhere()})
             """.trimIndent()
         val sql = "DELETE FROM entity WHERE entity_name = ? $whereSubQuerySql"
+        println("SQL: $sql")
         try {
             driver.execute(
                 identifier = identifier,
