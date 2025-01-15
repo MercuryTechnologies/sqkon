@@ -206,15 +206,23 @@ class EntityQueries(
                 parameters = 1,
                 bindArgs = { bindString(entityName) }
             ))
+<<<<<<< HEAD
             when (entityKeys?.size) {
                 null, 0 -> {}
 
+=======
+            when(entityKeys?.size) {
+                null, 0 -> {}
+>>>>>>> origin/main
                 1 -> add(SqlQuery(
                     where = "entity_key = ?",
                     parameters = 1,
                     bindArgs = { bindString(entityKeys.first()) }
                 ))
+<<<<<<< HEAD
 
+=======
+>>>>>>> origin/main
                 else -> add(SqlQuery(
                     where = "entity_key IN (${entityKeys.joinToString(",") { "?" }})",
                     parameters = entityKeys.size,
@@ -230,6 +238,7 @@ class EntityQueries(
             AND entity_key IN (SELECT entity_key FROM entity${queries.buildFrom()} ${queries.buildWhere()})
             """.trimIndent()
         val sql = "DELETE FROM entity WHERE entity_name = ? $whereSubQuerySql"
+        println("SQL: $sql")
         try {
             driver.execute(
                 identifier = identifier,
