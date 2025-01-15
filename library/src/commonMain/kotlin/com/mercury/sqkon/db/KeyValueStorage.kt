@@ -292,6 +292,7 @@ open class KeyValueStorage<T : Any>(
                     entity.deserialize<T>()?.let { v -> ResultRow(entity, v) }
                 }
             }
+            .distinctUntilChanged()
     }
 
     /**
@@ -402,17 +403,40 @@ open class KeyValueStorage<T : Any>(
      * hours. You would call this function with `Clock.System.now().minus(1.days)`. This is not the same as
      * [deleteExpired] which is based on the `expires_at` field.
      *
+     * @param writeInstant if set, will delete rows that have not been written to before this time.
+     * @param readInstant if set, will delete rows that have not been read before this time.
+     *
      * @see deleteExpired
      */
     suspend fun deleteStale(
-        writeInstant: Instant = Clock.System.now(),
-        readInstant: Instant = Clock.System.now()
+        writeInstant: Instant? = Clock.System.now(),
+        readInstant: Instant? = Clock.System.now()
     ) = transaction {
-        metadataQueries.purgeStale(
-            entity_name = entityName,
-            writeInstant = writeInstant.toEpochMilliseconds(),
-            readInstant = readInstant.toEpochMilliseconds()
-        )
+        when {
+            writeInstant != null && readInstant != null -> {
+                metadataQueries.purgeStale(
+                    entity_name = entityName,
+                    writeInstant = writeInstant.toEpochMilliseconds(),
+                    readInstant = readInstant.toEpochMilliseconds()
+                )
+            }
+
+            writeInstant != null -> {
+                metadataQueries.purgeStaleWrite(
+                    entity_name = entityName,
+                    writeInstant = writeInstant.toEpochMilliseconds()
+                )
+            }
+
+            readInstant != null -> {
+                metadataQueries.purgeStaleRead(
+                    entity_name = entityName,
+                    readInstant = readInstant.toEpochMilliseconds()
+                )
+            }
+
+            else -> return@transaction
+        }
         updateWriteAt(
             currentCoroutineContext()[RequestHash.Key]?.hash
                 ?: (writeInstant.hashCode() + readInstant.hashCode())
@@ -429,7 +453,7 @@ open class KeyValueStorage<T : Any>(
      *
      * @see deleteExpired
      */
-    suspend fun deleteState(instant: Instant = Clock.System.now()) {
+    suspend fun deleteState(instant: Instant) {
         deleteStale(instant, instant)
     }
 
