@@ -206,13 +206,15 @@ class EntityQueries(
                 parameters = 1,
                 bindArgs = { bindString(entityName) }
             ))
-            when(entityKeys?.size) {
+            when (entityKeys?.size) {
                 null, 0 -> {}
+
                 1 -> add(SqlQuery(
                     where = "entity_key = ?",
                     parameters = 1,
                     bindArgs = { bindString(entityKeys.first()) }
                 ))
+
                 else -> add(SqlQuery(
                     where = "entity_key IN (${entityKeys.joinToString(",") { "?" }})",
                     parameters = entityKeys.size,
