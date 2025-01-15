@@ -38,12 +38,9 @@ DELETE FROM entity
     WHERE entity_name = :entity_name
     AND write_at < :writeInstant
     AND (read_at IS NULL OR read_at < :readInstant);
-<<<<<<< HEAD
 
 purgeStaleWrite:
 DELETE FROM entity WHERE entity_name = :entity_name AND write_at < :writeInstant;
 
 purgeStaleRead:
 DELETE FROM entity WHERE entity_name = :entity_name AND read_at < :readInstant;
-=======
->>>>>>> origin/main

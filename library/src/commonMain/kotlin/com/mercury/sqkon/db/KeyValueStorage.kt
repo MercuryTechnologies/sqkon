@@ -409,7 +409,6 @@ open class KeyValueStorage<T : Any>(
      * @see deleteExpired
      */
     suspend fun deleteStale(
-<<<<<<< HEAD
         writeInstant: Instant? = Clock.System.now(),
         readInstant: Instant? = Clock.System.now()
     ) = transaction {
@@ -438,16 +437,6 @@ open class KeyValueStorage<T : Any>(
 
             else -> return@transaction
         }
-=======
-        writeInstant: Instant = Clock.System.now(),
-        readInstant: Instant = Clock.System.now()
-    ) = transaction {
-        metadataQueries.purgeStale(
-            entity_name = entityName,
-            writeInstant = writeInstant.toEpochMilliseconds(),
-            readInstant = readInstant.toEpochMilliseconds()
-        )
->>>>>>> origin/main
         updateWriteAt(
             currentCoroutineContext()[RequestHash.Key]?.hash
                 ?: (writeInstant.hashCode() + readInstant.hashCode())
@@ -464,11 +453,7 @@ open class KeyValueStorage<T : Any>(
      *
      * @see deleteExpired
      */
-<<<<<<< HEAD
     suspend fun deleteState(instant: Instant) {
-=======
-    suspend fun deleteState(instant: Instant = Clock.System.now()) {
->>>>>>> origin/main
         deleteStale(instant, instant)
     }
 
