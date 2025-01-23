@@ -46,7 +46,7 @@ value class TestValue(val test: String)
 sealed interface TestSealed {
     @Serializable
     @SerialName("Impl")
-    data class Impl(val value: String) : TestSealed
+    data class Impl(val boolean: Boolean) : TestSealed
 
     @JvmInline
     @Serializable

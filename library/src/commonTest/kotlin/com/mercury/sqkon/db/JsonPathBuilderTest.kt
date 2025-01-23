@@ -2,6 +2,7 @@ package com.mercury.sqkon.db
 
 import com.mercury.sqkon.TestObject
 import com.mercury.sqkon.TestObjectChild
+import com.mercury.sqkon.TestSealed
 import com.mercury.sqkon.TestValue
 import org.junit.Test
 import kotlin.test.assertEquals
@@ -59,6 +60,21 @@ class JsonPathBuilderTest {
         assertEquals(expected = "\$.different_name", actual = builder.buildPath())
     }
 
+    @Test
+    fun build_with_sealed_path() {
+        val builder = TestObject::sealed.builder {
+            then(TestSealed.Impl::boolean) {}
+        }
+        assertEquals(expected = "\$.sealed[1].boolean", actual = builder.buildPath())
+    }
+
+    @Test
+    fun build_with_sealed_inline_value_path() {
+        val builder = TestObject::sealed.builder {
+            then(TestSealed.Impl2::value) {}
+        }
+        assertEquals(expected = "\$.sealed[1]", actual = builder.buildPath())
+    }
 
     @Test
     fun build_with_list_builder() {
