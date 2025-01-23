@@ -6,8 +6,8 @@ import kotlin.reflect.KProperty1
 /**
  * Equivalent to `=` in SQL
  */
-data class Eq<T : Any>(
-    private val builder: JsonPathBuilder<T>, private val value: String?,
+data class Eq<T : Any, V>(
+    private val builder: JsonPathBuilder<T>, private val value: V?,
 ) : Where<T>() {
     override fun toSqlQuery(increment: Int): SqlQuery {
         val treeName = "eq_$increment"
@@ -17,7 +17,18 @@ data class Eq<T : Any>(
             parameters = 2,
             bindArgs = {
                 bindString(builder.buildPath())
-                bindString(value)
+                when (value) {
+                    is Boolean -> bindBoolean(value)
+                    is ByteArray -> bindBytes(value)
+                    is Double -> bindDouble(value)
+                    is Number -> bindLong(value.toLong())
+                    is String -> bindString(value)
+                    null -> bindString(null)
+                    else -> {
+                        val v = requireNotNull(value) { "Unsupported value type: null" }
+                        throw IllegalArgumentException("Unsupported value type: ${v::class.simpleName}")
+                    }
+                }
             }
         )
     }
@@ -26,13 +37,13 @@ data class Eq<T : Any>(
 /**
  * Equivalent to `=` in SQL
  */
-infix fun <T : Any> JsonPathBuilder<T>.eq(value: String?): Eq<T> =
+infix fun <T : Any, V> JsonPathBuilder<T>.eq(value: V?): Eq<T, V> =
     Eq(builder = this, value = value)
 
 /**
  * Equivalent to `=` in SQL
  */
-inline infix fun <reified T : Any, reified V> KProperty1<T, V>.eq(value: String?): Eq<T> =
+inline infix fun <reified T : Any, reified V, VALUE> KProperty1<T, V>.eq(value: VALUE?): Eq<T, VALUE> =
     Eq(this.builder(), value)
 
 /**

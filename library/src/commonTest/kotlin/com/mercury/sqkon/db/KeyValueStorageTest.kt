@@ -4,6 +4,7 @@ import app.cash.turbine.test
 import app.cash.turbine.turbineScope
 import com.mercury.sqkon.TestObject
 import com.mercury.sqkon.TestObjectChild
+import com.mercury.sqkon.TestSealed
 import com.mercury.sqkon.until
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
@@ -289,6 +290,23 @@ class KeyValueStorageTest {
 
         assertEquals(1, actualByAttributes.size)
         assertEquals(expect, actualByAttributes.first())
+    }
+
+    @Test
+    fun select_byEntitySealedImpl() = runTest {
+        val expected = (1..10).map {
+            TestObject(sealed = TestSealed.Impl(boolean = true))
+        }.associateBy { it.id }
+        testObjectStorage.insertAll(expected)
+        val actualBySealedBooleanFalse = testObjectStorage.select(
+            where = TestObject::sealed.then(TestSealed.Impl::boolean) eq false,
+        ).first()
+        val actualBySealedBooleanTrue = testObjectStorage.select(
+            where = TestObject::sealed.then(TestSealed.Impl::boolean) eq true,
+        ).first()
+
+        assertEquals(0, actualBySealedBooleanFalse.size)
+        assertEquals(expected.size, actualBySealedBooleanTrue.size)
     }
 
     @Test

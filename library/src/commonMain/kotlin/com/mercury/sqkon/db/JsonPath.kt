@@ -38,15 +38,13 @@ import kotlin.reflect.typeOf
  * the path for sql queries.
  */
 class JsonPathBuilder<R : Any>
-@PublishedApi internal constructor(
-    @PublishedApi internal val receiverDescriptor: SerialDescriptor,
-) {
+@PublishedApi internal constructor() {
 
     @PublishedApi
     internal var parentNode: JsonPathNode<R, *>? = null
 
     @PublishedApi
-    internal inline fun <reified V> with(
+    internal inline fun <reified R1 : R, reified V> with(
         property: KProperty1<R, V>,
         serialName: String? = null,
         block: JsonPathNode<R, V>.() -> Unit = {}
@@ -54,7 +52,7 @@ class JsonPathBuilder<R : Any>
         parentNode = JsonPathNode<R, V>(
             //parent = null,
             propertyName = serialName ?: property.name,
-            receiverDescriptor = receiverDescriptor,
+            receiverDescriptor = serializer<R1>().descriptor,
             valueDescriptor = serializer<V>().descriptor
         ).also(block)
         return this
@@ -62,7 +60,7 @@ class JsonPathBuilder<R : Any>
 
     // Handles collection property type and extracts the element type vs the list type
     @PublishedApi
-    internal inline fun <reified V : Any?> withList(
+    internal inline fun <reified R1 : R, reified V : Any?> withList(
         property: KProperty1<R, Collection<V>>,
         serialName: String? = null,
         block: JsonPathNode<R, V>.() -> Unit = {}
@@ -70,7 +68,7 @@ class JsonPathBuilder<R : Any>
         parentNode = JsonPathNode<R, V>(
             //parent = null,
             propertyName = serialName ?: property.name,
-            receiverDescriptor = receiverDescriptor,
+            receiverDescriptor = serializer<R1>().descriptor,
             valueDescriptor = serializer<Collection<V>>().descriptor
         ).also(block)
         return this
@@ -94,7 +92,6 @@ class JsonPathBuilder<R : Any>
     @OptIn(ExperimentalSerializationApi::class)
     fun fieldNames(): List<String> {
         return nodes().map {
-            println("is inline: ${it.valueDescriptor.isInline}")
             when (it.valueDescriptor.kind) {
                 StructureKind.LIST -> "${it.propertyName}[%]"
                 PolymorphicKind.SEALED -> "${it.propertyName}[1]"
@@ -114,15 +111,16 @@ inline fun <reified R : Any, reified V> KProperty1<R, V>.builder(
     serialName: String? = null,
     block: JsonPathNode<R, V>.() -> Unit = {}
 ): JsonPathBuilder<R> {
-    return JsonPathBuilder<R>(receiverDescriptor = serializer<R>().descriptor)
-        .with(property = this, serialName = serialName, block = block)
+    return JsonPathBuilder<R>()
+        .with<R, V>(
+            property = this, serialName = serialName, block = block
+        )
 }
 
 inline fun <reified R : Any, reified V> KProperty1<R, Collection<V>>.builderFromList(
     block: JsonPathNode<out R, V>.() -> Unit = {}
 ): JsonPathBuilder<R> {
-    return JsonPathBuilder<R>(receiverDescriptor = serializer(typeOf<R>()).descriptor)
-        .withList(property = this, block = block)
+    return JsonPathBuilder<R>().withList<R, V>(property = this, block = block)
 }
 
 inline fun <reified R : Any, reified V : Any?, reified V1 : V, reified V2 : Any?> KProperty1<R, V>.then(
@@ -131,8 +129,8 @@ inline fun <reified R : Any, reified V : Any?, reified V1 : V, reified V2 : Any?
     thenSerialName: String? = null,
     block: JsonPathNode<V1, V2>.() -> Unit = {}
 ): JsonPathBuilder<R> {
-    return JsonPathBuilder<R>(receiverDescriptor = serializer<R>().descriptor)
-        .with(property = this, serialName = fromSerialName) {
+    return JsonPathBuilder<R>()
+        .with<R, V>(property = this, serialName = fromSerialName) {
             then<V1, V2>(property = property, serialName = thenSerialName, block = block)
         }
 }
@@ -143,8 +141,8 @@ inline fun <reified R : Any, reified V, reified V1 : V, reified V2> KProperty1<R
     thenSerialName: String? = null,
     block: JsonPathNode<V1, V2>.() -> Unit = {}
 ): JsonPathBuilder<R> {
-    return JsonPathBuilder<R>(receiverDescriptor = serializer<R>().descriptor)
-        .withList<V>(property = this, fromSerialName) {
+    return JsonPathBuilder<R>()
+        .withList<R, V>(property = this, fromSerialName) {
             then<V1, V2>(property = property, serialName = thenSerialName, block = block)
         }
 }
@@ -154,10 +152,9 @@ inline fun <reified R : Any, reified V, reified V2> KProperty1<R, V>.thenList(
     property: KProperty1<out V, Collection<V2>>,
     block: JsonPathNode<out V, V2>.() -> Unit = {}
 ): JsonPathBuilder<R> {
-    return JsonPathBuilder<R>(receiverDescriptor = serializer<R>().descriptor)
-        .with(property = this) {
-            thenList(property = property, block = block)
-        }
+    return JsonPathBuilder<R>().with<R, V>(property = this) {
+        thenList(property = property, block = block)
+    }
 }
 
 @Suppress("UnusedReceiverParameter")
@@ -165,8 +162,7 @@ inline fun <reified R : Any, reified V> KClass<R>.with(
     property: KProperty1<R, V>,
     block: JsonPathNode<R, V>.() -> Unit = {}
 ): JsonPathBuilder<R> {
-    return JsonPathBuilder<R>(receiverDescriptor = serializer(typeOf<R>()).descriptor)
-        .with(property = property, block = block)
+    return JsonPathBuilder<R>().with<R, V>(property = property, block = block)
 }
 
 // Handles collection property type
@@ -175,8 +171,7 @@ inline fun <reified R : Any, reified V : Any?> KClass<R>.withList(
     property: KProperty1<R, Collection<V>>,
     block: JsonPathNode<R, V>.() -> Unit = {}
 ): JsonPathBuilder<R> {
-    return JsonPathBuilder<R>(receiverDescriptor = serializer(typeOf<R>()).descriptor)
-        .withList(property = property, block = block)
+    return JsonPathBuilder<R>().withList<R, V>(property = property, block = block)
 }
 
 /**
