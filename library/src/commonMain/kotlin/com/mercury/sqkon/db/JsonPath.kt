@@ -111,10 +111,7 @@ inline fun <reified R : Any, reified V> KProperty1<R, V>.builder(
     serialName: String? = null,
     block: JsonPathNode<R, V>.() -> Unit = {}
 ): JsonPathBuilder<R> {
-    return JsonPathBuilder<R>()
-        .with<R, V>(
-            property = this, serialName = serialName, block = block
-        )
+    return JsonPathBuilder<R>().with<R, V>(property = this, serialName = serialName, block = block)
 }
 
 inline fun <reified R : Any, reified V> KProperty1<R, Collection<V>>.builderFromList(
