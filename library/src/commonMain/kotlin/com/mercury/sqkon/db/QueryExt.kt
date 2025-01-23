@@ -6,8 +6,8 @@ import kotlin.reflect.KProperty1
 /**
  * Equivalent to `=` in SQL
  */
-data class Eq<T : Any>(
-    private val builder: JsonPathBuilder<T>, private val value: String?,
+data class Eq<T : Any, V>(
+    private val builder: JsonPathBuilder<T>, private val value: V?,
 ) : Where<T>() {
     override fun toSqlQuery(increment: Int): SqlQuery {
         val treeName = "eq_$increment"
@@ -17,7 +17,7 @@ data class Eq<T : Any>(
             parameters = 2,
             bindArgs = {
                 bindString(builder.buildPath())
-                bindString(value)
+                bindValue(value)
             }
         )
     }
@@ -26,20 +26,20 @@ data class Eq<T : Any>(
 /**
  * Equivalent to `=` in SQL
  */
-infix fun <T : Any> JsonPathBuilder<T>.eq(value: String?): Eq<T> =
+infix fun <T : Any, V> JsonPathBuilder<T>.eq(value: V?): Eq<T, V> =
     Eq(builder = this, value = value)
 
 /**
  * Equivalent to `=` in SQL
  */
-inline infix fun <reified T : Any, reified V> KProperty1<T, V>.eq(value: String?): Eq<T> =
+inline infix fun <reified T : Any, reified V, VALUE> KProperty1<T, V>.eq(value: VALUE?): Eq<T, VALUE> =
     Eq(this.builder(), value)
 
 /**
  * Equivalent to `!=` in SQL
  */
-data class NotEq<T : Any>(
-    private val builder: JsonPathBuilder<T>, private val value: String?,
+data class NotEq<T : Any, V>(
+    private val builder: JsonPathBuilder<T>, private val value: V?,
 ) : Where<T>() {
     override fun toSqlQuery(increment: Int): SqlQuery {
         return Not(Eq(builder = builder, value = value)).toSqlQuery(increment)
@@ -49,20 +49,20 @@ data class NotEq<T : Any>(
 /**
  * Equivalent to `!=` in SQL
  */
-infix fun <T : Any> JsonPathBuilder<T>.neq(value: String?): NotEq<T> =
+infix fun <T : Any, V> JsonPathBuilder<T>.neq(value: V?): NotEq<T, V> =
     NotEq(builder = this, value = value)
 
 /**
  * Equivalent to `!=` in SQL
  */
-inline infix fun <reified T : Any, reified V> KProperty1<T, V>.neq(value: String?): NotEq<T> =
+inline infix fun <reified T : Any, reified V, VALUE> KProperty1<T, V>.neq(value: VALUE?): NotEq<T, VALUE> =
     NotEq(this.builder(), value)
 
 /**
  * Equivalent to `IN` in SQL
  */
-data class In<T : Any>(
-    private val builder: JsonPathBuilder<T>, private val value: Collection<String>,
+data class In<T : Any, V>(
+    private val builder: JsonPathBuilder<T>, private val value: Collection<V>,
 ) : Where<T>() {
     override fun toSqlQuery(increment: Int): SqlQuery {
         val treeName = "in_$increment"
@@ -72,7 +72,7 @@ data class In<T : Any>(
             parameters = 1 + value.size,
             bindArgs = {
                 bindString(builder.buildPath())
-                value.forEach { bindString(it) }
+                value.forEach { bindValue(it) }
             }
         )
     }
@@ -81,13 +81,13 @@ data class In<T : Any>(
 /**
  * Equivalent to `IN` in SQL
  */
-infix fun <T : Any> JsonPathBuilder<T>.inList(value: Collection<String>): In<T> =
+infix fun <T : Any, V> JsonPathBuilder<T>.inList(value: Collection<V>): In<T, V> =
     In(builder = this, value = value)
 
 /**
  * Equivalent to `IN` in SQL
  */
-inline infix fun <reified T : Any, reified V> KProperty1<T, V>.inList(value: Collection<String>): In<T> =
+inline infix fun <reified T : Any, reified V> KProperty1<T, V>.inList(value: Collection<V>): In<T, V> =
     In(this.builder(), value)
 
 /**
@@ -124,9 +124,11 @@ inline infix fun <reified T : Any, reified V> KProperty1<T, V>.like(value: Strin
 
 /**
  * Equivalent to `>` in SQL
+ *
+ * @param value note that gt will only really work with numbers right now.
  */
-data class GreaterThan<T : Any>(
-    private val builder: JsonPathBuilder<T>, private val value: String?,
+data class GreaterThan<T : Any, V>(
+    private val builder: JsonPathBuilder<T>, private val value: V?,
 ) : Where<T>() {
 
     override fun toSqlQuery(increment: Int): SqlQuery {
@@ -137,7 +139,7 @@ data class GreaterThan<T : Any>(
             parameters = 2,
             bindArgs = {
                 bindString(builder.buildPath())
-                bindString(value)
+                bindValue(value)
             }
         )
     }
@@ -146,21 +148,21 @@ data class GreaterThan<T : Any>(
 /**
  * Equivalent to `>` in SQL
  */
-infix fun <T : Any> JsonPathBuilder<T>.gt(value: String?): GreaterThan<T> =
+infix fun <T : Any, V> JsonPathBuilder<T>.gt(value: V?): GreaterThan<T, V> =
     GreaterThan(builder = this, value = value)
 
 /**
  * Equivalent to `>` in SQL
  */
-inline infix fun <reified T : Any, reified V> KProperty1<T, V>.gt(value: String?): GreaterThan<T> =
+inline infix fun <reified T : Any, reified V, VALUE> KProperty1<T, V>.gt(value: VALUE?): GreaterThan<T, VALUE> =
     GreaterThan(this.builder(), value)
 
 
 /**
  * Equivalent to `<` in SQL
  */
-data class LessThan<T : Any>(
-    private val builder: JsonPathBuilder<T>, private val value: String?,
+data class LessThan<T : Any, V>(
+    private val builder: JsonPathBuilder<T>, private val value: V?,
 ) : Where<T>() {
 
     override fun toSqlQuery(increment: Int): SqlQuery {
@@ -171,7 +173,7 @@ data class LessThan<T : Any>(
             parameters = 2,
             bindArgs = {
                 bindString(builder.buildPath())
-                bindString(value)
+                bindValue(value)
             }
         )
     }
@@ -180,13 +182,13 @@ data class LessThan<T : Any>(
 /**
  * Equivalent to `<` in SQL
  */
-infix fun <T : Any> JsonPathBuilder<T>.lt(value: String?): LessThan<T> =
+infix fun <T : Any, V> JsonPathBuilder<T>.lt(value: V?): LessThan<T, V> =
     LessThan(builder = this, value = value)
 
 /**
  * Equivalent to `<` in SQL
  */
-inline infix fun <reified T : Any, reified V> KProperty1<T, V>.lt(value: String?): LessThan<T> =
+inline infix fun <reified T : Any, reified V, VALUE> KProperty1<T, V>.lt(value: VALUE?): LessThan<T, VALUE> =
     LessThan(this.builder(), value)
 
 
@@ -353,5 +355,21 @@ class AutoIncrementSqlPreparedStatement(
     fun bindString(string: String?) {
         preparedStatement.bindString(index, string)
         index++
+    }
+
+    fun <T> bindValue(value: T?) {
+        when (value) {
+            is Boolean -> bindBoolean(value)
+            is ByteArray -> bindBytes(value)
+            is Double -> bindDouble(value)
+            is Number -> bindLong(value.toLong())
+            is String -> bindString(value)
+            null -> bindString(null)
+            else -> {
+                // Compiler bug doesn't smart cast the value to non-null
+                val v = requireNotNull(value) { "Unsupported value type: null" }
+                throw IllegalArgumentException("Unsupported value type: ${v::class.simpleName}")
+            }
+        }
     }
 }
