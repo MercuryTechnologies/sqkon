@@ -7,7 +7,9 @@ CREATE TABLE metadata (
 );
 
 ALTER TABLE entity ADD COLUMN read_at INTEGER;
-ALTER TABLE entity ADD COLUMN write_at INTEGER NOT NULL DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE entity ADD COLUMN write_at INTEGER DEFAULT NULL;
+
+UPDATE entity SET write_at = CURRENT_TIMESTAMP;
 
 -- Index read_at
 CREATE INDEX idx_entity_read_at ON entity (read_at);

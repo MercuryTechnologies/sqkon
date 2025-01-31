@@ -14,7 +14,7 @@ CREATE TABLE entity (
     -- UTC timestamp in milliseconds
     read_at INTEGER,
     -- UTC timestamp in milliseconds
-    write_at INTEGER NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    write_at INTEGER,
     PRIMARY KEY (entity_name, entity_key)
 );
 

@@ -5,6 +5,7 @@ import app.cash.sqldelight.SuspendingTransacterImpl
 import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.db.SqlCursor
 import app.cash.sqldelight.db.SqlDriver
+import com.mercury.sqkon.db.utils.nowMillis
 import kotlinx.coroutines.delay
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
@@ -36,7 +37,8 @@ class EntityQueries(
             bindLong(2, entity.added_at)
             bindLong(3, entity.updated_at)
             bindLong(4, entity.expires_at)
-            bindLong(5, entity.write_at)
+            // While write_at is nullable on the db col, we always set it here (sqlite limitation)
+            bindLong(5, entity.write_at ?: nowMillis())
             bindString(6, entity.value_)
         }.await()
         notifyQueries(identifier) { emit ->
@@ -99,7 +101,7 @@ class EntityQueries(
             updated_at = cursor.getLong(3)!!,
             expires_at = cursor.getLong(4),
             read_at = cursor.getLong(5),
-            write_at = cursor.getLong(6)!!,
+            write_at = cursor.getLong(6),
             value_ = cursor.getString(7)!!,
         )
     }
