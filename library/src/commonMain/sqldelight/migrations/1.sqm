@@ -7,7 +7,7 @@ CREATE TABLE metadata (
 );
 
 ALTER TABLE entity ADD COLUMN read_at INTEGER;
-ALTER TABLE entity ADD COLUMN write_at INTEGER DEFAULT NULL;
+ALTER TABLE entity ADD COLUMN write_at INTEGER;
 
 UPDATE entity SET write_at = CURRENT_TIMESTAMP;
 
