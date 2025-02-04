@@ -104,8 +104,15 @@ class JsonPathBuilderTest {
     }
 
     @Test
+    fun build_with_then_list() {
+        val builder = TestObject::child.then(TestObjectChild::subList)
+        assertEquals(expected = "\$.child.subList[%]", actual = builder.buildPath())
+    }
+
+
+    @Test
     fun build_with_list_then() {
-        val builder = TestObject::list.thenFromList(TestObjectChild::createdAt)
+        val builder = TestObject::list.then(TestObjectChild::createdAt)
         assertEquals(expected = "\$.list[%].createdAt", actual = builder.buildPath())
     }
 
