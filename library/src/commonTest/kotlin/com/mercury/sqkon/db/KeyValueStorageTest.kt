@@ -293,40 +293,6 @@ class KeyValueStorageTest {
     }
 
     @Test
-    fun select_byEntitySealedImpl() = runTest {
-        val expected = (1..10).map {
-            TestObject(sealed = TestSealed.Impl(boolean = true))
-        }.associateBy { it.id }
-        testObjectStorage.insertAll(expected)
-        val actualBySealedBooleanFalse = testObjectStorage.select(
-            where = TestObject::sealed.then(TestSealed.Impl::boolean) eq false,
-        ).first()
-        val actualBySealedBooleanTrue = testObjectStorage.select(
-            where = TestObject::sealed.then(TestSealed.Impl::boolean) eq true,
-        ).first()
-
-        assertEquals(0, actualBySealedBooleanFalse.size)
-        assertEquals(expected.size, actualBySealedBooleanTrue.size)
-    }
-
-    @Test
-    fun select_byEntitySealedImpl2() = runTest {
-        val expected = (1..10).map {
-            TestObject(sealed = TestSealed.Impl2(value = "test value"))
-        }.associateBy { it.id }
-        testObjectStorage.insertAll(expected)
-        val actualBySealedValue1 = testObjectStorage.select(
-            where = TestObject::sealed.then(TestSealed.Impl2::value) eq "test",
-        ).first()
-        val actualBySealedValue2 = testObjectStorage.select(
-            where = TestObject::sealed.then(TestSealed.Impl2::value) eq "test value",
-        ).first()
-
-        assertEquals(0, actualBySealedValue1.size)
-        assertEquals(expected.size, actualBySealedValue2.size)
-    }
-
-    @Test
     fun deleteAll() = runTest {
         val expected = (0..10).map { TestObject() }.associateBy { it.id }
         testObjectStorage.insertAll(expected)

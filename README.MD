@@ -42,6 +42,53 @@ data class Merchant(
 )
 ```
 
+### Sealed (Subclass) Classes
+Sealed and subclasses are supported, but there are some caveats, as searching on json paths on works
+on data that is serialized to json. I.e. getters/setters are not queryable.
+
+Take the following example:
+
+```kotlin
+sealed class Card {
+    val id: Uuid
+    val cardNumber: String
+    @Serializable
+    data class CreditCard(
+        val key: Uuid,
+        val last4: String,
+        val expiry: String,
+    ) : Card() {
+        override val id: Uuid get() = key
+        override val cardNumber: String get() = last4
+    }
+
+    @Serializable
+    data class DebitCard(
+        val key: Uuid,
+        val last4: String,
+        val expiry: String,
+    ) : Card() {
+        override val id: Uuid get() = key
+        override val cardNumber: String get() = last4
+    }
+}
+```
+
+As `id` and `cardNumber` are abstract properties of the sealed class, they never get serialized to 
+json, so they would not be queryable. (Unless you made your concrete classes override and serialize them.)
+
+`with` will accepts sub types of the parent class, please open issues of complex data structures if stuck.
+
+The following would be valid and invalid queries:
+```kotlin
+// These will search across the sealed class fields 
+val idWhere = Card::class.with(CreditCard::key) eq "1"
+val last4Where = Card::class.with(CreditCard::last4) eq "1234"
+// This will not work tho as cardNumber is a getter
+val cardNumberWhere = Card::cardNumber eq "1234"
+
+```
+
 ## Installation
 
 ### Gradle
