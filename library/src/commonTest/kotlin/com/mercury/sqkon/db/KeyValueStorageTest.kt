@@ -516,5 +516,20 @@ class KeyValueStorageTest {
         }
     }
 
+    @Test
+    fun select_inList()  = runTest{
+        val expectedO = TestObject()
+        testObjectStorage.insert(expectedO.id, expectedO)
+
+        val expectedList = expectedO.list.map { it.createdAt.toString() }
+
+        val actual = testObjectStorage.select(
+            where = TestObject::list.then(TestObjectChild::createdAt) inList expectedList
+        ).first()
+
+        assertEquals(expectedO, actual.first())
+        assertEquals(expectedO.list, actual.first().list)
+    }
+
 
 }

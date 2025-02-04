@@ -30,6 +30,7 @@ data class TestObject(
 data class TestObjectChild(
     val createdAt: Instant = Clock.System.now(),
     val updatedAt: Instant = Clock.System.now(),
+    val subList: List<String> = listOf("1", "2", "3"),
 )
 
 @Serializable
