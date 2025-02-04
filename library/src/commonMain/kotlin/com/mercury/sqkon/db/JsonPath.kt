@@ -7,6 +7,7 @@ import kotlinx.serialization.descriptors.StructureKind
 import kotlinx.serialization.serializer
 import kotlin.reflect.KClass
 import kotlin.reflect.KProperty1
+import kotlin.reflect.KType
 import kotlin.reflect.typeOf
 
 /**
@@ -58,6 +59,25 @@ class JsonPathBuilder<R : Any>
         return this
     }
 
+    @PublishedApi
+    internal inline fun <reified R1 : R, reified V> with(
+        baseType: KType,
+        property: KProperty1<R1, V>,
+        serialName: String? = null,
+        block: JsonPathNode<R, V>.() -> Unit = {}
+    ): JsonPathBuilder<R> {
+        parentNode = JsonPathNode<R, V>(
+            //parent = null,
+            propertyName = serialName ?: property.name,
+            receiverBaseDescriptor = if (baseType != typeOf<R1>()) {
+                serializer(baseType).descriptor
+            } else null,
+            receiverDescriptor = serializer<R1>().descriptor,
+            valueDescriptor = serializer<V>().descriptor
+        ).also(block)
+        return this
+    }
+
     // Handles collection property type and extracts the element type vs the list type
     @PublishedApi
     internal inline fun <reified R1 : R, reified V : Any?> withList(
@@ -79,29 +99,37 @@ class JsonPathBuilder<R : Any>
         val nodes = mutableListOf<JsonPathNode<*, *>>()
         var node: JsonPathNode<*, *>? = parentNode
         while (node != null) {
+            // Insert additional node for parent classes incase they are sealed classes
+            if (node.receiverBaseDescriptor != null) {
+                nodes.add(
+                    JsonPathNode<Any, Any>(
+                        propertyName = "",
+                        receiverDescriptor = node.receiverBaseDescriptor,
+                        valueDescriptor = node.receiverBaseDescriptor
+                    )
+                )
+            }
             nodes.add(node)
             node = node.child
         }
-        return nodes.filterInlineClasses()
-    }
-
-    private fun List<JsonPathNode<*, *>>.filterInlineClasses(): List<JsonPathNode<*, *>> {
-        return this.filter { node -> return@filter !node.receiverDescriptor.isInline }
+        return nodes
     }
 
     @OptIn(ExperimentalSerializationApi::class)
     fun fieldNames(): List<String> {
-        return nodes().map {
+        return nodes().mapNotNull { it ->
+            if (it.receiverDescriptor.isInline) return@mapNotNull null // Skip inline classes
+            val prefix = if (it.propertyName.isNotBlank()) "." else ""
             when (it.valueDescriptor.kind) {
-                StructureKind.LIST -> "${it.propertyName}[%]"
-                PolymorphicKind.SEALED -> "${it.propertyName}[1]"
-                else -> it.propertyName
+                StructureKind.LIST -> "$prefix${it.propertyName}[%]"
+                PolymorphicKind.SEALED -> "$prefix${it.propertyName}[1]"
+                else -> "$prefix${it.propertyName}"
             }
         }
     }
 
     fun buildPath(): String {
-        return fieldNames().joinToString(".", prefix = "\$.")
+        return fieldNames().joinToString("", prefix = "\$")
     }
 }
 
@@ -154,12 +182,13 @@ inline fun <reified R : Any, reified V, reified V2> KProperty1<R, V>.thenList(
     }
 }
 
-@Suppress("UnusedReceiverParameter")
-inline fun <reified R : Any, reified V> KClass<R>.with(
-    property: KProperty1<R, V>,
+inline fun <reified R : Any, reified R1 : R, reified V> KClass<R>.with(
+    property: KProperty1<R1, V>,
     block: JsonPathNode<R, V>.() -> Unit = {}
 ): JsonPathBuilder<R> {
-    return JsonPathBuilder<R>().with<R, V>(property = property, block = block)
+    return JsonPathBuilder<R>().with<R1, V>(
+        baseType = typeOf<R>(), property = property, block = block
+    )
 }
 
 // Handles collection property type
@@ -181,6 +210,7 @@ class JsonPathNode<R : Any?, V : Any?>
 internal constructor(
     //@PublishedApi internal val parent: JsonPathNode<*, R>?,
     val propertyName: String,
+    internal val receiverBaseDescriptor: SerialDescriptor? = null,
     internal val receiverDescriptor: SerialDescriptor,
     @PublishedApi internal val valueDescriptor: SerialDescriptor,
 ) {
@@ -223,6 +253,10 @@ internal constructor(
             valueDescriptor = serializer<Collection<V2>>().descriptor
         ).also(block)
         return this
+    }
+
+    override fun toString(): String {
+        return "JsonPathNode(propertyName='$propertyName', receiverDescriptor=$receiverDescriptor, valueDescriptor=$valueDescriptor)"
     }
 }
 

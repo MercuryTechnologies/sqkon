@@ -68,7 +68,9 @@ open class KeyValueStorage<T : Any>(
             expires_at = expiresAt?.toEpochMilliseconds(),
             read_at = null,
             write_at = now,
-            value_ = serializer.serialize(type, value) ?: error("Failed to serialize value")
+            value_ = serializer.serialize(type, value)?.also {
+                println("Inserted value: $it")
+            } ?: error("Failed to serialize value")
         )
         entityQueries.insertEntity(entity, ignoreIfExists)
         updateWriteAt(currentCoroutineContext()[RequestHash.Key]?.hash ?: entity.hashCode())

@@ -54,3 +54,39 @@ sealed interface TestSealed {
     value class Impl2(val value: String) : TestSealed
 
 }
+
+@Serializable
+sealed interface BaseSealed {
+
+    val id: String
+
+    @JvmInline
+    @Serializable
+    @SerialName("TypeOne")
+    value class TypeOne(
+        val data: TypeOneData
+    ) : BaseSealed {
+        override val id: String get() = data.key
+    }
+
+    @Serializable
+    @SerialName("TypeTwo")
+    data class TypeTwo(
+        val data: TypeTwoData
+    ) : BaseSealed {
+        override val id: String get() = data.key
+    }
+
+}
+
+@Serializable
+data class TypeOneData(
+    val key: String,
+    val value: String
+)
+
+@Serializable
+data class TypeTwoData(
+    val key: String,
+    val otherValue: Int
+)

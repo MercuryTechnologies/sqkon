@@ -1,9 +1,12 @@
 package com.mercury.sqkon.db
 
+import com.mercury.sqkon.BaseSealed
 import com.mercury.sqkon.TestObject
 import com.mercury.sqkon.TestObjectChild
 import com.mercury.sqkon.TestSealed
 import com.mercury.sqkon.TestValue
+import com.mercury.sqkon.TypeOneData
+import com.mercury.sqkon.TypeTwoData
 import org.junit.Test
 import kotlin.test.assertEquals
 
@@ -74,6 +77,22 @@ class JsonPathBuilderTest {
             then(TestSealed.Impl2::value) {}
         }
         assertEquals(expected = "\$.sealed[1]", actual = builder.buildPath())
+    }
+
+    @Test
+    fun build_with_base_sealed_value_path() {
+        val builder = BaseSealed::class.with(BaseSealed.TypeOne::data) {
+            then(TypeOneData::key)
+        }
+        assertEquals(expected = "\$[1].key", actual = builder.buildPath())
+    }
+
+    @Test
+    fun build_with_base_sealed_data_path() {
+        val builder = BaseSealed::class.with(BaseSealed.TypeTwo::data) {
+            then(TypeTwoData::key)
+        }
+        assertEquals(expected = "\$[1].data.key", actual = builder.buildPath())
     }
 
     @Test
