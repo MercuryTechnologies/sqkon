@@ -23,6 +23,7 @@ data class TestObject(
     val list: List<TestObjectChild> = List(2) { TestObjectChild() },
     val attributes: List<String>? = (1..10).map { it.toString() },
     val sealed: TestSealed = TestSealed.Impl2("value"),
+    val testEnum: TestEnum? = null,
 )
 
 
@@ -91,3 +92,11 @@ data class TypeTwoData(
     val key: String,
     val otherValue: Int
 )
+
+enum class TestEnum {
+    FIRST,
+    SECOND,
+
+    @SerialName("unknown")
+    LAST;
+}

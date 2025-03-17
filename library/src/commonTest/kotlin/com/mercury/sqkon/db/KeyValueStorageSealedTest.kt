@@ -71,7 +71,7 @@ class KeyValueStorageSealedTest {
         assertEquals(expected.size, actualBySealedValue2.size)
     }
 
-    @org.junit.Test
+    @Test
     fun select_byBaseSealedId() = runTest {
         val expectedT1 = (1..10).map {
             BaseSealed.TypeOne(

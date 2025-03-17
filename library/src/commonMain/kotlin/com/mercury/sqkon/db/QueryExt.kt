@@ -364,6 +364,16 @@ class AutoIncrementSqlPreparedStatement(
             is Double -> bindDouble(value)
             is Number -> bindLong(value.toLong())
             is String -> bindString(value)
+            is Enum<*> -> {
+                // Doesn't support @SerialName for now https://github.com/Kotlin/kotlinx.serialization/issues/2956
+//                val e = value as T
+//                e::class.serializerOrNull()?.let {
+//                    val sName = it.descriptor.getElementDescriptor(value.ordinal).serialName
+//                    bindString(sName)
+//                } ?: bindString(null)
+                bindString(value.name) // use ordinal name for now (which is default serialization)
+            }
+
             null -> bindString(null)
             else -> {
                 // Compiler bug doesn't smart cast the value to non-null

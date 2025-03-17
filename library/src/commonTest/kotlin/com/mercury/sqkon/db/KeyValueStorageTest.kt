@@ -4,7 +4,6 @@ import app.cash.turbine.test
 import app.cash.turbine.turbineScope
 import com.mercury.sqkon.TestObject
 import com.mercury.sqkon.TestObjectChild
-import com.mercury.sqkon.TestSealed
 import com.mercury.sqkon.until
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
