@@ -240,7 +240,9 @@ class EntityQueries(
                 parameters = 1 + if (queries.size > 1) queries.sumParameters() else 0,
             ) {
                 bindString(0, entityName)
-                val preparedStatement = AutoIncrementSqlPreparedStatement(1, this)
+                val preparedStatement = AutoIncrementSqlPreparedStatement(
+                    index = 1, preparedStatement = this
+                )
                 if (queries.size > 1) {
                     queries.forEach { q -> q.bindArgs(preparedStatement) }
                 }
