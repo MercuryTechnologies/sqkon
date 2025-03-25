@@ -13,6 +13,7 @@ dependencies {
 
     // For testing the plugin
     testImplementation(kotlin("test"))
+    testImplementation(kotlin("reflect"))
     testImplementation(libs.kotlin.compiler.embeddable)
     testImplementation(libs.kotlin.compiler.testing)
     testImplementation(libs.kotlinx.serialization.core)

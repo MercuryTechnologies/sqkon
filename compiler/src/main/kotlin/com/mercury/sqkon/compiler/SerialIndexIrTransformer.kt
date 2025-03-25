@@ -24,6 +24,7 @@ import org.jetbrains.kotlin.ir.builders.irString
 import org.jetbrains.kotlin.ir.builders.irVararg
 import org.jetbrains.kotlin.ir.declarations.IrClass
 import org.jetbrains.kotlin.ir.declarations.IrProperty
+import org.jetbrains.kotlin.ir.declarations.createBlockBody
 import org.jetbrains.kotlin.ir.expressions.IrExpression
 import org.jetbrains.kotlin.ir.expressions.IrStatementOrigin
 import org.jetbrains.kotlin.ir.expressions.impl.IrDelegatingConstructorCallImpl
@@ -33,10 +34,12 @@ import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.types.defaultType
 import org.jetbrains.kotlin.ir.types.typeWith
 import org.jetbrains.kotlin.ir.util.addChild
+import org.jetbrains.kotlin.ir.util.companionObject
 import org.jetbrains.kotlin.ir.util.constructors
 import org.jetbrains.kotlin.ir.util.createThisReceiverParameter
 import org.jetbrains.kotlin.ir.util.defaultType
 import org.jetbrains.kotlin.ir.util.fqNameWhenAvailable
+import org.jetbrains.kotlin.ir.util.hasAnnotation
 import org.jetbrains.kotlin.ir.util.isVararg
 import org.jetbrains.kotlin.ir.util.parentAsClass
 import org.jetbrains.kotlin.name.CallableId
@@ -54,6 +57,7 @@ class SerialIndexIrTransformer(
 ) : IrElementTransformerVoidWithContext() {
 
     private val serializableAnnotationFqName = FqName("kotlinx.serialization.Serializable")
+    private val transientAnnotationFqName = FqName("kotlinx.serialization.Transient")
 
     override fun visitClassNew(declaration: IrClass): IrStatement {
         // Process the class first with super (to process nested classes)
@@ -64,18 +68,18 @@ class SerialIndexIrTransformer(
             it.symbol.owner.parentAsClass.fqNameWhenAvailable == serializableAnnotationFqName
         }
 
-        if (isSerializable) {
-            messageCollector.report(
-                CompilerMessageSeverity.INFO,
-                "Processing serializable class: ${irClass.name}"
-            )
+        if (!isSerializable) return irClass
 
-            // Add or find companion object
-            val companion = getOrCreateCompanionObject(irClass)
+        messageCollector.report(
+            CompilerMessageSeverity.INFO,
+            "Processing serializable class: ${irClass.name}"
+        )
 
-            // Add property indices map to companion
-            addPropertyIndicesMap(companion, irClass)
-        }
+        // Add or find companion object
+        val companion = getOrCreateCompanionObject(irClass)
+
+        // Add property indices map to companion
+        addPropertyIndicesMap(companion, irClass)
 
         return irClass
     }
@@ -84,14 +88,9 @@ class SerialIndexIrTransformer(
      * Finds existing companion object or creates a new one.
      */
     private fun getOrCreateCompanionObject(irClass: IrClass): IrClass {
-        // Try to find existing companion object
-        val existingCompanion = irClass.declarations.firstOrNull {
-            it is IrClass && it.isCompanion
-        } as IrClass?
 
-        if (existingCompanion != null) {
-            return existingCompanion
-        }
+        // Try to find existing companion object
+        irClass.companionObject()?.let { return it }
 
         // Need to create a new companion object
         messageCollector.report(
@@ -101,52 +100,45 @@ class SerialIndexIrTransformer(
 
         // Create a new companion object class
         val companionObject = pluginContext.irFactory.buildClass {
-            name = Name.identifier("Companion")
+            name = SpecialNames.DEFAULT_NAME_FOR_COMPANION_OBJECT
             kind = ClassKind.OBJECT
             visibility = DescriptorVisibilities.PUBLIC
             modality = Modality.FINAL
             isCompanion = true
+        }.also { companionObject ->
+            companionObject.createThisReceiverParameter()
+            companionObject.addConstructor {
+                visibility = DescriptorVisibilities.PRIVATE
+                isPrimary = true
+            }.also { constructor ->
+                constructor.body = pluginContext.irFactory.createBlockBody(
+                    startOffset = constructor.startOffset,
+                    endOffset = constructor.endOffset,
+                ) {
+                    statements.add(
+                        IrDelegatingConstructorCallImpl(
+                            startOffset = constructor.startOffset,
+                            endOffset = constructor.endOffset,
+                            type = pluginContext.irBuiltIns.anyType,
+                            symbol = pluginContext.irBuiltIns.anyClass.constructors.single(),
+                            typeArgumentsCount = 0,
+                            origin = IrStatementOrigin.DEFAULT_VALUE,
+                        )
+                    )
+                    statements.add(
+                        IrInstanceInitializerCallImpl(
+                            startOffset = constructor.startOffset,
+                            endOffset = constructor.endOffset,
+                            classSymbol = companionObject.symbol,
+                            type = pluginContext.irBuiltIns.unitType
+                        )
+                    )
+                }
+            }
         }
 
         // Add the companion object to the parent class
         // companionObject.parent = irClass
-        irClass.addChild(companionObject)
-
-        // Create $this field for companion object
-        companionObject.thisReceiver ?: companionObject.createThisReceiverParameter()
-
-        // Create primary constructor for companion object
-        val constructor = companionObject.addConstructor {
-            visibility = DescriptorVisibilities.PRIVATE
-            isPrimary = true
-        }
-
-        // Set body for constructor
-
-        constructor.body = pluginContext.irFactory.createBlockBody(
-            startOffset = constructor.startOffset,
-            endOffset = constructor.endOffset,
-        ).also {
-            it.statements.add(
-                IrDelegatingConstructorCallImpl(
-                    startOffset = constructor.startOffset,
-                    endOffset = constructor.endOffset,
-                    type = pluginContext.irBuiltIns.anyType,
-                    symbol = pluginContext.irBuiltIns.anyClass.constructors.single(),
-                    typeArgumentsCount = 0,
-                    origin = IrStatementOrigin.DEFAULT_VALUE,
-                ),
-            )
-            it.statements.add(
-                IrInstanceInitializerCallImpl(
-                    startOffset = constructor.startOffset, endOffset = constructor.endOffset,
-                    classSymbol = companionObject.symbol,
-                    type = pluginContext.irBuiltIns.unitType
-                )
-            )
-        }
-
-        // Add the companion object to the parent class
         irClass.addChild(companionObject)
 
         return companionObject
@@ -161,6 +153,7 @@ class SerialIndexIrTransformer(
             .filterIsInstance<IrProperty>()
             // TODO also filter @Transient properties
             .filter {
+                if (it.annotations.hasAnnotation(transientAnnotationFqName)) return@filter false
                 it.visibility != DescriptorVisibilities.PRIVATE
                         && !it.isDelegated
                         && !it.isLateinit
@@ -196,10 +189,6 @@ class SerialIndexIrTransformer(
                 modality = Modality.FINAL
                 returnType = mapType
             }.also { getter ->
-//                val getterThisParam = getter.addValueParameter {
-//                    name = Name.special("<this>")
-//                     type = companion.defaultType
-//                }
                 // Not sure if needed?
                 getter.addValueParameter {
                     name = SpecialNames.THIS
