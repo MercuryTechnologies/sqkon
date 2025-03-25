@@ -1,9 +1,10 @@
 [versions]
 androidx-monitor = "1.7.2"
 androidx-runner = "1.6.2"
-kotlin = "2.1.10"
+kotlin = "2.1.20"
 agp = "8.9.0"
 kotlinx-coroutines = "1.10.1"
+kotlinCompilerTesting = "0.7.0"
 kotlinx-serialization = { require = "1.8.0" }
 kotlinx-datetime = "0.6.2"
 paging = "3.3.0-alpha02-0.5.1"
@@ -13,10 +14,13 @@ turbine = "1.2.0"
 [libraries]
 androidx-test-monitor = { module = "androidx.test:monitor", version.ref = "androidx-monitor" }
 androidx-test-runner = { module = "androidx.test:runner", version.ref = "androidx-runner" }
+kotlin-compiler-embeddable = { module = "org.jetbrains.kotlin:kotlin-compiler-embeddable", version.ref = "kotlin" }
+kotlin-compiler-testing = { module = "dev.zacsweers.kctfork:core", version.ref = "kotlinCompilerTesting" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinx-coroutines" }
 kotlinx-coroutines-swing = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-swing", version.ref = "kotlinx-coroutines" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinx-coroutines" }
+kotlinx-serialization-core = { module = "org.jetbrains.kotlinx:kotlinx-serialization-core", version.ref = "kotlinx-serialization" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
 kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinx-datetime" }
 paging-common = { module = "app.cash.paging:paging-common", version.ref = "paging" }
@@ -36,5 +40,6 @@ android-library = { id = "com.android.library", version.ref = "agp" }
 maven-publish = { id = "com.vanniktech.maven.publish", version = "0.31.0" }
 multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlinx-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 sqlDelight = { id = "app.cash.sqldelight", version.ref = "sqlDelight" }

@@ -43,6 +43,7 @@ dependencyResolutionManagement {
 }
 
 include(
+    ":compiler",
     ":library",
     //":sample"
 )

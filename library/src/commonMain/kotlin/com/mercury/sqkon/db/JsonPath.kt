@@ -192,7 +192,7 @@ inline fun <reified R : Any, reified R1 : R, reified V> KClass<R>.with(
 ): JsonPathBuilder<R> {
     return JsonPathBuilder<R>().with<R1, V>(
         baseType = typeOf<R>(), property = property, block = block, serialName = serialName,
-        )
+    )
 }
 
 // Handles collection property type
