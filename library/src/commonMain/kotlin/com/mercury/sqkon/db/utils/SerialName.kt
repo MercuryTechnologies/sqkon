@@ -8,6 +8,8 @@ import kotlin.reflect.KProperty
 /**
  * Utility function to get the serialized name for a property.
  * Uses the generated property indices map at runtime.
+ *
+ * TODO make expect/actual for JS/iOS etc
  */
 @OptIn(InternalSerializationApi::class)
 internal inline fun <reified T : Any> KProperty<*>.serialName(): String {

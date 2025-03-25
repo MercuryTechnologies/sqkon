@@ -268,7 +268,7 @@ class SerialIndexIrTransformer(
         return irCall(toFunction).apply {
             putTypeArgument(0, stringType)// A type
             putTypeArgument(1, intType)// B type
-            insertDispatchReceiver(irString(name))
+            insertExtensionReceiver(irString(name))
             putValueArgument(0, irInt(index))
         }
     }
@@ -295,7 +295,9 @@ class SerialIndexIrTransformer(
         // Find the "to" extension function
         val toCallable = CallableId(FqName("kotlin"), Name.identifier("to"))
         return pluginContext.referenceFunctions(toCallable).single { function ->
-            function.owner.valueParameters.size == 1 && function.owner.extensionReceiverParameter != null
+            function.owner.isInfix &&
+                    function.owner.valueParameters.size == 1
+                    && function.owner.extensionReceiverParameter != null
         }
     }
 

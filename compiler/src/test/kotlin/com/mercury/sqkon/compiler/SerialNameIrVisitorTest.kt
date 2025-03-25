@@ -1,7 +1,9 @@
 package com.mercury.sqkon.compiler
 
+import com.tschuchort.compiletesting.CompilationResult
 import com.tschuchort.compiletesting.JvmCompilationResult
 import com.tschuchort.compiletesting.KotlinCompilation
+import com.tschuchort.compiletesting.KotlinCompilation.ExitCode
 import com.tschuchort.compiletesting.SourceFile
 import com.tschuchort.compiletesting.SourceFile.Companion.kotlin
 import org.jetbrains.kotlin.compiler.plugin.ExperimentalCompilerApi
@@ -11,6 +13,7 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.io.File
 import kotlin.test.BeforeTest
+import kotlin.test.assertEquals
 
 @OptIn(ExperimentalCompilerApi::class)
 class SerialNameIrVisitorTest {
@@ -46,15 +49,13 @@ class SerialNameIrVisitorTest {
                     @Serializable
                     data class User(
                         val id: Int,
-                        //val name: String,
+                        val name: String,
                     )
                     """,
                 )
             )
 
-        compilationDir.walkTopDown().forEach {
-            if(it.isFile) println(it.readText())
-        }
+        assertEquals(ExitCode.OK, result.exitCode)
     }
 
     private fun prepareCompilation(vararg sourceFiles: SourceFile): KotlinCompilation {
