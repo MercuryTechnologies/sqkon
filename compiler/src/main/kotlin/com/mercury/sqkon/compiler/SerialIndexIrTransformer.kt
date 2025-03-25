@@ -40,6 +40,7 @@ import org.jetbrains.kotlin.ir.util.createThisReceiverParameter
 import org.jetbrains.kotlin.ir.util.defaultType
 import org.jetbrains.kotlin.ir.util.fqNameWhenAvailable
 import org.jetbrains.kotlin.ir.util.hasAnnotation
+import org.jetbrains.kotlin.ir.util.isSimpleProperty
 import org.jetbrains.kotlin.ir.util.isVararg
 import org.jetbrains.kotlin.ir.util.parentAsClass
 import org.jetbrains.kotlin.name.CallableId
@@ -154,7 +155,8 @@ class SerialIndexIrTransformer(
             // TODO also filter @Transient properties
             .filter {
                 if (it.annotations.hasAnnotation(transientAnnotationFqName)) return@filter false
-                it.visibility != DescriptorVisibilities.PRIVATE
+                it.isSimpleProperty
+                        && it.visibility != DescriptorVisibilities.PRIVATE
                         && !it.isDelegated
                         && !it.isLateinit
                         && it.getter != null
@@ -284,8 +286,8 @@ class SerialIndexIrTransformer(
         // Find the "to" extension function
         val toCallable = CallableId(FqName("kotlin"), Name.identifier("to"))
         return pluginContext.referenceFunctions(toCallable).single { function ->
-            function.owner.isInfix &&
-                    function.owner.valueParameters.size == 1
+            function.owner.isInfix
+                    && function.owner.valueParameters.size == 1
                     && function.owner.extensionReceiverParameter != null
         }
     }

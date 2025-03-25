@@ -1,34 +1,19 @@
 package com.mercury.sqkon.compiler
 
-import com.tschuchort.compiletesting.CompilationResult
 import com.tschuchort.compiletesting.JvmCompilationResult
 import com.tschuchort.compiletesting.KotlinCompilation
 import com.tschuchort.compiletesting.KotlinCompilation.ExitCode
 import com.tschuchort.compiletesting.SourceFile
 import com.tschuchort.compiletesting.SourceFile.Companion.kotlin
-import org.hamcrest.MatcherAssert.assertThat
 import org.jetbrains.kotlin.compiler.plugin.ExperimentalCompilerApi
-import org.jetbrains.kotlin.config.JvmDefaultMode
 import org.jetbrains.kotlin.descriptors.runtime.components.tryLoadClass
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.io.File
-import java.lang.reflect.Method
-import kotlin.reflect.full.declaredFunctions
-import kotlin.reflect.full.declaredMemberExtensionFunctions
-import kotlin.reflect.full.declaredMemberExtensionProperties
-import kotlin.reflect.full.declaredMemberFunctions
-import kotlin.reflect.full.declaredMemberProperties
-import kotlin.reflect.full.declaredMembers
-import kotlin.reflect.full.memberExtensionFunctions
-import kotlin.reflect.full.memberExtensionProperties
-import kotlin.reflect.full.memberFunctions
-import kotlin.reflect.full.memberProperties
 import kotlin.test.BeforeTest
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
-import kotlin.test.assertTrue
 
 @Suppress("UNCHECKED_CAST")
 @OptIn(ExperimentalCompilerApi::class)
@@ -52,7 +37,7 @@ class SerialNameIrVisitorTest() {
 
 
     @Test
-    fun generateIndexesSimple() {
+    fun `generateIndexes basic`() {
         val result =
             compile(
                 kotlin(
@@ -79,7 +64,7 @@ class SerialNameIrVisitorTest() {
     }
 
     @Test
-    fun `generateIndexesSimple with Transient`() {
+    fun `generateIndexes with Transient`() {
         val result =
             compile(
                 kotlin(
@@ -105,6 +90,40 @@ class SerialNameIrVisitorTest() {
         result.assertCompanionObject(
             "test.User",
             mapOf("id" to 0, "name" to 1)
+        )
+    }
+
+    @Test
+    fun `generateIndexes with properties`() {
+        val result =
+            compile(
+                kotlin(
+                    "simple.kt",
+                    """
+                    package test
+                        
+                    import kotlinx.serialization.Serializable
+                    import kotlinx.serialization.Transient
+
+                    @Serializable
+                    data class User(
+                        val id: Int,
+                        val name: String,
+                        @Transient
+                        val ignored: String,
+                    ) {
+                        val serializedName: String = name
+                        val fullName: String get() = "'$'name '$'id"
+                        
+                    }
+                    """,
+                )
+            )
+
+        assertEquals(ExitCode.OK, result.exitCode)
+        result.assertCompanionObject(
+            "test.User",
+            mapOf("id" to 0, "name" to 1, "serializedName" to 2)
         )
     }
 
