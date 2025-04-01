@@ -21,7 +21,10 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
+            implementation(libs.androidx.sqlite.core)
+            implementation(libs.androidx.sqlite.bundled)
             implementation(libs.kotlinx.coroutines.core)
+            implementation(libs.sqlDelight.androidx.driver)
             implementation(libs.sqlDelight.coroutines)
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.kotlinx.datetime)
@@ -39,12 +42,10 @@ kotlin {
         androidMain.dependencies {
             implementation(libs.kotlinx.coroutines.android)
             implementation(libs.sqlDelight.driver.android)
-            implementation(libs.sqlite.requery.android)
         }
 
         jvmMain.dependencies {
             implementation(libs.kotlinx.coroutines.swing)
-            implementation(libs.sqlDelight.driver.sqlite)
         }
 
     }

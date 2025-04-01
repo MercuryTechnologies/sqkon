@@ -1,8 +1,9 @@
 [versions]
 androidx-monitor = "1.7.2"
 androidx-runner = "1.6.2"
-kotlin = "2.1.10"
-agp = "8.9.0"
+androidx-sqlite = "2.5.0-rc03"
+kotlin = "2.1.20"
+agp = "8.9.1"
 kotlinx-coroutines = "1.10.1"
 kotlinx-serialization = { require = "1.8.0" }
 kotlinx-datetime = "0.6.2"
@@ -13,6 +14,8 @@ turbine = "1.2.0"
 [libraries]
 androidx-test-monitor = { module = "androidx.test:monitor", version.ref = "androidx-monitor" }
 androidx-test-runner = { module = "androidx.test:runner", version.ref = "androidx-runner" }
+androidx-sqlite-core = { module = "androidx.sqlite:sqlite", version.ref = "androidx-sqlite" }
+androidx-sqlite-bundled = { module = "androidx.sqlite:sqlite-bundled", version.ref = "androidx-sqlite" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinx-coroutines" }
 kotlinx-coroutines-swing = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-swing", version.ref = "kotlinx-coroutines" }
@@ -21,12 +24,10 @@ kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serializa
 kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinx-datetime" }
 paging-common = { module = "app.cash.paging:paging-common", version.ref = "paging" }
 paging-testing = { module = "app.cash.paging:paging-testing", version.ref = "paging" }
+sqlDelight-androidx-driver = { module = "com.eygraber:sqldelight-androidx-driver", version = "0.0.9" }
 sqlDelight-driver-sqlite = { module = "app.cash.sqldelight:sqlite-driver", version.ref = "sqlDelight" }
 sqlDelight-driver-android = { module = "app.cash.sqldelight:android-driver", version.ref = "sqlDelight" }
 sqlDelight-coroutines = { module = "app.cash.sqldelight:coroutines-extensions", version.ref = "sqlDelight" }
-sqlite-requery-android = { module = "com.github.requery:sqlite-android", version = "3.45.0" }
-sqlDelight-driver-native = { module = "app.cash.sqldelight:native-driver", version.ref = "sqlDelight" }
-sqlDelight-driver-js = { module = "app.cash.sqldelight:web-worker-driver", version.ref = "sqlDelight" }
 turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
 
 
