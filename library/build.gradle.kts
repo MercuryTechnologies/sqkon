@@ -16,9 +16,8 @@ kotlin {
     androidTarget {
         publishLibraryVariants("release")
     }
-    jvmToolchain(11)
+    jvmToolchain(21)
     jvm()
-
     sourceSets {
         commonMain.dependencies {
             implementation(libs.androidx.sqlite.core)
