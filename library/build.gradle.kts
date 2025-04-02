@@ -45,6 +45,7 @@ kotlin {
 
         jvmMain.dependencies {
             implementation(libs.kotlinx.coroutines.swing)
+            api(libs.sqlDelight.androidx.driver) // Expose the driver for transitive dependencies
         }
 
     }
