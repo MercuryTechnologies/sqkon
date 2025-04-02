@@ -18,6 +18,6 @@ fun Sqkon(
     val factory = DriverFactory(context, if (inMemory) null else "sqkon.db")
     val driver = factory.createDriver()
     val metadataQueries = MetadataQueries(driver)
-    val entityQueries = EntityQueries(driver, json)
+    val entityQueries = EntityQueries(driver)
     return Sqkon(entityQueries, metadataQueries, scope, json, config)
 }

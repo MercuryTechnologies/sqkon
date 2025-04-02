@@ -1,11 +1,12 @@
 package com.mercury.sqkon.db
 
 import android.content.Context
-import androidx.sqlite.db.SupportSQLiteOpenHelper
+import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import app.cash.sqldelight.async.coroutines.synchronous
 import app.cash.sqldelight.db.SqlDriver
-import app.cash.sqldelight.driver.android.AndroidSqliteDriver
-import io.requery.android.database.sqlite.RequerySQLiteOpenHelperFactory
+import com.eygraber.sqldelight.androidx.driver.AndroidxSqliteDatabaseType
+import com.eygraber.sqldelight.androidx.driver.AndroidxSqliteDriver
+import com.eygraber.sqldelight.androidx.driver.File
 
 /**
  * @param name The name of the database to open or create. If null, an in-memory database will
@@ -16,14 +17,13 @@ internal actual class DriverFactory(
     private val name: String? = "sqkon.db"
 ) {
     actual fun createDriver(): SqlDriver {
-        val helper = RequerySQLiteOpenHelperFactory().create(
-            SupportSQLiteOpenHelper.Configuration(
-                context = context,
-                name = name,
-                callback = AndroidSqliteDriver.Callback(SqkonDatabase.Schema.synchronous()),
-                allowDataLossOnRecovery = true,
-            )
+        return AndroidxSqliteDriver(
+            driver = BundledSQLiteDriver(),
+            databaseType = when (name) {
+                null -> AndroidxSqliteDatabaseType.Memory
+                else -> AndroidxSqliteDatabaseType.File(context = context, name = name)
+            },
+            schema = SqkonDatabase.Schema.synchronous()
         )
-        return AndroidSqliteDriver(helper)
     }
 }

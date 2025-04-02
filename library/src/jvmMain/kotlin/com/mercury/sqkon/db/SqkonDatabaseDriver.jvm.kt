@@ -1,22 +1,21 @@
 package com.mercury.sqkon.db
 
-import app.cash.sqldelight.async.coroutines.awaitCreate
+import androidx.sqlite.driver.bundled.BundledSQLiteDriver
+import app.cash.sqldelight.async.coroutines.synchronous
 import app.cash.sqldelight.db.SqlDriver
-import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
-import kotlinx.coroutines.runBlocking
+import com.eygraber.sqldelight.androidx.driver.AndroidxSqliteDatabaseType
+import com.eygraber.sqldelight.androidx.driver.AndroidxSqliteDriver
 
 internal actual class DriverFactory(
-    private val jdbcUrl: String = JdbcSqliteDriver.IN_MEMORY,
+    private val databaseType: AndroidxSqliteDatabaseType = AndroidxSqliteDatabaseType.Memory,
 ) {
 
     actual fun createDriver(): SqlDriver {
-        return runBlocking { createDriverAwait() }
-    }
-
-    suspend fun createDriverAwait(): SqlDriver {
-        val driver: SqlDriver = JdbcSqliteDriver(jdbcUrl)
-        SqkonDatabase.Schema.awaitCreate(driver)
-        return driver
+        return AndroidxSqliteDriver(
+            driver = BundledSQLiteDriver(),
+            databaseType = databaseType,
+            schema = SqkonDatabase.Schema.synchronous(),
+        )
     }
 
 }
