@@ -19,5 +19,9 @@ fun Sqkon(
     val driver = factory.createDriver()
     val metadataQueries = MetadataQueries(driver)
     val entityQueries = EntityQueries(driver)
-    return Sqkon(entityQueries, metadataQueries, scope, json, config)
+    return Sqkon(
+        entityQueries, metadataQueries, scope, json, config,
+        readDispatcher = dbReadDispatcher,
+        writeDispatcher = dbWriteDispatcher,
+    )
 }
