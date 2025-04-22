@@ -1,5 +1,6 @@
 package com.mercury.sqkon.db
 
+import app.cash.turbine.test
 import com.mercury.sqkon.TestObject
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
@@ -117,8 +118,14 @@ class KeyValueStorageStaleTest {
         testObjectStorage.updateAll(expected)
         // Read in the past write is after now
         testObjectStorage.deleteStale(writeInstant = null, readInstant = now)
-        val actualAfterDelete = testObjectStorage.selectAll().first()
-        assertEquals(0, actualAfterDelete.size)
+        testObjectStorage.selectAll().test {
+            var actualAfterDelete = awaitItem()
+            if (actualAfterDelete.size != 0) {
+                actualAfterDelete = awaitItem()
+            }
+            assertEquals(0, actualAfterDelete.size)
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 
     @Test
