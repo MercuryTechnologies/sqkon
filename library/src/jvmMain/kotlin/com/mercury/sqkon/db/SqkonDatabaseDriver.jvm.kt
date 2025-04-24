@@ -10,9 +10,15 @@ import com.eygraber.sqldelight.androidx.driver.SqliteJournalMode
 import com.eygraber.sqldelight.androidx.driver.SqliteSync
 import kotlinx.coroutines.Dispatchers
 
-internal const val connectionPoolSize = 4 // Default is 4 as per AndroidxSqliteConfiguration
-internal val dbWriteDispatcher by lazy { Dispatchers.IO.limitedParallelism(1) }
-internal val dbReadDispatcher by lazy { Dispatchers.IO.limitedParallelism(connectionPoolSize) }
+internal actual const val connectionPoolSize = 4 // Default is 4 as per AndroidxSqliteConfiguration
+
+@PublishedApi
+internal actual val dbWriteDispatcher by lazy { Dispatchers.IO.limitedParallelism(1) }
+
+@PublishedApi
+internal actual val dbReadDispatcher by lazy {
+    Dispatchers.IO.limitedParallelism(connectionPoolSize)
+}
 
 internal actual class DriverFactory(
     private val databaseType: AndroidxSqliteDatabaseType = AndroidxSqliteDatabaseType.Memory,

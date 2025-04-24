@@ -12,11 +12,20 @@ import com.eygraber.sqldelight.androidx.driver.AndroidxSqliteDriver
 import com.eygraber.sqldelight.androidx.driver.File
 import com.eygraber.sqldelight.androidx.driver.SqliteJournalMode
 import com.eygraber.sqldelight.androidx.driver.SqliteSync
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 
-internal val connectionPoolSize by lazy { getWALConnectionPoolSize() }
-internal val dbWriteDispatcher by lazy { Dispatchers.IO.limitedParallelism(1) }
-internal val dbReadDispatcher by lazy { Dispatchers.IO.limitedParallelism(connectionPoolSize) }
+internal actual val connectionPoolSize: Int by lazy { getWALConnectionPoolSize() }
+
+@PublishedApi
+internal actual val dbWriteDispatcher: CoroutineDispatcher by lazy {
+    Dispatchers.IO.limitedParallelism(1)
+}
+
+@PublishedApi
+internal actual val dbReadDispatcher: CoroutineDispatcher by lazy {
+    Dispatchers.IO.limitedParallelism(connectionPoolSize)
+}
 
 /**
  * @param name The name of the database to open or create. If null, an in-memory database will

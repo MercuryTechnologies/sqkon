@@ -42,7 +42,7 @@ class MetadataTest {
                 assertEquals("test-object", it.entity_name)
                 assertNotNull(it.lastWriteAt)
                 assertNull(it.lastReadAt)
-                assertTrue { it.lastWriteAt!! <= now }
+                assertTrue { it.lastWriteAt <= now }
             }
         }
     }
@@ -61,7 +61,7 @@ class MetadataTest {
                 assertEquals("test-object", it.entity_name)
                 assertNotNull(it.lastWriteAt)
                 assertNull(it.lastReadAt)
-                assertTrue { it.lastWriteAt!! > now }
+                assertTrue { it.lastWriteAt > now }
             }
         }
     }
@@ -80,8 +80,8 @@ class MetadataTest {
                 assertEquals("test-object", it.entity_name)
                 assertNotNull(it.lastWriteAt)
                 assertNotNull(it.lastReadAt)
-                assertTrue { it.lastWriteAt!! <= now }
-                assertTrue { it.lastReadAt!! > now }
+                assertTrue { it.lastWriteAt <= now }
+                assertTrue { it.lastReadAt > now }
             }
         }
     }

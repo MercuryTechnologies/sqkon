@@ -1,6 +1,7 @@
 package com.mercury.sqkon.db
 
 import com.mercury.sqkon.TestObject
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
@@ -18,7 +19,7 @@ class KeyValueStorageExpiresTest {
     private val entityQueries = EntityQueries(driver)
     private val metadataQueries = MetadataQueries(driver)
     private val testObjectStorage = keyValueStorage<TestObject>(
-        "test-object", entityQueries, metadataQueries, mainScope
+        "test-object", entityQueries, metadataQueries, mainScope,
     )
 
     @After

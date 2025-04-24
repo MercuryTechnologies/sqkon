@@ -2,6 +2,8 @@ package com.mercury.sqkon.db
 
 import app.cash.paging.PagingSource
 import app.cash.sqldelight.SuspendingTransacter
+import app.cash.sqldelight.SuspendingTransactionWithReturn
+import app.cash.sqldelight.SuspendingTransactionWithoutReturn
 import app.cash.sqldelight.TransactionCallbacks
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
@@ -47,7 +49,7 @@ open class KeyValueStorage<T : Any>(
     protected val config: Config = Config(),
     protected val readDispatcher: CoroutineDispatcher,
     protected val writeDispatcher: CoroutineDispatcher,
-) : SuspendingTransacter by entityQueries {
+) : SuspendingTransacter {
 
     /**
      * Insert a row.
@@ -510,7 +512,7 @@ open class KeyValueStorage<T : Any>(
             when (config.deserializePolicy) {
                 DeserializePolicy.ERROR -> throw e
                 DeserializePolicy.DELETE -> {
-                    scope.launch { deleteByKey(entity_key) }
+                    scope.launch(writeDispatcher) { deleteByKey(entity_key) }
                     null
                 }
             }
@@ -546,8 +548,31 @@ open class KeyValueStorage<T : Any>(
      * dispatcher/writer.
      */
     private suspend fun <T> writeContext(block: suspend CoroutineScope.() -> T): T {
-        val dispatcher = coroutineContext[ContinuationInterceptor] ?: writeDispatcher
+        val dispatcher = (coroutineContext[ContinuationInterceptor] ?: writeDispatcher)
+        if (dispatcher != writeDispatcher) {
+            return withContext(writeDispatcher) { block() }
+        }
         return withContext(dispatcher) { block() }
+    }
+
+    // We force the transaction on to our writeContext to make sure we nest the enclosing
+    // transactions, otherwise we can create locks by transactions being started on different
+    // dispatchers.
+    override suspend fun transaction(
+        noEnclosing: Boolean,
+        body: suspend SuspendingTransactionWithoutReturn.() -> Unit
+    ) = writeContext {
+        entityQueries.transaction(noEnclosing, body)
+    }
+
+    // We force the transaction on to our writeContext to make sure we nest the enclosing
+    // transactions, otherwise we can create locks by transactions being started on different
+    // dispatchers.
+    override suspend fun <R> transactionWithResult(
+        noEnclosing: Boolean,
+        bodyWithReturn: suspend SuspendingTransactionWithReturn<R>.() -> R
+    ): R = writeContext {
+        entityQueries.transactionWithResult(noEnclosing, bodyWithReturn)
     }
 
     data class Config(
@@ -581,8 +606,8 @@ inline fun <reified T : Any> keyValueStorage(
     scope: CoroutineScope,
     serializer: SqkonSerializer = KotlinSqkonSerializer(),
     config: KeyValueStorage.Config = KeyValueStorage.Config(),
-    readDispatcher: CoroutineDispatcher = Dispatchers.Default.limitedParallelism(4),
-    writeDispatcher: CoroutineDispatcher = Dispatchers.Default.limitedParallelism(1),
+    readDispatcher: CoroutineDispatcher = dbReadDispatcher,
+    writeDispatcher: CoroutineDispatcher = dbWriteDispatcher,
 ): KeyValueStorage<T> {
     return KeyValueStorage(
         entityName = entityName,
