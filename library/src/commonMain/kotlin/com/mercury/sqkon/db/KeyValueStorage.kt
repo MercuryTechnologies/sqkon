@@ -30,6 +30,7 @@ import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 import kotlin.coroutines.ContinuationInterceptor
 import kotlin.coroutines.coroutineContext
+import kotlin.coroutines.suspendCoroutine
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
 
@@ -548,11 +549,7 @@ open class KeyValueStorage<T : Any>(
      * dispatcher/writer.
      */
     private suspend fun <T> writeContext(block: suspend CoroutineScope.() -> T): T {
-        val dispatcher = (coroutineContext[ContinuationInterceptor] ?: writeDispatcher)
-        if (dispatcher != writeDispatcher) {
-            return withContext(writeDispatcher) { block() }
-        }
-        return withContext(dispatcher) { block() }
+        return withContext(writeDispatcher) { block() }
     }
 
     // We force the transaction on to our writeContext to make sure we nest the enclosing
