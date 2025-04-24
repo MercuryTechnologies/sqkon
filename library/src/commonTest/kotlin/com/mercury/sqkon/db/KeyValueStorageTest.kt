@@ -263,16 +263,21 @@ class KeyValueStorageTest {
         val expect2 = TestObject(name = "ThatName", description = "ThisDescription")
         testObjectStorage.insert(expect1.id, expect1)
         testObjectStorage.insert(expect2.id, expect2)
-        val actual1 = testObjectStorage.select(
-            where = (TestObject::name eq "ThisName")
-                .and(TestObject::description eq "ThatDescription")
-        ).first()
-        val actual2 = testObjectStorage.select(
-            where = (TestObject::name eq "ThisName").or(TestObject::description eq "ThatName")
-        ).first()
+        turbineScope {
+            val actual1 = testObjectStorage.select(
+                where = (TestObject::name eq "ThisName")
+                    .and(TestObject::description eq "ThatDescription")
+            ).testIn(backgroundScope)
+            val a1Item = actual1.awaitItem()
 
-        assertEquals(expect1, actual1.first())
-        assertEquals(expect1, actual2.first())
+            val actual2 = testObjectStorage.select(
+                where = (TestObject::name eq "ThisName").or(TestObject::description eq "ThatName")
+            ).testIn(backgroundScope)
+            val a2Item = actual2.awaitItem()
+
+            assertEquals(expect1, a1Item.first())
+            assertEquals(expect1, a2Item.first())
+        }
     }
 
     @Test
@@ -516,7 +521,7 @@ class KeyValueStorageTest {
     }
 
     @Test
-    fun select_inList()  = runTest{
+    fun select_inList() = runTest {
         val expectedO = TestObject()
         testObjectStorage.insert(expectedO.id, expectedO)
 
@@ -528,6 +533,22 @@ class KeyValueStorageTest {
 
         assertEquals(expectedO, actual.first())
         assertEquals(expectedO.list, actual.first().list)
+    }
+
+    @Test
+    fun externalTransaction() = runTest {
+        turbineScope {
+            val collect = testObjectStorage.selectAll().testIn(backgroundScope)
+            testObjectStorage.transaction {
+                testObjectStorage.deleteAll()
+                testObjectStorage.insertAll(
+                    (0..100).map { TestObject() }
+                        .associateBy { it.id }
+                        .toSortedMap()
+                )
+            }
+            collect.awaitItem()
+        }
     }
 
 

@@ -232,7 +232,6 @@ class EntityQueries(
             AND entity_key IN (SELECT entity_key FROM entity${queries.buildFrom()} ${queries.buildWhere()})
             """.trimIndent()
         val sql = "DELETE FROM entity WHERE entity_name = ? $whereSubQuerySql"
-        println("SQL: $sql")
         try {
             driver.execute(
                 identifier = identifier,
