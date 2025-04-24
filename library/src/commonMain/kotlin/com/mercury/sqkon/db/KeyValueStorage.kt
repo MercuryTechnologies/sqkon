@@ -572,6 +572,26 @@ open class KeyValueStorage<T : Any>(
         entityQueries.transactionWithResult(noEnclosing, bodyWithReturn)
     }
 
+    // We force the transaction on to our writeContext to make sure we nest the enclosing
+    // transactions, otherwise we can create locks by transactions being started on different
+    // dispatchers.
+    override suspend fun transaction(
+        noEnclosing: Boolean,
+        body: suspend SuspendingTransactionWithoutReturn.() -> Unit
+    ) = writeContext {
+        entityQueries.transaction(noEnclosing, body)
+    }
+
+    // We force the transaction on to our writeContext to make sure we nest the enclosing
+    // transactions, otherwise we can create locks by transactions being started on different
+    // dispatchers.
+    override suspend fun <R> transactionWithResult(
+        noEnclosing: Boolean,
+        bodyWithReturn: suspend SuspendingTransactionWithReturn<R>.() -> R
+    ): R = writeContext {
+        entityQueries.transactionWithResult(noEnclosing, bodyWithReturn)
+    }
+
     data class Config(
         val deserializePolicy: DeserializePolicy = DeserializePolicy.ERROR,
         @Deprecated("Use we use predefined dispatchers for read/write. This is unused now.")
