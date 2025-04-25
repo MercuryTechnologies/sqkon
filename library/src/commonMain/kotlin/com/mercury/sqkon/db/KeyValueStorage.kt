@@ -531,6 +531,12 @@ open class KeyValueStorage<T : Any>(
         return withContext(writeDispatcher) { block() }
     }
 
+
+    // TODO exposed transaction should get a lock on the current context to see if it needs
+    //   to wait to acquire a lock instead of being on the same thread, this will make sure only one
+    //   transaction is running at a time. (as right now ThreadLocal means we can muddle ops by
+    //   calling suspending functions back to back)
+
     // We force the transaction on to our writeContext to make sure we nest the enclosing
     // transactions, otherwise we can create locks by transactions being started on different
     // dispatchers.
