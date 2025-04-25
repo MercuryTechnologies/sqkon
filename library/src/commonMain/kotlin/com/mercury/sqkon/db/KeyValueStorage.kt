@@ -28,9 +28,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
-import kotlin.coroutines.ContinuationInterceptor
-import kotlin.coroutines.coroutineContext
-import kotlin.coroutines.suspendCoroutine
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
 
@@ -550,26 +547,6 @@ open class KeyValueStorage<T : Any>(
      */
     private suspend fun <T> writeContext(block: suspend CoroutineScope.() -> T): T {
         return withContext(writeDispatcher) { block() }
-    }
-
-    // We force the transaction on to our writeContext to make sure we nest the enclosing
-    // transactions, otherwise we can create locks by transactions being started on different
-    // dispatchers.
-    override suspend fun transaction(
-        noEnclosing: Boolean,
-        body: suspend SuspendingTransactionWithoutReturn.() -> Unit
-    ) = writeContext {
-        entityQueries.transaction(noEnclosing, body)
-    }
-
-    // We force the transaction on to our writeContext to make sure we nest the enclosing
-    // transactions, otherwise we can create locks by transactions being started on different
-    // dispatchers.
-    override suspend fun <R> transactionWithResult(
-        noEnclosing: Boolean,
-        bodyWithReturn: suspend SuspendingTransactionWithReturn<R>.() -> R
-    ): R = writeContext {
-        entityQueries.transactionWithResult(noEnclosing, bodyWithReturn)
     }
 
     // We force the transaction on to our writeContext to make sure we nest the enclosing
