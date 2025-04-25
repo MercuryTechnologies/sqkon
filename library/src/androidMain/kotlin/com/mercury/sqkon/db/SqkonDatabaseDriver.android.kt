@@ -4,6 +4,9 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.res.Resources
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
+import androidx.sqlite.driver.bundled.SQLITE_OPEN_CREATE
+import androidx.sqlite.driver.bundled.SQLITE_OPEN_FULLMUTEX
+import androidx.sqlite.driver.bundled.SQLITE_OPEN_READWRITE
 import app.cash.sqldelight.async.coroutines.synchronous
 import app.cash.sqldelight.db.SqlDriver
 import com.eygraber.sqldelight.androidx.driver.AndroidxSqliteConfiguration
@@ -13,13 +16,16 @@ import com.eygraber.sqldelight.androidx.driver.File
 import com.eygraber.sqldelight.androidx.driver.SqliteJournalMode
 import com.eygraber.sqldelight.androidx.driver.SqliteSync
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.newFixedThreadPoolContext
 
 internal actual val connectionPoolSize: Int by lazy { getWALConnectionPoolSize() }
 
+@OptIn(DelicateCoroutinesApi::class)
 @PublishedApi
 internal actual val dbWriteDispatcher: CoroutineDispatcher by lazy {
-    Dispatchers.IO.limitedParallelism(1)
+    newFixedThreadPoolContext(nThreads = 1, "SqkonReadDispatcher")
 }
 
 @PublishedApi
@@ -35,9 +41,15 @@ internal actual class DriverFactory(
     private val context: Context,
     private val name: String? = "sqkon.db"
 ) {
+    private val driver = BundledSQLiteDriver()
     actual fun createDriver(): SqlDriver {
         return AndroidxSqliteDriver(
-            driver = BundledSQLiteDriver(),
+            createConnection = {
+                driver.open(
+                    fileName = it,
+                    flags = SQLITE_OPEN_READWRITE or SQLITE_OPEN_CREATE or SQLITE_OPEN_FULLMUTEX
+                )
+            },
             databaseType = when (name) {
                 null -> AndroidxSqliteDatabaseType.Memory
                 else -> AndroidxSqliteDatabaseType.File(context = context, name = name)
