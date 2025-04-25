@@ -4,6 +4,9 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.res.Resources
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
+import androidx.sqlite.driver.bundled.SQLITE_OPEN_CREATE
+import androidx.sqlite.driver.bundled.SQLITE_OPEN_FULLMUTEX
+import androidx.sqlite.driver.bundled.SQLITE_OPEN_READWRITE
 import app.cash.sqldelight.async.coroutines.synchronous
 import app.cash.sqldelight.db.SqlDriver
 import com.eygraber.sqldelight.androidx.driver.AndroidxSqliteConfiguration
@@ -35,9 +38,15 @@ internal actual class DriverFactory(
     private val context: Context,
     private val name: String? = "sqkon.db"
 ) {
+    private val driver = BundledSQLiteDriver()
     actual fun createDriver(): SqlDriver {
         return AndroidxSqliteDriver(
-            driver = BundledSQLiteDriver(),
+            createConnection = {
+                driver.open(
+                    fileName = it,
+                    flags = SQLITE_OPEN_READWRITE or SQLITE_OPEN_CREATE or SQLITE_OPEN_FULLMUTEX
+                )
+            },
             databaseType = when (name) {
                 null -> AndroidxSqliteDatabaseType.Memory
                 else -> AndroidxSqliteDatabaseType.File(context = context, name = name)
