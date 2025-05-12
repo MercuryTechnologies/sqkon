@@ -87,8 +87,8 @@ infix fun <T : Any, V> JsonPathBuilder<T>.inList(value: Collection<V>): In<T, V>
 /**
  * Equivalent to `IN` in SQL
  */
-inline infix fun <reified T : Any, reified V> KProperty1<T, V>.inList(value: Collection<V>): In<T, V> =
-    In(this.builder(), value)
+inline infix fun <reified T : Any, reified V, reified C> KProperty1<T, V>.inList(value: Collection<C>): In<T, C> =
+    In<T, C>(builder = this.builder<T, V>(), value = value)
 
 /**
  * Equivalent to `LIKE` in SQL
