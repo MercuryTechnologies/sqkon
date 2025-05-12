@@ -17,13 +17,13 @@ class JsonPathBuilderTest {
         val builder = TestObject::class.with(TestObject::child) {
             then(TestObjectChild::createdAt)
         }
-        assertEquals(expected = "\$.child.createdAt", actual = builder.buildPath())
+        assertEquals(expected = "$.child.createdAt", actual = builder.buildPath())
     }
 
     @Test
     fun build_next_simple_path() {
         val builder = TestObject::child.then(TestObjectChild::createdAt)
-        assertEquals(expected = "\$.child.createdAt", actual = builder.buildPath())
+        assertEquals(expected = "$.child.createdAt", actual = builder.buildPath())
     }
 
     @Test
@@ -31,7 +31,7 @@ class JsonPathBuilderTest {
         val builder = TestObject::child.builder {
             then(TestObjectChild::createdAt)
         }
-        assertEquals(expected = "\$.child.createdAt", actual = builder.buildPath())
+        assertEquals(expected = "$.child.createdAt", actual = builder.buildPath())
     }
 
     @Test
@@ -39,13 +39,13 @@ class JsonPathBuilderTest {
         val builder = TestObject::class.with(TestObject::testValue) {
             then(TestValue::test)
         }
-        assertEquals(expected = "\$.testValue", actual = builder.buildPath())
+        assertEquals(expected = "$.testValue", actual = builder.buildPath())
     }
 
     @Test
     fun build_with_value_class_next() {
         val builder = TestObject::testValue.then(TestValue::test)
-        assertEquals(expected = "\$.testValue", actual = builder.buildPath())
+        assertEquals(expected = "$.testValue", actual = builder.buildPath())
     }
 
     @Test
@@ -53,14 +53,14 @@ class JsonPathBuilderTest {
         val builder = TestObject::testValue.builder {
             then(TestValue::test)
         }
-        assertEquals(expected = "\$.testValue", actual = builder.buildPath())
+        assertEquals(expected = "$.testValue", actual = builder.buildPath())
     }
 
     @Test
     fun build_with_serialName_class_builder() {
         val builder = TestObject::serialName.builder(serialName = "different_name")
         // Should use the serial name annotation override
-        assertEquals(expected = "\$.different_name", actual = builder.buildPath())
+        assertEquals(expected = "$.different_name", actual = builder.buildPath())
     }
 
     @Test
@@ -68,7 +68,7 @@ class JsonPathBuilderTest {
         val builder = TestObject::sealed.builder {
             then(TestSealed.Impl::boolean) {}
         }
-        assertEquals(expected = "\$.sealed[1].boolean", actual = builder.buildPath())
+        assertEquals(expected = "$.sealed[1].boolean", actual = builder.buildPath())
     }
 
     @Test
@@ -76,7 +76,7 @@ class JsonPathBuilderTest {
         val builder = TestObject::sealed.builder {
             then(TestSealed.Impl2::value) {}
         }
-        assertEquals(expected = "\$.sealed[1]", actual = builder.buildPath())
+        assertEquals(expected = "$.sealed[1]", actual = builder.buildPath())
     }
 
     @Test
@@ -84,7 +84,7 @@ class JsonPathBuilderTest {
         val builder = BaseSealed::class.with(BaseSealed.TypeOne::data) {
             then(TypeOneData::key)
         }
-        assertEquals(expected = "\$[1].key", actual = builder.buildPath())
+        assertEquals(expected = "$[1].key", actual = builder.buildPath())
     }
 
     @Test
@@ -92,7 +92,7 @@ class JsonPathBuilderTest {
         val builder = BaseSealed::class.with(BaseSealed.TypeTwo::data) {
             then(TypeTwoData::key)
         }
-        assertEquals(expected = "\$[1].data.key", actual = builder.buildPath())
+        assertEquals(expected = "$[1].data.key", actual = builder.buildPath())
     }
 
     @Test
@@ -100,20 +100,20 @@ class JsonPathBuilderTest {
         val builder = TestObject::list.builderFromList {
             then(TestObjectChild::createdAt)
         }
-        assertEquals(expected = "\$.list[%].createdAt", actual = builder.buildPath())
+        assertEquals(expected = "$.list[%].createdAt", actual = builder.buildPath())
     }
 
     @Test
     fun build_with_then_list() {
         val builder = TestObject::child.then(TestObjectChild::subList)
-        assertEquals(expected = "\$.child.subList[%]", actual = builder.buildPath())
+        assertEquals(expected = "$.child.subList[%]", actual = builder.buildPath())
     }
 
 
     @Test
     fun build_with_list_then() {
         val builder = TestObject::list.then(TestObjectChild::createdAt)
-        assertEquals(expected = "\$.list[%].createdAt", actual = builder.buildPath())
+        assertEquals(expected = "$.list[%].createdAt", actual = builder.buildPath())
     }
 
     @Test
@@ -121,7 +121,7 @@ class JsonPathBuilderTest {
         val builder = TestObject::class.withList(TestObject::list) {
             then(TestObjectChild::createdAt)
         }
-        assertEquals(expected = "\$.list[%].createdAt", actual = builder.buildPath())
+        assertEquals(expected = "$.list[%].createdAt", actual = builder.buildPath())
     }
 
 }

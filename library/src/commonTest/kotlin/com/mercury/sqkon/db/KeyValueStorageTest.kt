@@ -4,6 +4,7 @@ import app.cash.turbine.test
 import app.cash.turbine.turbineScope
 import com.mercury.sqkon.TestObject
 import com.mercury.sqkon.TestObjectChild
+import com.mercury.sqkon.TestValue
 import com.mercury.sqkon.until
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
@@ -529,6 +530,21 @@ class KeyValueStorageTest {
 
         val actual = testObjectStorage.select(
             where = TestObject::list.then(TestObjectChild::createdAt) inList expectedList
+        ).first()
+
+        assertEquals(expectedO, actual.first())
+        assertEquals(expectedO.list, actual.first().list)
+    }
+
+    @Test
+    fun select_inList_valueClass() = runTest {
+        val expectedO = TestObject().copy(
+            testValue = TestValue("status")
+        )
+        testObjectStorage.insert(expectedO.id, expectedO)
+
+        val actual = testObjectStorage.select(
+            where = TestObject::testValue inList listOf("status")
         ).first()
 
         assertEquals(expectedO, actual.first())
