@@ -7,7 +7,6 @@ import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import androidx.sqlite.driver.bundled.SQLITE_OPEN_CREATE
 import androidx.sqlite.driver.bundled.SQLITE_OPEN_FULLMUTEX
 import androidx.sqlite.driver.bundled.SQLITE_OPEN_READWRITE
-import app.cash.sqldelight.async.coroutines.synchronous
 import app.cash.sqldelight.db.SqlDriver
 import com.eygraber.sqldelight.androidx.driver.AndroidxSqliteConfiguration
 import com.eygraber.sqldelight.androidx.driver.AndroidxSqliteDatabaseType
@@ -54,7 +53,7 @@ internal actual class DriverFactory(
                 null -> AndroidxSqliteDatabaseType.Memory
                 else -> AndroidxSqliteDatabaseType.File(context = context, name = name)
             },
-            schema = SqkonDatabase.Schema.synchronous(),
+            schema = SqkonDatabase.Schema,
             configuration = AndroidxSqliteConfiguration(
                 journalMode = SqliteJournalMode.WAL,
                 sync = SqliteSync.Normal,

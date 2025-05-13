@@ -92,7 +92,9 @@ sqldelight {
         create("SqkonDatabase") {
             // Database configuration here.
             // https://cashapp.github.io/sqldelight
-            generateAsync = true
+            // We disable async as it's effectively broken on multithreaded platforms with
+            // coroutines (more of a driver issue)
+            generateAsync = false
             packageName.set("com.mercury.sqkon.db")
             schemaOutputDirectory.set(file("src/commonMain/sqldelight/databases"))
             // We're technically using 3.45.0, but 3.38 is the latest supported version

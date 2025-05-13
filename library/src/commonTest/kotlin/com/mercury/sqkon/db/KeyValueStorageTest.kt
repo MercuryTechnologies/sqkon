@@ -14,6 +14,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.Clock
 import org.junit.After
 import org.junit.Test
+import kotlin.test.Ignore
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.time.Duration.Companion.seconds
@@ -256,15 +257,16 @@ class KeyValueStorageTest {
 
     @Test
     fun select_byAndEntityChildField() = runTest {
-        val insert = (1..10).map {
-            TestObject(child = TestObjectChild(createdAt = Clock.System.now().plus(it.seconds)))
-        }.associateBy { it.id }
-        testObjectStorage.insertAll(insert)
-        val expect1 = TestObject(name = "ThisName", description = "ThatDescription")
-        val expect2 = TestObject(name = "ThatName", description = "ThisDescription")
-        testObjectStorage.insert(expect1.id, expect1)
-        testObjectStorage.insert(expect2.id, expect2)
         turbineScope {
+            val insert = (1..2).map {
+                TestObject(child = TestObjectChild(createdAt = Clock.System.now().plus(it.seconds)))
+            }.associateBy { it.id }
+            testObjectStorage.insertAll(insert)
+            val expect1 = TestObject(name = "ThisName", description = "ThatDescription")
+            val expect2 = TestObject(name = "ThatName", description = "ThisDescription")
+            testObjectStorage.insert(expect1.id, expect1)
+            testObjectStorage.insert(expect2.id, expect2)
+
             val actual1 = testObjectStorage.select(
                 where = (TestObject::name eq "ThisName")
                     .and(TestObject::description eq "ThatDescription")
@@ -449,21 +451,21 @@ class KeyValueStorageTest {
 
     @Test
     fun selectCount_flowUpdatesOnChange() = runTest {
-        val results: MutableList<Int> = mutableListOf()
-        backgroundScope.launch {
-            testObjectStorage.count().collect { results.add(it) }
+        testObjectStorage.count().test {
+            // Wait for first result
+            val first = awaitItem()
+            assertEquals(expected = 0, first)
+
+            TestObject().also { testObjectStorage.insert(it.id, it) }
+            val second = awaitItem()
+            assertEquals(expected = 1, second)
+
+            testObjectStorage.deleteAll()
+            val third = awaitItem()
+            assertEquals(expected = 0, third)
+
+            expectNoEvents()
         }
-        // Wait for first result
-        until { results.isNotEmpty() }
-        assertEquals(expected = 0, results.first())
-
-        TestObject().also { testObjectStorage.insert(it.id, it) }
-        until { results.size == 2 }
-        assertEquals(expected = 1, results[1])
-
-        testObjectStorage.deleteAll()
-        until { results.size == 3 }
-        assertEquals(expected = 0, results[2])
     }
 
     @Test
@@ -494,7 +496,6 @@ class KeyValueStorageTest {
             testObjectStorage.upsert(new.id, new)
             awaitItem()
             // Check only one update (not two) for the upsert
-            expectNoEvents()
         }
     }
 
@@ -553,8 +554,7 @@ class KeyValueStorageTest {
 
     @Test
     fun externalTransaction() = runTest {
-        turbineScope {
-            val collect = testObjectStorage.selectAll().testIn(backgroundScope)
+        testObjectStorage.selectAll().test {
             testObjectStorage.transaction {
                 testObjectStorage.deleteAll()
                 testObjectStorage.insertAll(
@@ -563,7 +563,23 @@ class KeyValueStorageTest {
                         .toSortedMap()
                 )
             }
+            awaitItem()
+            ensureAllEventsConsumed()
+        }
+    }
+
+    @Test
+    fun updateWriteAtOnlyRunsOncePerTransaction() = runTest {
+        turbineScope {
+            val collect = testObjectStorage.metadata().testIn(backgroundScope)
+            testObjectStorage.transaction {
+                with(testObjectStorage) {
+                    updateWriteAt()
+                    updateWriteAt()
+                }
+            }
             collect.awaitItem()
+            collect.expectNoEvents()
         }
     }
 

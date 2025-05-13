@@ -1,25 +1,25 @@
 package com.mercury.sqkon.db
 
 import app.cash.sqldelight.Query
-import app.cash.sqldelight.SuspendingTransacterImpl
+import app.cash.sqldelight.TransacterImpl
 import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.db.SqlCursor
 import app.cash.sqldelight.db.SqlDriver
 import com.mercury.sqkon.db.utils.nowMillis
-import kotlinx.coroutines.delay
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 import org.jetbrains.annotations.VisibleForTesting
 
 class EntityQueries(
+    @PublishedApi
     internal val sqlDriver: SqlDriver,
-) : SuspendingTransacterImpl(sqlDriver) {
+) : TransacterImpl(sqlDriver) {
 
     // Used to slow down insert/updates for testing
     @VisibleForTesting
     internal var slowWrite: Boolean = false
 
-    suspend fun insertEntity(entity: Entity, ignoreIfExists: Boolean) {
+    fun insertEntity(entity: Entity, ignoreIfExists: Boolean) {
         val identifier = identifier("insert", ignoreIfExists.toString())
         val orIgnore = if (ignoreIfExists) "OR IGNORE" else ""
         driver.execute(
@@ -40,15 +40,17 @@ class EntityQueries(
             // While write_at is nullable on the db col, we always set it here (sqlite limitation)
             bindLong(5, entity.write_at ?: nowMillis())
             bindString(6, entity.value_)
-        }.await()
+        }
         notifyQueries(identifier) { emit ->
             emit("entity")
             emit("entity_${entity.entity_name}")
         }
-        if (slowWrite) delay(100)
+        if (slowWrite) {
+            Thread.sleep(100)
+        }
     }
 
-    suspend fun updateEntity(
+    fun updateEntity(
         entityName: String,
         entityKey: String,
         expiresAt: Instant?,
@@ -69,12 +71,14 @@ class EntityQueries(
             bindString(3, value)
             bindString(4, entityName)
             bindString(5, entityKey)
-        }.await()
+        }
         notifyQueries(identifier) { emit ->
             emit("entity")
             emit("entity_${entityName}")
         }
-        if (slowWrite) delay(100)
+        if (slowWrite) {
+            Thread.sleep(100)
+        }
     }
 
     fun select(
@@ -197,31 +201,34 @@ class EntityQueries(
         override fun toString(): String = "select"
     }
 
-    suspend fun delete(
+    fun delete(
         entityName: String,
         entityKeys: Collection<String>? = null,
         where: Where<*>? = null,
     ) {
         val queries = buildList {
-            add(SqlQuery(
-                where = "entity_name = ?",
-                parameters = 1,
-                bindArgs = { bindString(entityName) }
-            ))
+            add(
+                SqlQuery(
+                    where = "entity_name = ?",
+                    parameters = 1,
+                    bindArgs = { bindString(entityName) }
+                ))
             when (entityKeys?.size) {
                 null, 0 -> {}
 
-                1 -> add(SqlQuery(
-                    where = "entity_key = ?",
-                    parameters = 1,
-                    bindArgs = { bindString(entityKeys.first()) }
-                ))
+                1 -> add(
+                    SqlQuery(
+                        where = "entity_key = ?",
+                        parameters = 1,
+                        bindArgs = { bindString(entityKeys.first()) }
+                    ))
 
-                else -> add(SqlQuery(
-                    where = "entity_key IN (${entityKeys.joinToString(",") { "?" }})",
-                    parameters = entityKeys.size,
-                    bindArgs = { entityKeys.forEach { bindString(it) } }
-                ))
+                else -> add(
+                    SqlQuery(
+                        where = "entity_key IN (${entityKeys.joinToString(",") { "?" }})",
+                        parameters = entityKeys.size,
+                        bindArgs = { entityKeys.forEach { bindString(it) } }
+                    ))
             }
 
             addAll(listOfNotNull(where?.toSqlQuery(increment = 1)))
@@ -245,7 +252,7 @@ class EntityQueries(
                 if (queries.size > 1) {
                     queries.forEach { q -> q.bindArgs(preparedStatement) }
                 }
-            }.await()
+            }
         } catch (ex: SqlException) {
             println("SQL Error: $sql")
             throw ex
@@ -281,11 +288,12 @@ class EntityQueries(
 
         override fun <R> execute(mapper: (SqlCursor) -> QueryResult<R>): QueryResult<R> {
             val queries = buildList {
-                add(SqlQuery(
-                    where = "entity_name = ?",
-                    parameters = 1,
-                    bindArgs = { bindString(entityName) }
-                ))
+                add(
+                    SqlQuery(
+                        where = "entity_name = ?",
+                        parameters = 1,
+                        bindArgs = { bindString(entityName) }
+                    ))
                 if (expiresAfter != null) add(
                     SqlQuery(
                         where = "expires_at IS NULL OR expires_at >= ?",

@@ -2,6 +2,7 @@ package com.mercury.sqkon.db
 
 import com.mercury.sqkon.db.serialization.KotlinSqkonSerializer
 import com.mercury.sqkon.db.serialization.SqkonJson
+import com.mercury.sqkon.db.utils.SqkonTransacter
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -37,6 +38,12 @@ class Sqkon internal constructor(
         Dispatchers.Default.limitedParallelism(1),
 ) {
 
+    /**
+     * Sqkon internal transactor.
+     */
+    @PublishedApi
+    internal val transactor = SqkonTransacter(driver = entityQueries.sqlDriver)
+
     @PublishedApi
     internal val serializer = KotlinSqkonSerializer(json)
 
@@ -57,6 +64,7 @@ class Sqkon internal constructor(
             name, entityQueries, metadataQueries, scope, serializer, config,
             readDispatcher = readDispatcher,
             writeDispatcher = writeDispatcher,
+            transactor = transactor,
         )
     }
 
