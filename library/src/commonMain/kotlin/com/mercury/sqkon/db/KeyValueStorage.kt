@@ -510,7 +510,11 @@ open class KeyValueStorage<T : Any>(
         updateWriteHashes.add(requestHash)
         afterCommit {
             updateWriteHashes.remove(requestHash)
-            metadataQueries.upsertWrite(entityName, Clock.System.now())
+            scope.launch(writeDispatcher) {
+                metadataQueries.transaction {
+                    metadataQueries.upsertWrite(entityName, Clock.System.now())
+                }
+            }
         }
     }
 
