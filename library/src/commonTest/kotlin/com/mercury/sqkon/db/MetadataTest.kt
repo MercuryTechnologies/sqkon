@@ -10,6 +10,7 @@ import kotlinx.datetime.Clock
 import org.junit.After
 import org.junit.Test
 import java.lang.Thread.sleep
+import kotlin.test.Ignore
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
@@ -42,7 +43,7 @@ class MetadataTest {
                 assertEquals("test-object", it.entity_name)
                 assertNotNull(it.lastWriteAt)
                 assertNull(it.lastReadAt)
-                assertTrue { it.lastWriteAt <= now }
+                assertTrue("lastWriteAt not <= now") { it.lastWriteAt <= now }
             }
         }
     }

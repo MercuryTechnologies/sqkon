@@ -9,7 +9,7 @@ import app.cash.paging.PagingSourceLoadResultInvalid
 import app.cash.paging.PagingSourceLoadResultPage
 import app.cash.paging.PagingState
 import app.cash.sqldelight.Query
-import app.cash.sqldelight.SuspendingTransacter
+import app.cash.sqldelight.Transacter
 import app.cash.sqldelight.TransactionCallbacks
 import com.mercury.sqkon.db.Entity
 import kotlinx.coroutines.withContext
@@ -18,7 +18,7 @@ import kotlin.coroutines.CoroutineContext
 internal class OffsetQueryPagingSource<T : Any>(
     private val queryProvider: (limit: Int, offset: Int) -> Query<Entity>,
     private val countQuery: Query<Int>,
-    private val transacter: SuspendingTransacter,
+    private val transacter: Transacter,
     private val context: CoroutineContext,
     private val deserialize: (Entity) -> T?,
     private val initialOffset: Int,

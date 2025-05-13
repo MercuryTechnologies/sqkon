@@ -1,9 +1,7 @@
 package com.mercury.sqkon.db
 
 import app.cash.paging.PagingSource
-import app.cash.sqldelight.SuspendingTransacter
-import app.cash.sqldelight.SuspendingTransactionWithReturn
-import app.cash.sqldelight.SuspendingTransactionWithoutReturn
+import app.cash.sqldelight.Transacter
 import app.cash.sqldelight.TransactionCallbacks
 import app.cash.sqldelight.coroutines.asFlow
 import app.cash.sqldelight.coroutines.mapToList
@@ -14,20 +12,19 @@ import com.mercury.sqkon.db.paging.OffsetQueryPagingSource
 import com.mercury.sqkon.db.serialization.KotlinSqkonSerializer
 import com.mercury.sqkon.db.serialization.SqkonJson
 import com.mercury.sqkon.db.serialization.SqkonSerializer
-import com.mercury.sqkon.db.utils.RequestHash
+import com.mercury.sqkon.db.utils.SqkonTransacter
 import com.mercury.sqkon.db.utils.nowMillis
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
+import org.jetbrains.annotations.VisibleForTesting
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
 
@@ -47,7 +44,8 @@ open class KeyValueStorage<T : Any>(
     protected val config: Config = Config(),
     protected val readDispatcher: CoroutineDispatcher,
     protected val writeDispatcher: CoroutineDispatcher,
-) : SuspendingTransacter {
+    private val transacter: SqkonTransacter,
+) : Transacter by transacter {
 
     /**
      * Insert a row.
@@ -58,7 +56,7 @@ open class KeyValueStorage<T : Any>(
      *  @see update
      *  @see upsert
      */
-    suspend fun insert(
+    fun insert(
         key: String, value: T,
         ignoreIfExists: Boolean = false,
         expiresAt: Instant? = null,
@@ -75,7 +73,7 @@ open class KeyValueStorage<T : Any>(
             value_ = serializer.serialize(type, value) ?: error("Failed to serialize value")
         )
         entityQueries.insertEntity(entity, ignoreIfExists)
-        updateWriteAt(currentCoroutineContext()[RequestHash.Key]?.hash ?: entity.hashCode())
+        updateWriteAt()
     }
 
     /**
@@ -88,14 +86,12 @@ open class KeyValueStorage<T : Any>(
      * @see updateAll
      * @see upsertAll
      */
-    suspend fun insertAll(
+    fun insertAll(
         values: Map<String, T>,
         ignoreIfExists: Boolean = false,
         expiresAt: Instant? = null,
     ) = transaction {
-        withContext(RequestHash(values.hashCode())) {
-            values.forEach { (key, value) -> insert(key, value, ignoreIfExists, expiresAt) }
-        }
+        values.forEach { (key, value) -> insert(key, value, ignoreIfExists, expiresAt) }
     }
 
     /**
@@ -109,14 +105,14 @@ open class KeyValueStorage<T : Any>(
      * @see insert
      * @see upsert
      */
-    suspend fun update(key: String, value: T, expiresAt: Instant? = null) = transaction {
+    fun update(key: String, value: T, expiresAt: Instant? = null) = transaction {
         entityQueries.updateEntity(
             entityName = entityName,
             entityKey = key,
             expiresAt = expiresAt,
             value = serializer.serialize(type, value) ?: error("Failed to serialize value")
         )
-        updateWriteAt(currentCoroutineContext()[RequestHash.Key]?.hash ?: key.hashCode())
+        updateWriteAt()
     }
 
     /**
@@ -128,12 +124,10 @@ open class KeyValueStorage<T : Any>(
      * @see insertAll
      * @see upsertAll
      */
-    suspend fun updateAll(
+    fun updateAll(
         values: Map<String, T>, expiresAt: Instant? = null,
     ) = transaction {
-        withContext(RequestHash(values.hashCode())) {
-            values.forEach { (key, value) -> update(key, value, expiresAt) }
-        }
+        values.forEach { (key, value) -> update(key, value, expiresAt) }
     }
 
 
@@ -145,13 +139,11 @@ open class KeyValueStorage<T : Any>(
      * @see insert
      * @see update
      */
-    suspend fun upsert(
+    fun upsert(
         key: String, value: T, expiresAt: Instant? = null,
     ) = transaction {
-        withContext(RequestHash(key.hashCode())) {
-            update(key, value, expiresAt = expiresAt)
-            insert(key, value, ignoreIfExists = true, expiresAt = expiresAt)
-        }
+        update(key, value, expiresAt = expiresAt)
+        insert(key, value, ignoreIfExists = true, expiresAt = expiresAt)
     }
 
     /**
@@ -164,15 +156,13 @@ open class KeyValueStorage<T : Any>(
      * @see insertAll
      * @see updateAll
      */
-    suspend fun upsertAll(
+    fun upsertAll(
         values: Map<String, T>,
         expiresAt: Instant? = null,
     ) = transaction {
-        withContext(RequestHash(values.hashCode())) {
-            values.forEach { (key, value) ->
-                update(key, value, expiresAt = expiresAt)
-                insert(key, value, ignoreIfExists = true, expiresAt = expiresAt)
-            }
+        values.forEach { (key, value) ->
+            update(key, value, expiresAt = expiresAt)
+            insert(key, value, ignoreIfExists = true, expiresAt = expiresAt)
         }
     }
 
@@ -341,7 +331,7 @@ open class KeyValueStorage<T : Any>(
     /**
      * Delete all rows. Basically an alias for [delete] with no where set.
      */
-    suspend fun deleteAll() = delete(where = null)
+    fun deleteAll() = delete(where = null)
 
     /**
      * Delete by key.
@@ -353,7 +343,7 @@ open class KeyValueStorage<T : Any>(
      * @see delete
      * @see deleteAll
      */
-    suspend fun deleteByKey(key: String) {
+    fun deleteByKey(key: String) {
         deleteByKeys(key)
     }
 
@@ -367,9 +357,9 @@ open class KeyValueStorage<T : Any>(
      * @see delete
      * @see deleteAll
      */
-    suspend fun deleteByKeys(vararg key: String) = transaction {
+    fun deleteByKeys(vararg key: String) = transaction {
         entityQueries.delete(entityName, entityKeys = key.toSet())
-        updateWriteAt(currentCoroutineContext()[RequestHash.Key]?.hash ?: key.hashCode())
+        updateWriteAt()
     }
 
     /**
@@ -381,9 +371,9 @@ open class KeyValueStorage<T : Any>(
      * @see deleteAll
      * @see deleteByKey
      */
-    suspend fun delete(where: Where<T>? = null) = transaction {
+    fun delete(where: Where<T>? = null) = transaction {
         entityQueries.delete(entityName, where = where)
-        updateWriteAt(currentCoroutineContext()[RequestHash.Key]?.hash ?: where.hashCode())
+        updateWriteAt()
     }
 
     /**
@@ -396,11 +386,9 @@ open class KeyValueStorage<T : Any>(
      *
      * @see deleteStale
      */
-    suspend fun deleteExpired(expiresAfter: Instant = Clock.System.now()) = transaction {
+    fun deleteExpired(expiresAfter: Instant = Clock.System.now()) = transaction {
         metadataQueries.purgeExpires(entityName, expiresAfter.toEpochMilliseconds())
-        updateWriteAt(
-            currentCoroutineContext()[RequestHash.Key]?.hash ?: expiresAfter.hashCode()
-        )
+        updateWriteAt()
     }
 
     /**
@@ -416,7 +404,7 @@ open class KeyValueStorage<T : Any>(
      *
      * @see deleteExpired
      */
-    suspend fun deleteStale(
+    fun deleteStale(
         writeInstant: Instant? = Clock.System.now(),
         readInstant: Instant? = Clock.System.now(),
     ) = transaction {
@@ -445,10 +433,7 @@ open class KeyValueStorage<T : Any>(
 
             else -> return@transaction
         }
-        updateWriteAt(
-            currentCoroutineContext()[RequestHash.Key]?.hash
-                ?: (writeInstant.hashCode() + readInstant.hashCode())
-        )
+        updateWriteAt()
     }
 
     /**
@@ -461,7 +446,7 @@ open class KeyValueStorage<T : Any>(
      *
      * @see deleteExpired
      */
-    suspend fun deleteState(instant: Instant) {
+    fun deleteState(instant: Instant) {
         deleteStale(instant, instant)
     }
 
@@ -501,10 +486,12 @@ open class KeyValueStorage<T : Any>(
 
     private fun updateReadAt(keys: Collection<String>) {
         scope.launch(writeDispatcher) {
-            metadataQueries.upsertRead(entityName, Clock.System.now())
-            metadataQueries.updateReadForEntities(
-                Clock.System.now().toEpochMilliseconds(), entityName, keys
-            )
+            metadataQueries.transaction {
+                metadataQueries.upsertRead(entityName, Clock.System.now())
+                metadataQueries.updateReadForEntities(
+                    Clock.System.now().toEpochMilliseconds(), entityName, keys
+                )
+            }
         }
     }
 
@@ -514,48 +501,23 @@ open class KeyValueStorage<T : Any>(
      * Will run after the transaction is committed. This way inside of multiple inserts we only
      * update the write_at once.
      */
-    private fun TransactionCallbacks.updateWriteAt(requestHash: Int) {
+    @VisibleForTesting
+    internal fun TransactionCallbacks.updateWriteAt() {
+        val requestHash = with(transacter) {
+            entityQueries.sqlDriver.currentTransaction()!!.parentTransactionHash()
+        }
         if (requestHash in updateWriteHashes) return
         updateWriteHashes.add(requestHash)
         afterCommit {
             updateWriteHashes.remove(requestHash)
-            scope.launch { metadataQueries.upsertWrite(entityName, Clock.System.now()) }
+            metadataQueries.upsertWrite(entityName, Clock.System.now())
         }
     }
-
-    /**
-     * Will check if already on the same dispatcher/writer and if not, will switch to the
-     * dispatcher/writer.
-     */
-    private suspend fun <T> writeContext(block: suspend CoroutineScope.() -> T): T {
-        return withContext(writeDispatcher) { block() }
-    }
-
 
     // TODO exposed transaction should get a lock on the current context to see if it needs
     //   to wait to acquire a lock instead of being on the same thread, this will make sure only one
     //   transaction is running at a time. (as right now ThreadLocal means we can muddle ops by
     //   calling suspending functions back to back)
-
-    // We force the transaction on to our writeContext to make sure we nest the enclosing
-    // transactions, otherwise we can create locks by transactions being started on different
-    // dispatchers.
-    override suspend fun transaction(
-        noEnclosing: Boolean,
-        body: suspend SuspendingTransactionWithoutReturn.() -> Unit,
-    ) = writeContext {
-        entityQueries.transaction(noEnclosing, body)
-    }
-
-    // We force the transaction on to our writeContext to make sure we nest the enclosing
-    // transactions, otherwise we can create locks by transactions being started on different
-    // dispatchers.
-    override suspend fun <R> transactionWithResult(
-        noEnclosing: Boolean,
-        bodyWithReturn: suspend SuspendingTransactionWithReturn<R>.() -> R,
-    ): R = writeContext {
-        entityQueries.transactionWithResult(noEnclosing, bodyWithReturn)
-    }
 
     data class Config(
         val deserializePolicy: DeserializePolicy = DeserializePolicy.ERROR,
@@ -590,6 +552,7 @@ inline fun <reified T : Any> keyValueStorage(
     config: KeyValueStorage.Config = KeyValueStorage.Config(),
     readDispatcher: CoroutineDispatcher = dbReadDispatcher,
     writeDispatcher: CoroutineDispatcher = dbWriteDispatcher,
+    transactor: SqkonTransacter = SqkonTransacter(entityQueries.sqlDriver),
 ): KeyValueStorage<T> {
     return KeyValueStorage(
         entityName = entityName,
@@ -601,5 +564,6 @@ inline fun <reified T : Any> keyValueStorage(
         config = config,
         readDispatcher = readDispatcher,
         writeDispatcher = writeDispatcher,
+        transacter = transactor,
     )
 }
