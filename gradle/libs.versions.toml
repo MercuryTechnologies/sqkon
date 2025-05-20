@@ -2,8 +2,8 @@
 androidx-monitor = "1.7.2"
 androidx-runner = "1.6.2"
 androidx-sqlite = "2.5.1"
-kotlin = "2.1.20"
-agp = "8.9.2"
+kotlin = "2.1.21"
+agp = "8.9.3"
 kotlinx-coroutines = "1.10.2"
 kotlinx-serialization = { require = "1.8.1" }
 kotlinx-datetime = "0.6.2"
@@ -24,7 +24,7 @@ kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serializa
 kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinx-datetime" }
 paging-common = { module = "app.cash.paging:paging-common", version.ref = "paging" }
 paging-testing = { module = "app.cash.paging:paging-testing", version.ref = "paging" }
-sqlDelight-androidx-driver = { module = "com.eygraber:sqldelight-androidx-driver", version = "0.0.10" }
+sqlDelight-androidx-driver = { module = "com.eygraber:sqldelight-androidx-driver", version = "0.0.11" }
 sqlDelight-driver-sqlite = { module = "app.cash.sqldelight:sqlite-driver", version.ref = "sqlDelight" }
 sqlDelight-driver-android = { module = "app.cash.sqldelight:android-driver", version.ref = "sqlDelight" }
 sqlDelight-coroutines = { module = "app.cash.sqldelight:coroutines-extensions", version.ref = "sqlDelight" }
@@ -34,7 +34,7 @@ turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 android-library = { id = "com.android.library", version.ref = "agp" }
-maven-publish = { id = "com.vanniktech.maven.publish", version = "0.31.0" }
+maven-publish = { id = "com.vanniktech.maven.publish", version = "0.32.0" }
 multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlinx-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
