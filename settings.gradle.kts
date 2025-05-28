@@ -39,6 +39,11 @@ dependencyResolutionManagement {
                 includeGroup("com.mercury.sqkon")
             }
         }
+        maven(url = "https://s01.oss.sonatype.org/content/repositories/snapshots") {
+            content {
+                includeGroup("com.eygraber")
+            }
+        }
     }
 }
 
