@@ -2,6 +2,7 @@
 
 package com.mercury.sqkon.db
 
+import app.cash.sqldelight.logs.LogSqliteDriver
 import com.mercury.sqkon.BaseSealed
 import com.mercury.sqkon.TestObject
 import com.mercury.sqkon.TestSealed
@@ -20,7 +21,9 @@ import kotlin.uuid.Uuid
 class KeyValueStorageSealedTest {
 
     private val mainScope = MainScope()
-    private val driver = driverFactory().createDriver()
+    private val driver = LogSqliteDriver(driverFactory().createDriver()) {
+        println(it)
+    }
     private val entityQueries = EntityQueries(driver)
     private val metadataQueries = MetadataQueries(driver)
     private val testObjectStorage = keyValueStorage<TestObject>(

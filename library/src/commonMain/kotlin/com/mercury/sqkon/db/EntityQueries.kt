@@ -6,6 +6,9 @@ import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.db.SqlCursor
 import app.cash.sqldelight.db.SqlDriver
 import com.mercury.sqkon.db.utils.nowMillis
+import com.mercury.sqkon.db.serialization.KotlinSqkonSerializer
+import com.mercury.sqkon.db.serialization.SqkonSerializer
+import kotlinx.coroutines.delay
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 import org.jetbrains.annotations.VisibleForTesting
@@ -89,6 +92,7 @@ class EntityQueries(
         limit: Long? = null,
         offset: Long? = null,
         expiresAt: Instant? = null,
+        serializer: SqkonSerializer = KotlinSqkonSerializer(),
     ): Query<Entity> = SelectQuery(
         entityName = entityName,
         entityKeys = entityKeys,
@@ -97,6 +101,7 @@ class EntityQueries(
         limit = limit,
         offset = offset,
         expiresAt = expiresAt,
+        serializer = serializer,
     ) { cursor ->
         Entity(
             entity_name = cursor.getString(0)!!,
@@ -118,6 +123,7 @@ class EntityQueries(
         private val limit: Long? = null,
         private val offset: Long? = null,
         private val expiresAt: Instant? = null,
+        private val serializer: SqkonSerializer = KotlinSqkonSerializer(),
         mapper: (SqlCursor) -> Entity,
     ) : Query<Entity>(mapper) {
 
@@ -180,6 +186,9 @@ class EntityQueries(
                 FROM entity${queries.buildFrom()} ${queries.buildWhere()} ${queries.buildOrderBy()}
                 ${limit?.let { "LIMIT ?" } ?: ""} ${offset?.let { "OFFSET ?" } ?: ""}
             """.trimIndent().replace('\n', ' ')
+
+            println(sql)
+
             return try {
                 driver.executeQuery(
                     identifier = identifier,
@@ -187,7 +196,7 @@ class EntityQueries(
                     mapper = mapper,
                     parameters = queries.sumParameters() + (if (limit != null) 1 else 0) + (if (offset != null) 1 else 0),
                 ) {
-                    val binder = AutoIncrementSqlPreparedStatement(preparedStatement = this)
+                    val binder = AutoIncrementSqlPreparedStatement(preparedStatement = this, serializer = serializer)
                     queries.forEach { it.bindArgs(binder) }
                     if (limit != null) binder.bindLong(limit)
                     if (offset != null) binder.bindLong(offset)
@@ -205,6 +214,7 @@ class EntityQueries(
         entityName: String,
         entityKeys: Collection<String>? = null,
         where: Where<*>? = null,
+        serializer: SqkonSerializer = KotlinSqkonSerializer(),
     ) {
         val queries = buildList {
             add(
@@ -246,9 +256,7 @@ class EntityQueries(
                 parameters = 1 + if (queries.size > 1) queries.sumParameters() else 0,
             ) {
                 bindString(0, entityName)
-                val preparedStatement = AutoIncrementSqlPreparedStatement(
-                    index = 1, preparedStatement = this
-                )
+                val preparedStatement = AutoIncrementSqlPreparedStatement(1, this, serializer)
                 if (queries.size > 1) {
                     queries.forEach { q -> q.bindArgs(preparedStatement) }
                 }
@@ -266,8 +274,9 @@ class EntityQueries(
     fun count(
         entityName: String,
         where: Where<*>? = null,
-        expiresAfter: Instant? = null
-    ): Query<Int> = CountQuery(entityName, where, expiresAfter) { cursor ->
+        expiresAfter: Instant? = null,
+        serializer: SqkonSerializer = KotlinSqkonSerializer(),
+    ): Query<Int> = CountQuery(entityName, where, expiresAfter, serializer) { cursor ->
         cursor.getLong(0)!!.toInt()
     }
 
@@ -275,6 +284,7 @@ class EntityQueries(
         private val entityName: String,
         private val where: Where<*>? = null,
         private val expiresAfter: Instant? = null,
+        private val serializer: SqkonSerializer = KotlinSqkonSerializer(),
         mapper: (SqlCursor) -> T,
     ) : Query<T>(mapper) {
 
@@ -314,7 +324,7 @@ class EntityQueries(
                     mapper = mapper,
                     parameters = queries.sumParameters(),
                 ) {
-                    val binder = AutoIncrementSqlPreparedStatement(preparedStatement = this)
+                    val binder = AutoIncrementSqlPreparedStatement(preparedStatement = this, serializer = serializer)
                     queries.forEach { it.bindArgs(binder) }
                 }
             } catch (ex: SqlException) {

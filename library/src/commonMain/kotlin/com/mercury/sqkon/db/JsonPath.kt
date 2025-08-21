@@ -11,7 +11,7 @@ import kotlin.reflect.KType
 import kotlin.reflect.typeOf
 
 /**
- * Create a Path builder using one of the manu reified methods.
+ * Create a Path builder using one of the many reified methods.
  *
  * From a class:
  *
@@ -27,6 +27,7 @@ import kotlin.reflect.typeOf
  * val builder = TestObject::statuses.builder {
  *   then(Status::createdAt)
  * }
+ * ```
  *
  * Quick joining two properties:
  *
@@ -117,20 +118,24 @@ class JsonPathBuilder<R : Any>
     }
 
     @OptIn(ExperimentalSerializationApi::class)
-    fun fieldNames(): List<String> {
+    fun fieldNames(element: Boolean = false): List<String> {
         return nodes().mapNotNull { it ->
             if (it.receiverDescriptor.isInline) return@mapNotNull null // Skip inline classes
             val prefix = if (it.propertyName.isNotBlank()) "." else ""
-            when (it.valueDescriptor.kind) {
-                StructureKind.LIST -> "$prefix${it.propertyName}[%]"
-                PolymorphicKind.SEALED -> "$prefix${it.propertyName}[1]"
-                else -> "$prefix${it.propertyName}"
+            if (element) {
+                when (it.valueDescriptor.kind) {
+                    StructureKind.LIST -> "$prefix${it.propertyName}[%]"
+                    PolymorphicKind.SEALED -> "$prefix${it.propertyName}[1]"
+                    else -> "$prefix${it.propertyName}"
+                }
+            } else {
+                "$prefix${it.propertyName}"
             }
         }
     }
 
     fun buildPath(): String {
-        return fieldNames().joinToString("", prefix = "\$")
+        return fieldNames().joinToString("", prefix = "$")
     }
 }
 

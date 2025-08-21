@@ -1,7 +1,10 @@
 package com.mercury.sqkon.db
 
+import app.cash.sqldelight.db.QueryResult
+import app.cash.sqldelight.logs.LogSqliteDriver
 import app.cash.turbine.test
 import app.cash.turbine.turbineScope
+import com.mercury.sqkon.TestEnum
 import com.mercury.sqkon.TestObject
 import com.mercury.sqkon.TestObjectChild
 import com.mercury.sqkon.TestValue
@@ -22,7 +25,9 @@ import kotlin.time.Duration.Companion.seconds
 class KeyValueStorageTest {
 
     private val mainScope = MainScope()
-    private val driver = driverFactory().createDriver()
+    private val driver = LogSqliteDriver(driverFactory().createDriver()) {
+        println(it)
+    }
     private val entityQueries = EntityQueries(driver)
     private val metadataQueries = MetadataQueries(driver)
     private val testObjectStorage = keyValueStorage<TestObject>(
@@ -143,7 +148,6 @@ class KeyValueStorageTest {
         assertEquals(expected.values.toList(), actual)
     }
 
-
     @Test
     fun selectByKey() = runTest {
         val expected = (0..10).map { TestObject() }.associateBy { it.id }
@@ -170,6 +174,22 @@ class KeyValueStorageTest {
         assertEquals(1, actualsById.size)
         assertEquals(expect, actualByKey)
         assertEquals(expect, actualsById.first())
+    }
+
+    @Test
+    fun select_byEnumValue() = runTest {
+        val expected = (0..2).map {
+            TestObject(testEnum = TestEnum.entries[it])
+        }.associateBy { it.id }
+        testObjectStorage.insertAll(expected)
+
+        val expect = expected.values.toList()[0]
+        val actualByEnumValue = testObjectStorage.select(
+            where = TestObject::testEnum eq TestEnum.FIRST
+        ).first()
+
+        assertEquals(1, actualByEnumValue.size)
+        assertEquals(expect, actualByEnumValue.first())
     }
 
     @Test
@@ -209,26 +229,11 @@ class KeyValueStorageTest {
 
     @Test
     fun select_byEntityInlineValue() = runTest {
-        val expected = (0..10).map { TestObject() }.associateBy { it.id }
+        val expected = (0..10).map { TestObject(testValue = TestValue(it.toString())) }.associateBy { it.id }
         testObjectStorage.insertAll(expected)
         val expect = expected.values.toList()[5]
         val actualByInlineValue = testObjectStorage.select(
-            // This works, but need to work on an API which would ignore the value class if passed in
-            where = TestObject::testValue eq expect.testValue.test
-        ).first()
-
-        assertEquals(1, actualByInlineValue.size)
-        assertEquals(expect, actualByInlineValue.first())
-    }
-
-    @Test
-    fun select_byEntityInlineValueInner() = runTest {
-        val expected = (0..10).map { TestObject() }.associateBy { it.id }
-        testObjectStorage.insertAll(expected)
-        val expect = expected.values.toList()[5]
-        val actualByInlineValue = testObjectStorage.select(
-            // This works, but need to work on an API which would ignore the value class if passed in
-            where = TestObject::testValue eq expect.testValue.test
+            where = TestObject::testValue eq TestValue("5")
         ).first()
 
         assertEquals(1, actualByInlineValue.size)
@@ -247,7 +252,7 @@ class KeyValueStorageTest {
         testObjectStorage.insertAll(expected)
         val expect = expected.values.toList()[5]
         val actualByInlineValue = testObjectStorage.select(
-            where = TestObject::child.then(TestObjectChild::createdAt) lt expect.child.createdAt.toString(),
+            where = TestObject::child.then(TestObjectChild::createdAt) lt expect.child.createdAt,
             orderBy = listOf(OrderBy(TestObject::child.then(TestObjectChild::createdAt)))
         ).first()
 
@@ -289,9 +294,35 @@ class KeyValueStorageTest {
             TestObject(attributes = listOf("${num}1", "${num}2"))
         }.associateBy { it.id }
         testObjectStorage.insertAll(expected)
+
+//        val result = driver.executeQuery(
+//            null,
+//            """
+//                SELECT entity.entity_name, list_1.value
+//                FROM entity, json_tree(entity.value, '$') as contains_1, json_each(contains_1.value) as list_1
+//                WHERE entity_name = ? AND (contains_1.fullkey LIKE ? AND list_1.value = ?)
+//            """.trimIndent(),
+//            { cursor ->
+//                QueryResult.Value(
+//                    buildList {
+//                        while (cursor.next().value) {
+//                            add(cursor.getString(0) + "[" + cursor.getString(1) + "]")
+//                        }
+//                    }
+//                )
+//            },
+//            3,
+//            {
+//                bindString(0, "test-object")
+//                bindString(1, "${'$'}.attributes")
+//                bindString(2, "22")
+//            }
+//        )
+//        println(result.value)
+
         val expect = expected.values.toList()[1]
         val actualByAttributes = testObjectStorage.select(
-            where = TestObject::attributes eq "22",
+            where = TestObject::attributes eq listOf("21", "22"),
             orderBy = listOf(OrderBy(TestObject::child.then(TestObjectChild::createdAt)))
         ).first()
 
@@ -360,11 +391,10 @@ class KeyValueStorageTest {
         }.associateBy { it.id }
         testObjectStorage.insertAll(expected)
         val expect = expected.values.toList()[1]
-        testObjectStorage.delete(where = TestObject::attributes eq "22")
+        testObjectStorage.delete(where = TestObject::attributes eq expect.attributes)
         val result = testObjectStorage.selectByKey(expect.id).first()
         assertNull(result)
     }
-
 
     @Test
     fun count() = runTest {
@@ -545,7 +575,7 @@ class KeyValueStorageTest {
         testObjectStorage.insert(expectedO.id, expectedO)
 
         val actual = testObjectStorage.select(
-            where = TestObject::testValue inList listOf("status")
+            where = TestObject::testValue inList listOf(TestValue("status"))
         ).first()
 
         assertEquals(expectedO, actual.first())

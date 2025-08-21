@@ -1,5 +1,6 @@
 package com.mercury.sqkon.db
 
+import app.cash.sqldelight.logs.LogSqliteDriver
 import com.mercury.sqkon.TestObject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
@@ -15,7 +16,7 @@ import kotlin.time.Duration.Companion.milliseconds
 class KeyValueStorageExpiresTest {
 
     private val mainScope = MainScope()
-    private val driver = driverFactory().createDriver()
+    private val driver = LogSqliteDriver(driverFactory().createDriver(), ::println)
     private val entityQueries = EntityQueries(driver)
     private val metadataQueries = MetadataQueries(driver)
     private val testObjectStorage = keyValueStorage<TestObject>(
