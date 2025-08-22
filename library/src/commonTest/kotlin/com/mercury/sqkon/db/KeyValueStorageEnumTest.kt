@@ -2,6 +2,7 @@
 
 package com.mercury.sqkon.db
 
+import app.cash.sqldelight.logs.LogSqliteDriver
 import com.mercury.sqkon.TestEnum
 import com.mercury.sqkon.TestObject
 import kotlinx.coroutines.MainScope
@@ -16,7 +17,9 @@ import kotlin.uuid.ExperimentalUuidApi
 class KeyValueStorageEnumTest {
 
     private val mainScope = MainScope()
-    private val driver = driverFactory().createDriver()
+    private val driver = LogSqliteDriver(driverFactory().createDriver()) {
+        println(it)
+    }
     private val entityQueries = EntityQueries(driver)
     private val metadataQueries = MetadataQueries(driver)
     private val testObjectStorage = keyValueStorage<TestObject>(
@@ -55,9 +58,8 @@ class KeyValueStorageEnumTest {
         val bySecondEnum = testObjectStorage.select(
             where = TestObject::testEnum eq TestEnum.SECOND,
         ).first()
-        // Broken due to lack of serialName support from descriptors
         val byLastEnum = testObjectStorage.select(
-            where = TestObject::testEnum eq "unknown",
+            where = TestObject::testEnum eq TestEnum.LAST,
         ).first()
 
         assertEquals(0, bySecondEnum.size)

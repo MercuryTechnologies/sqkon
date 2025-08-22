@@ -1,23 +1,47 @@
 package com.mercury.sqkon.db
 
 import app.cash.sqldelight.db.SqlPreparedStatement
+import com.mercury.sqkon.db.serialization.SqkonSerializer
 import kotlin.reflect.KProperty1
+import kotlin.reflect.KType
+import kotlin.reflect.typeOf
+
+@PublishedApi
+internal val AnyType = typeOf<Any>()
+
+// FIXME This is not ideal, but KProperty1<T, out V> doesn't have the right
+//   variance to prevent Any from satisfying V.
+/**
+ * Check that we aren't coercing types to Any at runtime.
+ */
+@PublishedApi
+internal inline fun <reified T> checkedTypeOf(): KType {
+    val type = typeOf<T>()
+    if (type == AnyType) {
+        throw IllegalArgumentException(
+            "Type was coerced to Any; did you pass the correct value?"
+        )
+    }
+    return type
+}
 
 /**
  * Equivalent to `=` in SQL
  */
-data class Eq<T : Any, V>(
-    private val builder: JsonPathBuilder<T>, private val value: V?,
+data class Eq<T : Any, V : Any?>(
+    private val builder: JsonPathBuilder<T>,
+    private val type: KType,
+    private val value: V,
 ) : Where<T>() {
     override fun toSqlQuery(increment: Int): SqlQuery {
         val treeName = "eq_$increment"
         return SqlQuery(
             from = "json_tree(entity.value, '$') as $treeName",
-            where = "($treeName.fullkey LIKE ? AND $treeName.value = ?)",
+            where = "($treeName.fullkey LIKE ? AND json_quote($treeName.value) = json_quote(?))",
             parameters = 2,
             bindArgs = {
                 bindString(builder.buildPath())
-                bindValue(value)
+                bindValue(type, value)
             }
         )
     }
@@ -26,53 +50,57 @@ data class Eq<T : Any, V>(
 /**
  * Equivalent to `=` in SQL
  */
-infix fun <T : Any, V> JsonPathBuilder<T>.eq(value: V?): Eq<T, V> =
-    Eq(builder = this, value = value)
+inline infix fun <T : Any, reified V> JsonPathBuilder<T>.eq(value: V): Eq<T, V> =
+    Eq(builder = this, type = checkedTypeOf<V>(), value = value)
 
 /**
  * Equivalent to `=` in SQL
  */
-inline infix fun <reified T : Any, reified V, VALUE> KProperty1<T, V>.eq(value: VALUE?): Eq<T, VALUE> =
-    Eq(this.builder(), value)
+inline infix fun <reified T : Any, reified V> KProperty1<T, V>.eq(value: V): Eq<T, V> =
+    Eq(this.builder(), checkedTypeOf<V>(), value)
 
 /**
  * Equivalent to `!=` in SQL
  */
 data class NotEq<T : Any, V>(
-    private val builder: JsonPathBuilder<T>, private val value: V?,
+    private val builder: JsonPathBuilder<T>,
+    private val type: KType,
+    private val value: V,
 ) : Where<T>() {
     override fun toSqlQuery(increment: Int): SqlQuery {
-        return Not(Eq(builder = builder, value = value)).toSqlQuery(increment)
+        return Not(Eq(builder = builder, type = type, value = value)).toSqlQuery(increment)
     }
 }
 
 /**
  * Equivalent to `!=` in SQL
  */
-infix fun <T : Any, V> JsonPathBuilder<T>.neq(value: V?): NotEq<T, V> =
-    NotEq(builder = this, value = value)
+inline infix fun <T : Any, reified V> JsonPathBuilder<T>.neq(value: V): NotEq<T, V> =
+    NotEq(builder = this, type = checkedTypeOf<V>(), value = value)
 
 /**
  * Equivalent to `!=` in SQL
  */
-inline infix fun <reified T : Any, reified V, VALUE> KProperty1<T, V>.neq(value: VALUE?): NotEq<T, VALUE> =
-    NotEq(this.builder(), value)
+inline infix fun <reified T : Any, reified V> KProperty1<T, V>.neq(value: V): NotEq<T, V> =
+    NotEq(this.builder(), checkedTypeOf<V>(), value)
 
 /**
  * Equivalent to `IN` in SQL
  */
 data class In<T : Any, V>(
-    private val builder: JsonPathBuilder<T>, private val value: Collection<V>,
+    private val builder: JsonPathBuilder<T>,
+    private val type: KType,
+    private val value: Collection<V>,
 ) : Where<T>() {
     override fun toSqlQuery(increment: Int): SqlQuery {
         val treeName = "in_$increment"
         return SqlQuery(
             from = "json_tree(entity.value, '$') as $treeName",
-            where = "($treeName.fullkey LIKE ? AND $treeName.value IN (${value.joinToString(",") { "?" }}))",
+            where = "($treeName.fullkey LIKE ? AND json_quote($treeName.value) IN (${value.joinToString(",") { "json_quote(?)" }}))",
             parameters = 1 + value.size,
             bindArgs = {
                 bindString(builder.buildPath())
-                value.forEach { bindValue(it) }
+                value.forEach { bindValue(type, it) }
             }
         )
     }
@@ -81,20 +109,44 @@ data class In<T : Any, V>(
 /**
  * Equivalent to `IN` in SQL
  */
-infix fun <T : Any, V> JsonPathBuilder<T>.inList(value: Collection<V>): In<T, V> =
-    In(builder = this, value = value)
+inline infix fun <T : Any, reified V> JsonPathBuilder<T>.inList(value: Collection<V>): In<T, V> =
+    In(builder = this, type = checkedTypeOf<V>(), value = value)
 
-/**
- * Equivalent to `IN` in SQL
- */
-inline infix fun <reified T : Any, reified V, reified C> KProperty1<T, V>.inList(value: Collection<C>): In<T, C> =
-    In<T, C>(builder = this.builder<T, V>(), value = value)
+inline infix fun <reified T : Any, reified V> KProperty1<T, V>.inList(value: Collection<V>): In<T, V> =
+    In(this.builder(), checkedTypeOf<V>(), value)
+
+data class Contains<T : Any, V>(
+    private val builder: JsonPathBuilder<T>,
+    private val type: KType,
+    private val value: V,
+) : Where<T>() {
+    override fun toSqlQuery(increment: Int): SqlQuery {
+        val treeName = "contains_$increment"
+        val eachName = "contains_${increment}_each"
+        return SqlQuery(
+            from = "json_tree(entity.value, '$') as $treeName, json_each($treeName.value) as $eachName",
+            where = "($treeName.fullkey LIKE ? AND json_quote($eachName.value) = json_quote(?))",
+            parameters = 2,
+            bindArgs = {
+                bindString(builder.buildPath())
+                bindValue(type, value)
+            }
+        )
+    }
+}
+
+inline infix fun <T : Any, reified V> JsonPathBuilder<T>.contains(value: V): Contains<T, V> =
+    Contains(builder = this, type = checkedTypeOf<V>(), value = value)
+
+inline infix fun <reified T : Any, reified V, reified C : Collection<V>?> KProperty1<T, C>.contains(value: V): Contains<T, V> =
+    Contains(this.builder(), checkedTypeOf<V>(), value)
 
 /**
  * Equivalent to `LIKE` in SQL
  */
 data class Like<T : Any>(
-    private val builder: JsonPathBuilder<T>, private val value: String?,
+    private val builder: JsonPathBuilder<T>,
+    private val value: String,
 ) : Where<T>() {
     override fun toSqlQuery(increment: Int): SqlQuery {
         val treeName = "like_$increment"
@@ -113,13 +165,13 @@ data class Like<T : Any>(
 /**
  * Equivalent to `LIKE` in SQL
  */
-infix fun <T : Any> JsonPathBuilder<T>.like(value: String?): Like<T> =
+infix fun <T : Any> JsonPathBuilder<T>.like(value: String): Like<T> =
     Like(builder = this, value = value)
 
 /**
  * Equivalent to `LIKE` in SQL
  */
-inline infix fun <reified T : Any, reified V> KProperty1<T, V>.like(value: String?): Like<T> =
+inline infix fun <reified T : Any, reified V> KProperty1<T, V>.like(value: String): Like<T> =
     Like(this.builder(), value)
 
 /**
@@ -128,18 +180,20 @@ inline infix fun <reified T : Any, reified V> KProperty1<T, V>.like(value: Strin
  * @param value note that gt will only really work with numbers right now.
  */
 data class GreaterThan<T : Any, V>(
-    private val builder: JsonPathBuilder<T>, private val value: V?,
+    private val builder: JsonPathBuilder<T>,
+    private val type: KType,
+    private val value: V?,
 ) : Where<T>() {
 
     override fun toSqlQuery(increment: Int): SqlQuery {
         val treeName = "gt_$increment"
         return SqlQuery(
             from = "json_tree(entity.value, '$') as $treeName",
-            where = "($treeName.fullkey LIKE ? AND $treeName.value > ?)",
+            where = "($treeName.fullkey LIKE ? AND json_quote($treeName.value) > json_quote(?))",
             parameters = 2,
             bindArgs = {
                 bindString(builder.buildPath())
-                bindValue(value)
+                bindValue(type, value)
             }
         )
     }
@@ -148,32 +202,34 @@ data class GreaterThan<T : Any, V>(
 /**
  * Equivalent to `>` in SQL
  */
-infix fun <T : Any, V> JsonPathBuilder<T>.gt(value: V?): GreaterThan<T, V> =
-    GreaterThan(builder = this, value = value)
+inline infix fun <T : Any, reified V> JsonPathBuilder<T>.gt(value: V): GreaterThan<T, V> =
+    GreaterThan(builder = this, type = checkedTypeOf<V>(), value = value)
 
 /**
  * Equivalent to `>` in SQL
  */
-inline infix fun <reified T : Any, reified V, VALUE> KProperty1<T, V>.gt(value: VALUE?): GreaterThan<T, VALUE> =
-    GreaterThan(this.builder(), value)
+inline infix fun <reified T : Any, reified V> KProperty1<T, V>.gt(value: V): GreaterThan<T, V> =
+    GreaterThan(this.builder(), checkedTypeOf<V>(), value)
 
 
 /**
  * Equivalent to `<` in SQL
  */
 data class LessThan<T : Any, V>(
-    private val builder: JsonPathBuilder<T>, private val value: V?,
+    private val builder: JsonPathBuilder<T>,
+    private val type: KType,
+    private val value: V,
 ) : Where<T>() {
 
     override fun toSqlQuery(increment: Int): SqlQuery {
         val treeName = "lt_$increment"
         return SqlQuery(
             from = "json_tree(entity.value, '$') as $treeName",
-            where = "($treeName.fullkey LIKE ? AND $treeName.value < ?)",
+            where = "($treeName.fullkey LIKE ? AND json_quote($treeName.value) < json_quote(?))",
             parameters = 2,
             bindArgs = {
                 bindString(builder.buildPath())
-                bindValue(value)
+                bindValue(type, value)
             }
         )
     }
@@ -182,15 +238,14 @@ data class LessThan<T : Any, V>(
 /**
  * Equivalent to `<` in SQL
  */
-infix fun <T : Any, V> JsonPathBuilder<T>.lt(value: V?): LessThan<T, V> =
-    LessThan(builder = this, value = value)
+inline infix fun <T : Any, reified V> JsonPathBuilder<T>.lt(value: V): LessThan<T, V> =
+    LessThan(builder = this, type = checkedTypeOf<V>(), value = value)
 
 /**
  * Equivalent to `<` in SQL
  */
-inline infix fun <reified T : Any, reified V, VALUE> KProperty1<T, V>.lt(value: VALUE?): LessThan<T, VALUE> =
-    LessThan(this.builder(), value)
-
+inline infix fun <reified T : Any, reified V> KProperty1<T, V>.lt(value: V): LessThan<T, V> =
+    LessThan(this.builder(), checkedTypeOf<V>(), value)
 
 /**
  * Equivalent to `NOT ($where)` in SQL
@@ -331,6 +386,7 @@ internal fun List<SqlQuery>.identifier(): Int = fold(0) { acc, sqlQuery ->
 class AutoIncrementSqlPreparedStatement(
     private var index: Int = 0,
     private val preparedStatement: SqlPreparedStatement,
+    private val serializer: SqkonSerializer,
 ) {
     fun bindBoolean(boolean: Boolean?) {
         preparedStatement.bindBoolean(index, boolean)
@@ -357,29 +413,14 @@ class AutoIncrementSqlPreparedStatement(
         index++
     }
 
-    fun <T> bindValue(value: T?) {
+    fun <T> bindValue(type: KType, value: T) {
         when (value) {
             is Boolean -> bindBoolean(value)
             is ByteArray -> bindBytes(value)
             is Double -> bindDouble(value)
-            is Number -> bindLong(value.toLong())
+            is Long -> bindLong(value)
             is String -> bindString(value)
-            is Enum<*> -> {
-                // Doesn't support @SerialName for now https://github.com/Kotlin/kotlinx.serialization/issues/2956
-//                val e = value as T
-//                e::class.serializerOrNull()?.let {
-//                    val sName = it.descriptor.getElementDescriptor(value.ordinal).serialName
-//                    bindString(sName)
-//                } ?: bindString(null)
-                bindString(value.name) // use ordinal name for now (which is default serialization)
-            }
-
-            null -> bindString(null)
-            else -> {
-                // Compiler bug doesn't smart cast the value to non-null
-                val v = requireNotNull(value) { "Unsupported value type: null" }
-                throw IllegalArgumentException("Unsupported value type: ${v::class.simpleName}")
-            }
+            else -> bindString(serializer.serialize(type, value))
         }
     }
 }

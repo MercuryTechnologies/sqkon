@@ -201,6 +201,7 @@ open class KeyValueStorage<T : Any>(
                 entityKeys = keys,
                 orderBy = orderBy,
                 expiresAt = expiresAfter,
+                serializer = serializer,
             )
             .asFlow()
             .mapToList(readDispatcher)
@@ -239,6 +240,7 @@ open class KeyValueStorage<T : Any>(
                 limit = limit,
                 offset = offset,
                 expiresAt = expiresAfter,
+                serializer = serializer,
             )
             .asFlow()
             .mapToList(readDispatcher)
@@ -278,6 +280,7 @@ open class KeyValueStorage<T : Any>(
                 limit = limit,
                 offset = offset,
                 expiresAt = expiresAfter,
+                serializer = serializer,
             )
             .asFlow()
             .mapToList(readDispatcher)
@@ -317,6 +320,7 @@ open class KeyValueStorage<T : Any>(
                 limit = limit.toLong(),
                 offset = offset.toLong(),
                 expiresAt = expiresAfter,
+                serializer = serializer,
             ).also { entities ->
                 updateReadAt(entities.executeAsList().map { it.entity_key })
             }
@@ -454,7 +458,7 @@ open class KeyValueStorage<T : Any>(
         where: Where<T>? = null,
         expiresAfter: Instant? = null,
     ): Flow<Int> {
-        return entityQueries.count(entityName, where, expiresAfter)
+        return entityQueries.count(entityName, where, expiresAfter, serializer)
             .asFlow()
             .mapToOne(readDispatcher)
     }

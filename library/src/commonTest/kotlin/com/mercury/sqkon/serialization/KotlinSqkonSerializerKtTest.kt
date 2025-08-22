@@ -1,9 +1,13 @@
 package com.mercury.sqkon.serialization
 
+import com.mercury.sqkon.TestEnum
 import com.mercury.sqkon.TestObject
 import com.mercury.sqkon.TestSealed
+import com.mercury.sqkon.db.serialization.KotlinSqkonSerializer
 import com.mercury.sqkon.db.serialization.SqkonJson
+import kotlin.reflect.typeOf
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
 
 class KotlinSqkonSerializerKtTest {
@@ -22,4 +26,10 @@ class KotlinSqkonSerializerKtTest {
 
     }
 
+    @Test
+    fun testEnumSerialNameSerialization() {
+        val serializer = KotlinSqkonSerializer()
+        val value = TestEnum.LAST
+        assertEquals("\"unknown\"", serializer.serialize(typeOf<TestEnum>(), value))
+    }
 }

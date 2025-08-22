@@ -93,6 +93,7 @@ data class TypeTwoData(
     val otherValue: Int
 )
 
+@Serializable
 enum class TestEnum {
     FIRST,
     SECOND,
