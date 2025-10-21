@@ -175,10 +175,36 @@ check_branch() {
     if [ "$current_branch" = "main" ] || [ "$current_branch" = "master" ]; then
         print_success "On main branch"
     else
-        print_error "Not on main branch (currently on: $current_branch)"
-        print_error "This script must be run from the main/master branch"
-        print_info "Please run: git checkout main"
-        exit 1
+        print_warning "Not on main branch (currently on: $current_branch)"
+        print_info "This script must be run from the main/master branch"
+        
+        # Check if main or master branch exists
+        local target_branch=""
+        if git show-ref --verify --quiet refs/heads/main; then
+            target_branch="main"
+        elif git show-ref --verify --quiet refs/heads/master; then
+            target_branch="master"
+        else
+            print_error "Neither 'main' nor 'master' branch found in repository"
+            exit 1
+        fi
+        
+        if $DRY_RUN; then
+            print_warning "DRY RUN: Would ask to switch to $target_branch branch"
+        else
+            if confirm "Would you like to switch to the $target_branch branch now?"; then
+                print_step "Switching to $target_branch branch..."
+                if git checkout "$target_branch"; then
+                    print_success "Switched to $target_branch branch"
+                else
+                    print_error "Failed to switch to $target_branch branch"
+                    exit 1
+                fi
+            else
+                print_error "Cannot continue on feature branch. Aborted by user."
+                exit 1
+            fi
+        fi
     fi
     
     # Check if there are uncommitted changes
@@ -195,16 +221,16 @@ check_branch() {
 
 # Get the latest release version
 get_latest_version() {
-    print_step "Fetching latest release..."
+    print_step "Fetching latest release..." >&2
     
     local latest_release
     latest_release=$(gh release list --repo "$REPO_OWNER/$REPO_NAME" --limit 1 --json tagName --jq '.[0].tagName' 2>/dev/null || echo "")
     
     if [ -z "$latest_release" ]; then
-        print_warning "No previous releases found"
+        print_warning "No previous releases found" >&2
         echo "v0.0.0"
     else
-        print_success "Latest release: $latest_release"
+        print_success "Latest release: $latest_release" >&2
         echo "$latest_release"
     fi
 }
@@ -250,7 +276,7 @@ validate_version() {
 
 # Determine the new version
 determine_version() {
-    print_step "Determining new version..."
+    print_step "Determining new version..." >&2
     
     local latest_release new_version
     latest_release=$(get_latest_version)
@@ -259,10 +285,10 @@ determine_version() {
     if [ -n "$MANUAL_VERSION" ]; then
         new_version=$(parse_version "$MANUAL_VERSION")
         validate_version "$new_version"
-        print_info "Using manually specified version: v$new_version"
+        print_info "Using manually specified version: v$new_version" >&2
     else
         new_version=$(increment_minor_version "$latest_release")
-        print_info "Auto-incrementing minor version: v$latest_release -> v$new_version"
+        print_info "Auto-incrementing minor version: v$latest_release -> v$new_version" >&2
     fi
     
     echo "$new_version"
@@ -273,7 +299,7 @@ generate_release_notes() {
     local previous_tag="$1"
     local new_version="$2"
     
-    print_step "Generating release notes..."
+    print_step "Generating release notes..." >&2
     
     local notes_file
     notes_file=$(mktemp)
@@ -353,6 +379,91 @@ create_release() {
     rm -f "$notes_file"
 }
 
+# Update README.MD with new version
+update_readme_version() {
+    local new_version="$1"
+    
+    print_step "Updating README.MD with version v$new_version..."
+    
+    local readme_path="README.MD"
+    
+    if [ ! -f "$readme_path" ]; then
+        print_error "README.MD not found at $readme_path"
+        return 1
+    fi
+    
+    if $DRY_RUN; then
+        print_warning "DRY RUN: Would update README.MD with version v$new_version"
+        print_warning "DRY RUN: Would commit changes with message 'Update README with version v$new_version [skip ci]'"
+        print_warning "DRY RUN: Would push commit to main branch"
+        return 0
+    fi
+    
+    # Backup the README first
+    cp "$readme_path" "${readme_path}.bak"
+    
+    # Update version in multiplatform dependency example (line 101)
+    # Pattern: implementation("com.mercury.sqkon:library:X.Y.Z")
+    if sed -i.tmp "s|implementation(\"com.mercury.sqkon:library:[^\"]*\")|implementation(\"com.mercury.sqkon:library:$new_version\")|g" "$readme_path"; then
+        print_success "Updated multiplatform dependency version"
+    else
+        print_error "Failed to update multiplatform dependency version"
+        mv "${readme_path}.bak" "$readme_path"
+        return 1
+    fi
+    
+    # Update version in platform-specific dependency example (line 110)
+    # Pattern: implementation("com.mercury.sqkon:library-android:X.Y.Z")
+    if sed -i.tmp "s|implementation(\"com.mercury.sqkon:library-android:[^\"]*\")|implementation(\"com.mercury.sqkon:library-android:$new_version\")|g" "$readme_path"; then
+        print_success "Updated platform-specific dependency version"
+    else
+        print_error "Failed to update platform-specific dependency version"
+        mv "${readme_path}.bak" "$readme_path"
+        return 1
+    fi
+    
+    # Clean up sed temporary file
+    rm -f "${readme_path}.tmp"
+    
+    # Check if there are actual changes
+    if git diff --quiet "$readme_path"; then
+        print_warning "No changes detected in README.MD (version might already be up to date)"
+        rm -f "${readme_path}.bak"
+        return 0
+    fi
+    
+    print_success "README.MD updated successfully"
+    
+    # Show the diff
+    print_info "Changes made to README.MD:"
+    git diff "$readme_path"
+    
+    # Commit the changes
+    print_step "Committing README.MD changes..."
+    if git add "$readme_path" && git commit -m "Update README with version v$new_version [skip ci]"; then
+        print_success "Changes committed"
+    else
+        print_error "Failed to commit changes"
+        mv "${readme_path}.bak" "$readme_path"
+        return 1
+    fi
+    
+    # Push to main
+    print_step "Pushing changes to main branch..."
+    if git push origin main; then
+        print_success "Changes pushed to main branch"
+    else
+        print_error "Failed to push changes to main branch"
+        print_warning "You may need to manually push the commit"
+        return 1
+    fi
+    
+    # Clean up backup
+    rm -f "${readme_path}.bak"
+    
+    return 0
+}
+
 # Main function
 main() {
     echo ""
@@ -362,23 +473,34 @@ main() {
     parse_args "$@"
     check_requirements
     get_repo_info
-    check_branch
     
+    # Fetch and display version information early
     local latest_release new_version
     latest_release=$(get_latest_version)
     new_version=$(determine_version)
     
     echo ""
-    print_info "Summary:"
-    print_info "  Previous release: $latest_release"
-    print_info "  New release:      v$new_version"
+    print_info "Release Information:"
     print_info "  Repository:       $REPO_OWNER/$REPO_NAME"
+    print_info "  Current release:  $latest_release"
+    print_info "  New release:      v$new_version"
     if $DRY_RUN; then
         print_warning "  Mode:             DRY RUN"
     fi
     echo ""
     
+    # Now check branch (and potentially switch to main)
+    check_branch
+    
+    echo ""
+    print_info "Proceeding with release creation..."
+    echo ""
+    
     create_release "$new_version" "$latest_release"
+    
+    # Update README with new version and push to main
+    echo ""
+    update_readme_version "$new_version"
     
     echo ""
     print_success "Done!"
@@ -387,6 +509,7 @@ main() {
     if ! $DRY_RUN; then
         print_info "The GitHub Actions workflow should now trigger to publish to Maven Central"
         print_info "Monitor the workflow at: https://github.com/$REPO_OWNER/$REPO_NAME/actions"
+        print_info "README.MD has been updated and pushed to main with [skip ci]"
     fi
 }
 

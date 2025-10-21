@@ -131,6 +131,30 @@ this if that's what you require.
   use `deleteExpired` to remove them. We track `readAt`,`writeAt` when rows are read/written too.
 - We provide `deleteWhere`, `deleteExpired`, `deleteStale`, the docs explain there differences.
 
+## Testing
+
+```bash
+# Run all tests
+./gradlew :library:allTests
+
+# JVM tests only
+./gradlew :library:jvmTest
+
+# Android tests (managed devices - recommended for CI)
+./gradlew :library:allDevicesDebugAndroidTest
+
+# Android tests (connected device/emulator)
+./gradlew :library:connectedDebugAndroidTest
+
+# Specific test class
+./gradlew :library:jvmTest --tests "com.mercury.sqkon.db.KeyValueStorageTest"
+
+# Specific test method
+./gradlew :library:jvmTest --tests "com.mercury.sqkon.db.KeyValueStorageTest.testInsertAndSelect"
+```
+
+Test reports: `library/build/reports/tests/jvmTest/index.html` (JVM), `library/build/reports/androidTests/connected/debug/index.html` (Android)
+
 ### Build platform artifacts
 
 #### Android aar
