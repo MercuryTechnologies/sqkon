@@ -228,7 +228,7 @@ get_latest_version() {
     
     if [ -z "$latest_release" ]; then
         print_warning "No previous releases found" >&2
-        echo "v0.0.0"
+        echo "0.0.0"
     else
         print_success "Latest release: $latest_release" >&2
         echo "$latest_release"
@@ -285,10 +285,10 @@ determine_version() {
     if [ -n "$MANUAL_VERSION" ]; then
         new_version=$(parse_version "$MANUAL_VERSION")
         validate_version "$new_version"
-        print_info "Using manually specified version: v$new_version" >&2
+        print_info "Using manually specified version: $new_version" >&2
     else
         new_version=$(increment_minor_version "$latest_release")
-        print_info "Auto-incrementing minor version: v$latest_release -> v$new_version" >&2
+        print_info "Auto-incrementing minor version: $latest_release -> $new_version" >&2
     fi
     
     echo "$new_version"
@@ -318,7 +318,7 @@ generate_release_notes() {
         echo ""
         echo "---"
         echo ""
-        echo "**Full Changelog**: https://github.com/$REPO_OWNER/$REPO_NAME/compare/${previous_tag}...v${new_version}"
+        echo "**Full Changelog**: https://github.com/$REPO_OWNER/$REPO_NAME/compare/${previous_tag}...${new_version}"
     } > "$notes_file"
     
     echo "$notes_file"
@@ -329,7 +329,7 @@ create_release() {
     local new_version="$1"
     local previous_tag="$2"
     
-    print_step "Preparing to create release v$new_version..."
+    print_step "Preparing to create release $new_version..."
     
     # Generate release notes
     local notes_file
@@ -344,15 +344,15 @@ create_release() {
     echo ""
     
     if $DRY_RUN; then
-        print_warning "DRY RUN: Would create release v$new_version with the above notes"
-        print_warning "DRY RUN: Would create tag v$new_version"
+        print_warning "DRY RUN: Would create release $new_version with the above notes"
+        print_warning "DRY RUN: Would create tag $new_version"
         rm -f "$notes_file"
         return 0
     fi
     
     # Final confirmation
     print_warning "DANGEROUS OPERATION: This will create a new release and tag"
-    print_info "Release: v$new_version"
+    print_info "Release: $new_version"
     print_info "Repository: $REPO_OWNER/$REPO_NAME"
     
     if ! confirm "Are you sure you want to create this release?"; then
@@ -361,15 +361,15 @@ create_release() {
         exit 1
     fi
     
-    print_step "Creating release v$new_version..."
+    print_step "Creating release $new_version..."
     
     # Create the release using gh CLI
-    if gh release create "v$new_version" \
+    if gh release create "$new_version" \
         --repo "$REPO_OWNER/$REPO_NAME" \
-        --title "v$new_version" \
+        --title "$new_version" \
         --notes-file "$notes_file"; then
-        print_success "Release v$new_version created successfully!"
-        print_info "Release URL: https://github.com/$REPO_OWNER/$REPO_NAME/releases/tag/v$new_version"
+        print_success "Release $new_version created successfully!"
+        print_info "Release URL: https://github.com/$REPO_OWNER/$REPO_NAME/releases/tag/$new_version"
     else
         print_error "Failed to create release"
         rm -f "$notes_file"
@@ -379,28 +379,36 @@ create_release() {
     rm -f "$notes_file"
 }
 
-# Update README.MD with new version
+# Update README.MD and gradle.properties with new version
 update_readme_version() {
     local new_version="$1"
     
-    print_step "Updating README.MD with version v$new_version..."
+    print_step "Updating README.MD and gradle.properties with version $new_version..."
     
     local readme_path="README.MD"
+    local gradle_props_path="gradle.properties"
     
     if [ ! -f "$readme_path" ]; then
         print_error "README.MD not found at $readme_path"
         return 1
     fi
     
+    if [ ! -f "$gradle_props_path" ]; then
+        print_error "gradle.properties not found at $gradle_props_path"
+        return 1
+    fi
+    
     if $DRY_RUN; then
-        print_warning "DRY RUN: Would update README.MD with version v$new_version"
-        print_warning "DRY RUN: Would commit changes with message 'Update README with version v$new_version [skip ci]'"
+        print_warning "DRY RUN: Would update README.MD with version $new_version"
+        print_warning "DRY RUN: Would update gradle.properties VERSION_NAME to $new_version"
+        print_warning "DRY RUN: Would commit changes with message 'Update README and gradle.properties with version $new_version [skip ci]'"
         print_warning "DRY RUN: Would push commit to main branch"
         return 0
     fi
     
-    # Backup the README first
+    # Backup the files first
     cp "$readme_path" "${readme_path}.bak"
+    cp "$gradle_props_path" "${gradle_props_path}.bak"
     
     # Update version in multiplatform dependency example (line 101)
     # Pattern: implementation("com.mercury.sqkon:library:X.Y.Z")
@@ -409,6 +417,7 @@ update_readme_version() {
     else
         print_error "Failed to update multiplatform dependency version"
         mv "${readme_path}.bak" "$readme_path"
+        mv "${gradle_props_path}.bak" "$gradle_props_path"
         return 1
     fi
     
@@ -419,32 +428,52 @@ update_readme_version() {
     else
         print_error "Failed to update platform-specific dependency version"
         mv "${readme_path}.bak" "$readme_path"
+        mv "${gradle_props_path}.bak" "$gradle_props_path"
         return 1
     fi
     
     # Clean up sed temporary file
     rm -f "${readme_path}.tmp"
     
+    # Update VERSION_NAME in gradle.properties
+    # Pattern: VERSION_NAME=X.Y.Z
+    if sed -i.tmp "s|^VERSION_NAME=.*|VERSION_NAME=$new_version|g" "$gradle_props_path"; then
+        print_success "Updated VERSION_NAME in gradle.properties"
+    else
+        print_error "Failed to update VERSION_NAME in gradle.properties"
+        mv "${readme_path}.bak" "$readme_path"
+        mv "${gradle_props_path}.bak" "$gradle_props_path"
+        return 1
+    fi
+    
+    # Clean up sed temporary file
+    rm -f "${gradle_props_path}.tmp"
+    
     # Check if there are actual changes
-    if git diff --quiet "$readme_path"; then
-        print_warning "No changes detected in README.MD (version might already be up to date)"
+    if git diff --quiet "$readme_path" && git diff --quiet "$gradle_props_path"; then
+        print_warning "No changes detected in README.MD or gradle.properties (versions might already be up to date)"
         rm -f "${readme_path}.bak"
+        rm -f "${gradle_props_path}.bak"
         return 0
     fi
     
-    print_success "README.MD updated successfully"
+    print_success "README.MD and gradle.properties updated successfully"
     
     # Show the diff
     print_info "Changes made to README.MD:"
     git diff "$readme_path"
+    echo ""
+    print_info "Changes made to gradle.properties:"
+    git diff "$gradle_props_path"
     
     # Commit the changes
-    print_step "Committing README.MD changes..."
-    if git add "$readme_path" && git commit -m "Update README with version v$new_version [skip ci]"; then
+    print_step "Committing README.MD and gradle.properties changes..."
+    if git add "$readme_path" "$gradle_props_path" && git commit -m "Update README and gradle.properties with version $new_version [skip ci]"; then
         print_success "Changes committed"
     else
         print_error "Failed to commit changes"
         mv "${readme_path}.bak" "$readme_path"
+        mv "${gradle_props_path}.bak" "$gradle_props_path"
         return 1
     fi
     
@@ -458,8 +487,9 @@ update_readme_version() {
         return 1
     fi
     
-    # Clean up backup
+    # Clean up backups
     rm -f "${readme_path}.bak"
+    rm -f "${gradle_props_path}.bak"
     
     return 0
 }
@@ -483,7 +513,7 @@ main() {
     print_info "Release Information:"
     print_info "  Repository:       $REPO_OWNER/$REPO_NAME"
     print_info "  Current release:  $latest_release"
-    print_info "  New release:      v$new_version"
+    print_info "  New release:      $new_version"
     if $DRY_RUN; then
         print_warning "  Mode:             DRY RUN"
     fi
@@ -498,7 +528,7 @@ main() {
     
     create_release "$new_version" "$latest_release"
     
-    # Update README with new version and push to main
+    # Update README and gradle.properties with new version and push to main
     echo ""
     update_readme_version "$new_version"
     
@@ -509,7 +539,7 @@ main() {
     if ! $DRY_RUN; then
         print_info "The GitHub Actions workflow should now trigger to publish to Maven Central"
         print_info "Monitor the workflow at: https://github.com/$REPO_OWNER/$REPO_NAME/actions"
-        print_info "README.MD has been updated and pushed to main with [skip ci]"
+        print_info "README.MD and gradle.properties have been updated and pushed to main with [skip ci]"
     fi
 }
 
