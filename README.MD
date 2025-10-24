@@ -98,7 +98,7 @@ Multiplatform projects (Android, JVM, iOS (coming soon))
 ```kotlin
 commonMain {
     dependencies {
-        implementation("com.mercury.sqkon:library:1.1.0")
+        implementation("com.mercury.sqkon:library:1.2.0")
     }
 }
 ```
@@ -107,7 +107,7 @@ Or you can use the platform specific dependencies, e.g: Android only:
 
 ```kotlin
 dependencies {
-    implementation("com.mercury.sqkon:library-android:1.1.0")
+    implementation("com.mercury.sqkon:library-android:1.2.0")
 }
 ```
 
