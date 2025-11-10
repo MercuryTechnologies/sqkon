@@ -42,7 +42,16 @@ data class NotEq<T : Any, V>(
     private val builder: JsonPathBuilder<T>, private val value: V?,
 ) : Where<T>() {
     override fun toSqlQuery(increment: Int): SqlQuery {
-        return Not(Eq(builder = builder, value = value)).toSqlQuery(increment)
+        val treeName = "eq_$increment"
+        return SqlQuery(
+            from = "json_tree(entity.value, '$') as $treeName",
+            where = "($treeName.fullkey LIKE ? AND $treeName.value != ?)",
+            parameters = 2,
+            bindArgs = {
+                bindString(builder.buildPath())
+                bindValue(value)
+            }
+        )
     }
 }
 
@@ -78,6 +87,24 @@ data class In<T : Any, V>(
     }
 }
 
+data class NotIn<T : Any, V>(
+    private val builder: JsonPathBuilder<T>, private val value: Collection<V>,
+) : Where<T>() {
+    override fun toSqlQuery(increment: Int): SqlQuery {
+        val treeName = "in_$increment"
+        return SqlQuery(
+            from = "json_tree(entity.value, '$') as $treeName",
+            where = "($treeName.fullkey LIKE ? AND $treeName.value NOT IN (${value.joinToString(",") { "?" }}))",
+            parameters = 1 + value.size,
+            bindArgs = {
+                bindString(builder.buildPath())
+                value.forEach { bindValue(it) }
+            }
+        )
+    }
+}
+
+
 /**
  * Equivalent to `IN` in SQL
  */
@@ -89,6 +116,18 @@ infix fun <T : Any, V> JsonPathBuilder<T>.inList(value: Collection<V>): In<T, V>
  */
 inline infix fun <reified T : Any, reified V, reified C> KProperty1<T, V>.inList(value: Collection<C>): In<T, C> =
     In<T, C>(builder = this.builder<T, V>(), value = value)
+
+/**
+ * Equivalent to `NOT IN` in SQL
+ */
+infix fun <T : Any, V> JsonPathBuilder<T>.notInList(value: Collection<V>): NotIn<T, V> =
+    NotIn(builder = this, value = value)
+
+/**
+ * Equivalent to `NOT IN` in SQL
+ */
+inline fun <reified T : Any, reified V, reified C> KProperty1<T, V>.notInList(value: Collection<C>): NotIn<T, C> =
+    NotIn<T, C>(builder = this.builder<T, V>(), value = value)
 
 /**
  * Equivalent to `LIKE` in SQL

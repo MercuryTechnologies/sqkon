@@ -98,7 +98,7 @@ Multiplatform projects (Android, JVM, iOS (coming soon))
 ```kotlin
 commonMain {
     dependencies {
-        implementation("com.mercury.sqkon:library:1.0.0-alpha01")
+        implementation("com.mercury.sqkon:library:1.2.0")
     }
 }
 ```
@@ -107,7 +107,7 @@ Or you can use the platform specific dependencies, e.g: Android only:
 
 ```kotlin
 dependencies {
-    implementation("com.mercury.sqkon:library-android:1.0.0-alpha01")
+    implementation("com.mercury.sqkon:library-android:1.2.0")
 }
 ```
 
@@ -130,6 +130,30 @@ this if that's what you require.
 - Most methods support `expiresAt`, `expiresAfter` which let you set expiry times, we don't auto purge fields that have "expired" use
   use `deleteExpired` to remove them. We track `readAt`,`writeAt` when rows are read/written too.
 - We provide `deleteWhere`, `deleteExpired`, `deleteStale`, the docs explain there differences.
+
+## Testing
+
+```bash
+# Run all tests
+./gradlew :library:allTests
+
+# JVM tests only
+./gradlew :library:jvmTest
+
+# Android tests (managed devices - recommended for CI)
+./gradlew :library:allDevicesDebugAndroidTest
+
+# Android tests (connected device/emulator)
+./gradlew :library:connectedDebugAndroidTest
+
+# Specific test class
+./gradlew :library:jvmTest --tests "com.mercury.sqkon.db.KeyValueStorageTest"
+
+# Specific test method
+./gradlew :library:jvmTest --tests "com.mercury.sqkon.db.KeyValueStorageTest.testInsertAndSelect"
+```
+
+Test reports: `library/build/reports/tests/jvmTest/index.html` (JVM), `library/build/reports/androidTests/connected/debug/index.html` (Android)
 
 ### Build platform artifacts
 
