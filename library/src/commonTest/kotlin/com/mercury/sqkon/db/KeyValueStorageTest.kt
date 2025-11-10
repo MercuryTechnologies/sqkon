@@ -553,6 +553,86 @@ class KeyValueStorageTest {
     }
 
     @Test
+    fun select_notInList() = runTest {
+        // Insert multiple objects with different name values
+        val obj1 = TestObject().copy(name = "Alice")
+        val obj2 = TestObject().copy(name = "Bob")
+        val obj3 = TestObject().copy(name = "Charlie")
+
+        testObjectStorage.insert(obj1.id, obj1)
+        testObjectStorage.insert(obj2.id, obj2)
+        testObjectStorage.insert(obj3.id, obj3)
+
+        // Query for objects whose name is NOT in the exclusion list
+        val actual = testObjectStorage.select(
+            where = TestObject::name.notInList(listOf("Alice", "Bob"))
+        ).first()
+
+        // Should return only Charlie (obj3)
+        assertEquals(1, actual.size)
+        assertEquals(obj3.id, actual.first().id)
+        assertEquals("Charlie", actual.first().name)
+    }
+
+    @Test
+    fun select_notInList_valueClass() = runTest {
+        // Insert objects with different value class values
+        val obj1 = TestObject().copy(testValue = TestValue("status1"))
+        val obj2 = TestObject().copy(testValue = TestValue("status2"))
+        val obj3 = TestObject().copy(testValue = TestValue("status3"))
+        
+        testObjectStorage.insert(obj1.id, obj1)
+        testObjectStorage.insert(obj2.id, obj2)
+        testObjectStorage.insert(obj3.id, obj3)
+
+        // Query for objects whose testValue is NOT in the list
+        val actual = testObjectStorage.select(
+            where = TestObject::testValue.notInList(listOf("status1", "status2"))
+        ).first()
+
+        // Should return only obj3
+        assertEquals(1, actual.size)
+        assertEquals(obj3.id, actual.first().id)
+        assertEquals(TestValue("status3"), actual.first().testValue)
+    }
+
+    @Test
+    fun select_notInList_emptyList() = runTest {
+        // Insert objects
+        val obj1 = TestObject().copy(testValue = TestValue("status1"))
+        val obj2 = TestObject().copy(testValue = TestValue("status2"))
+        
+        testObjectStorage.insert(obj1.id, obj1)
+        testObjectStorage.insert(obj2.id, obj2)
+
+        // Query with NOT IN empty list - should return all items
+        val actual = testObjectStorage.select(
+            where = TestObject::testValue.notInList(emptyList<String>())
+        ).first()
+
+        // Should return both objects since nothing is excluded
+        assertEquals(2, actual.size)
+    }
+
+    @Test
+    fun select_notInList_allItemsInList() = runTest {
+        // Insert objects
+        val obj1 = TestObject().copy(testValue = TestValue("status1"))
+        val obj2 = TestObject().copy(testValue = TestValue("status2"))
+        
+        testObjectStorage.insert(obj1.id, obj1)
+        testObjectStorage.insert(obj2.id, obj2)
+
+        // Query where all items are in the exclusion list
+        val actual = testObjectStorage.select(
+            where = TestObject::testValue.notInList(listOf("status1", "status2"))
+        ).first()
+
+        // Should return no objects since all are excluded
+        assertEquals(0, actual.size)
+    }
+
+    @Test
     fun externalTransaction() = runTest {
         testObjectStorage.selectAll().test {
             testObjectStorage.transaction {
