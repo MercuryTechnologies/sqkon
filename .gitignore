@@ -14,3 +14,9 @@ xcuserdata/
 Pods/
 *.jks
 *yarn.lock
+
+# Claude Code
+.claude/settings.local.json
+.claude/todos/
+.worktrees/
+.claude/.worktrees/
