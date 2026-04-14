@@ -19,3 +19,4 @@ Pods/
 .claude/settings.local.json
 .claude/todos/
 .worktrees/
+.claude/.worktrees/
