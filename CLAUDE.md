@@ -1,65 +1,44 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
-## Project Overview
-
 Sqkon is a Kotlin Multiplatform key-value storage library built on SQLDelight and kotlinx.serialization. It stores serialized Kotlin objects in SQLite and supports querying on JSON fields using JSONB. Targets: Android and JVM.
 
-## Build Commands
+## Build & Test
+
+Run `./gradlew jvmTest` for the primary development loop. Always run this before pushing.
 
 ```bash
-# Build
-./gradlew clean build
-
-# Run JVM tests (primary development loop)
-./gradlew jvmTest
-
-# Run a specific test class
-./gradlew jvmTest --tests "com.mercury.sqkon.db.KeyValueStorageTest"
-
-# Run a specific test method
-./gradlew jvmTest --tests "com.mercury.sqkon.db.KeyValueStorageTest.testInsertAndSelect"
-
-# Verify SQLDelight migrations
-./gradlew verifySqlDelightMigration
-
-# Android instrumented tests (requires managed device setup)
-./gradlew allDevicesDebugAndroidTest
-
-# Publish to local Maven
-./gradlew publishToMavenLocal
+./gradlew jvmTest                          # Run all JVM tests
+./gradlew jvmTest --tests "*.KeyValueStorageTest"  # Single test class
+./gradlew verifySqlDelightMigration        # Verify SQLDelight migrations
+./gradlew allDevicesDebugAndroidTest       # Android instrumented tests (CI only)
+./gradlew publishToMavenLocal              # Local Maven for integration testing
 ```
 
 ## Architecture
 
-**Single module**: `:library` — all source lives here using KMP source sets:
-- `commonMain` / `commonTest` — shared logic and tests
-- `androidMain` / `androidInstrumentedTest` — Android-specific driver and tests
-- `jvmMain` / `jvmTest` — JVM-specific driver and tests
+Single `:library` module with KMP source sets (`commonMain`, `androidMain`, `jvmMain` + test counterparts).
 
 **Core classes** (package `com.mercury.sqkon.db`):
-- `Sqkon` — entry point; creates `KeyValueStorage` instances via `sqkon.keyValueStore<T>(name)`
-- `KeyValueStorage<T>` — main API for CRUD, querying, paging, expiry. All queries return `Flow<T>`
-- `EntityQueries` / `MetadataQueries` — SQLDelight-generated + hand-written query extensions
-- `JsonPath` — type-safe WHERE clause DSL (`MyType::field eq "value"`, `MyType::child.then(Child::field)`)
-- `SqkonSerializer` interface / `KotlinSqkonSerializer` — pluggable serialization strategy
+- `Sqkon` — entry point; use `sqkon.keyValueStore<T>(name)` to create stores
+- `KeyValueStorage<T>` — CRUD, querying, paging, expiry; all queries return `Flow<T>`
+- `EntityQueries` / `MetadataQueries` — SQLDelight-generated + hand-written extensions
+- `JsonPath` — type-safe WHERE DSL (`MyType::field eq "value"`)
 
-**SQLDelight schema**: `library/src/commonMain/sqldelight/com/mercury/sqkon/db/` (`entity.sq`, `metadata.sq`)
+**SQLDelight schema**: `library/src/commonMain/sqldelight/com/mercury/sqkon/db/`
 **Migrations**: `library/src/commonMain/sqldelight/migrations/`
 
-**Platform expect/actual pattern**: `Sqkon`, `SqkonDatabaseDriver`, and `EntityQueries` each have platform-specific implementations (`*.android.kt`, `*.jvm.kt`).
+Platform-specific code uses expect/actual (`*.android.kt`, `*.jvm.kt`).
 
-## Key Technical Decisions
+## Rules
 
-- `generateAsync = false` in SQLDelight config — async is intentionally disabled because the driver has issues on multithreaded platforms. Coroutines handle concurrency instead.
-- `-Xexpect-actual-classes` compiler flag is required for KMP expect/actual declarations.
-- Android unit tests are disabled (`enableUnitTest = false`); use JVM tests for fast iteration and Android instrumented tests for device-specific behavior.
-- Java 21 toolchain required.
+- Do not set `generateAsync = true` in SQLDelight — the driver breaks on multithreaded platforms. Coroutines handle concurrency.
+- Keep the `-Xexpect-actual-classes` compiler flag — required for KMP expect/actual.
+- Do not add Android unit tests (`enableUnitTest = false`). Use JVM tests for fast iteration, Android instrumented tests for device-specific behavior.
+- Java 21 toolchain is required. Do not downgrade.
 
-## Testing Patterns
+## Testing
 
-Tests use `kotlin.test` + `kotlinx-coroutines-test` (`runTest`) + Turbine for Flow testing. Standard test setup:
+Use `kotlin.test` + `kotlinx-coroutines-test` (`runTest`) + Turbine for Flow assertions.
 
 ```kotlin
 private val mainScope = MainScope()
@@ -71,17 +50,34 @@ private val storage = keyValueStorage<TestObject>("test-key", entityQueries, met
 @After fun tearDown() { mainScope.cancel() }
 ```
 
-- `driverFactory()` is an expect/actual that provides in-memory databases for tests
-- Always cancel `MainScope` in tearDown to prevent resource leaks
-- Test data classes are in `library/src/commonTest/kotlin/com/mercury/sqkon/TestDataClasses.kt`
-- Use Turbine's `storage.selectAll().test { awaitItem() }` pattern for testing reactive queries
+- Always cancel `MainScope` in `tearDown`.
+- Use `driverFactory()` for in-memory test databases.
+- Put test data classes in `library/src/commonTest/kotlin/com/mercury/sqkon/TestDataClasses.kt`.
+- Use Turbine: `storage.selectAll().test { awaitItem() }`.
 
-## CI
+## Commits
 
-Two CI jobs run on push/PR to main (`.github/workflows/ci.yml`):
-1. `jvm-tests` — runs `verifySqlDelightMigration` then `jvmTest`
-2. `run-android-tests` — runs `allDevicesDebugAndroidTest` on managed emulator
+Use [Conventional Commits](https://www.conventionalcommits.org/). Release-please uses these to determine version bumps and generate the changelog.
 
-## Publishing
+| Prefix | Version bump | Example |
+|--------|-------------|---------|
+| `feat:` | minor | `feat: add keyset paging support` |
+| `fix:` | patch | `fix: null handling in JsonPath` |
+| `feat!:` / `fix!:` | **major** | `feat!: remove deprecated expiry API` |
+| `perf:` | patch | `perf: optimize JSONB query plan` |
+| `deps:` | patch | `deps: upgrade SQLDelight to 2.1` |
+| `docs:` | none | `docs: update README examples` |
+| `chore:` | none | `chore: update CI action versions` |
 
-Uses VannikTech Maven Publish plugin. Published to Maven Central with automatic release. Coordinates: `com.mercury.sqkon:library`. Release workflow triggers on GitHub release creation.
+## CI & Releases
+
+**CI** (`.github/workflows/ci.yml`) runs on every push/PR to `main`:
+1. `jvm-tests` — `verifySqlDelightMigration` then `jvmTest`
+2. `run-android-tests` — `allDevicesDebugAndroidTest` on managed emulator
+
+**Releases** are automated via [release-please](https://github.com/googleapis/release-please):
+1. Merge PRs to `main` with conventional commits
+2. Release-please opens a PR titled `release: <version>` that accumulates changes and updates `CHANGELOG.md`
+3. Merge the release PR → GitHub Release is created → deploy workflow validates semver, runs `jvmTest`, then publishes to Maven Central
+
+Published coordinates: `com.mercury.sqkon:library`. Do not create GitHub releases manually — let release-please handle it.
