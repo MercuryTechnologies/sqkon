@@ -340,10 +340,13 @@ open class KeyValueStorage<T : Any>(
      * Note: [PagingSource.jumpingSupported] is false for keyset paging — pages must be
      * loaded sequentially from the start or a refresh key.
      *
+     * @param pageSize The number of items per page, used to compute stable page boundaries.
+     *   Should match the [PagingConfig.pageSize] used with the Pager.
      * @param expiresAfter null ignores expiresAt, will not return any row which has expired set
      *   and is before expiresAfter. This is normally [Clock.System.now].
      */
     fun selectKeysetPagingSource(
+        pageSize: Int,
         where: Where<T>? = null,
         orderBy: List<OrderBy<T>> = emptyList(),
         expiresAfter: Instant? = null,
@@ -370,6 +373,7 @@ open class KeyValueStorage<T : Any>(
             transacter = entityQueries,
             context = readDispatcher,
             deserialize = { it.deserialize() },
+            pageSize = pageSize,
         )
     }
 

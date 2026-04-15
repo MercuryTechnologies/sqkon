@@ -31,6 +31,7 @@ internal class KeysetQueryPagingSource<T : Any>(
     private val transacter: Transacter,
     private val context: CoroutineContext,
     private val deserialize: (Entity) -> T?,
+    private val pageSize: Int,
 ) : QueryPagingSource<String, T>() {
 
     private var pageBoundaries: List<String>? = null
@@ -43,8 +44,10 @@ internal class KeysetQueryPagingSource<T : Any>(
         try {
             val getPagingSourceLoadResult: TransactionCallbacks.() -> PagingSource.LoadResult<String, T> =
                 {
+                    // Always use the stable pageSize for boundary computation, not
+                    // params.loadSize which varies (initialLoadSize on first Refresh).
                     val boundaries = pageBoundaries
-                        ?: pageBoundariesProvider(params.key, params.loadSize.toLong())
+                        ?: pageBoundariesProvider(params.key, pageSize.toLong())
                             .executeAsList()
                             .also { pageBoundaries = it }
 
@@ -85,10 +88,11 @@ internal class KeysetQueryPagingSource<T : Any>(
 
     override fun getRefreshKey(state: PagingState<String, T>): String? {
         val boundaries = pageBoundaries ?: return null
-        val last = state.pages.lastOrNull() ?: return null
-        val keyIndexFromNext = last.nextKey?.let { boundaries.indexOf(it) - 1 }
-        val keyIndexFromPrev = last.prevKey?.let { boundaries.indexOf(it) + 1 }
-        val keyIndex = keyIndexFromNext ?: keyIndexFromPrev ?: return null
+        val anchorPosition = state.anchorPosition ?: return null
+        val anchorPage = state.closestPageToPosition(anchorPosition) ?: return null
+        val keyIndexFromPrev = anchorPage.prevKey?.let { boundaries.indexOf(it) + 1 }
+        val keyIndexFromNext = anchorPage.nextKey?.let { boundaries.indexOf(it) - 1 }
+        val keyIndex = keyIndexFromPrev ?: keyIndexFromNext ?: return null
         return boundaries.getOrNull(keyIndex)
     }
 }

@@ -42,7 +42,7 @@ class KeysetPagingTest {
         testObjectStorage.insertAll(expected)
 
         val config = PagingConfig(pageSize = 10, prefetchDistance = 0, initialLoadSize = 10)
-        val pager = TestPager(config, testObjectStorage.selectKeysetPagingSource())
+        val pager = TestPager(config, testObjectStorage.selectKeysetPagingSource(pageSize = 10))
 
         val result = pager.refresh() as LoadResult.Page<String, TestObject>
         assertEquals(10, result.data.size, "Page result should contain 10 items")
@@ -56,7 +56,7 @@ class KeysetPagingTest {
         testObjectStorage.insertAll(expected)
 
         val config = PagingConfig(pageSize = 10, prefetchDistance = 0, initialLoadSize = 10)
-        val pager = TestPager(config, testObjectStorage.selectKeysetPagingSource())
+        val pager = TestPager(config, testObjectStorage.selectKeysetPagingSource(pageSize = 10))
 
         val result = with(pager) {
             refresh()
@@ -76,7 +76,7 @@ class KeysetPagingTest {
         testObjectStorage.insertAll(expected)
 
         val config = PagingConfig(pageSize = 10, prefetchDistance = 0, initialLoadSize = 10)
-        val pager = TestPager(config, testObjectStorage.selectKeysetPagingSource())
+        val pager = TestPager(config, testObjectStorage.selectKeysetPagingSource(pageSize = 10))
 
         with(pager) {
             refresh()
@@ -93,7 +93,7 @@ class KeysetPagingTest {
         testObjectStorage.insertAll(expected)
 
         val config = PagingConfig(pageSize = 10, prefetchDistance = 0, initialLoadSize = 10)
-        val pager = TestPager(config, testObjectStorage.selectKeysetPagingSource())
+        val pager = TestPager(config, testObjectStorage.selectKeysetPagingSource(pageSize = 10))
 
         val allItems = with(pager) {
             refresh()
@@ -120,6 +120,7 @@ class KeysetPagingTest {
         val pager = TestPager(
             config,
             testObjectStorage.selectKeysetPagingSource(
+                pageSize = 10,
                 orderBy = listOf(OrderBy(TestObject::value, OrderDirection.ASC))
             )
         )
@@ -140,7 +141,7 @@ class KeysetPagingTest {
         val results = mutableListOf<PagingData<TestObject>>()
         val pagerFlow = Pager(
             config,
-            pagingSourceFactory = { testObjectStorage.selectKeysetPagingSource() }
+            pagingSourceFactory = { testObjectStorage.selectKeysetPagingSource(pageSize = 10) }
         ).flow.shareIn(scope = backgroundScope, replay = 1, started = SharingStarted.Eagerly)
 
         backgroundScope.launch {
@@ -170,7 +171,7 @@ class KeysetPagingTest {
         val config = PagingConfig(pageSize = 10, prefetchDistance = 0, initialLoadSize = 10)
 
         // Page through initial data — first page should be values 10..100
-        val pager1 = TestPager(config, testObjectStorage.selectKeysetPagingSource(orderBy = orderBy))
+        val pager1 = TestPager(config, testObjectStorage.selectKeysetPagingSource(pageSize = 10, orderBy = orderBy))
         val page1 = pager1.refresh() as LoadResult.Page<String, TestObject>
         assertEquals(10, page1.data.size)
         assertEquals(
@@ -183,7 +184,7 @@ class KeysetPagingTest {
         testObjectStorage.insert(earlyItem.id, earlyItem)
 
         // New PagingSource (simulates what Pager does on invalidation) — boundaries recomputed
-        val pager2 = TestPager(config, testObjectStorage.selectKeysetPagingSource(orderBy = orderBy))
+        val pager2 = TestPager(config, testObjectStorage.selectKeysetPagingSource(pageSize = 10, orderBy = orderBy))
         val page2 = pager2.refresh() as LoadResult.Page<String, TestObject>
         assertEquals(10, page2.data.size)
         assertTrue(
@@ -200,7 +201,7 @@ class KeysetPagingTest {
         testObjectStorage.insert(lateItem.id, lateItem)
 
         // New PagingSource with fresh boundaries for 22 items
-        val pager3 = TestPager(config, testObjectStorage.selectKeysetPagingSource(orderBy = orderBy))
+        val pager3 = TestPager(config, testObjectStorage.selectKeysetPagingSource(pageSize = 10, orderBy = orderBy))
         val firstPage = pager3.refresh() as LoadResult.Page<String, TestObject>
         assertTrue(
             firstPage.data.none { it.id == lateItem.id },
@@ -229,7 +230,7 @@ class KeysetPagingTest {
     @Test
     fun keysetPageEmptyDataset() = runTest {
         val config = PagingConfig(pageSize = 10, prefetchDistance = 0, initialLoadSize = 10)
-        val pager = TestPager(config, testObjectStorage.selectKeysetPagingSource())
+        val pager = TestPager(config, testObjectStorage.selectKeysetPagingSource(pageSize = 10))
 
         val result = pager.refresh() as LoadResult.Page<String, TestObject>
         assertTrue(result.data.isEmpty(), "Empty dataset should return empty page")
@@ -248,6 +249,7 @@ class KeysetPagingTest {
         val pager = TestPager(
             config,
             testObjectStorage.selectKeysetPagingSource(
+                pageSize = 10,
                 where = TestObject::value eq 1
             )
         )

@@ -253,6 +253,7 @@ class EntityQueries(
                 SELECT entity.entity_key, ROW_NUMBER() OVER ($orderBySql) as rn
                 FROM entity${queries.buildFrom()} ${queries.buildWhere()}
             ) WHERE (rn - 1) % ? = 0
+            ORDER BY rn ASC
         """.trimIndent().replace('\n', ' ')
         object : Query<String>({ cursor -> cursor.getString(0)!! }) {
             override fun addListener(listener: Listener) =
