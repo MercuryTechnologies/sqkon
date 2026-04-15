@@ -201,6 +201,159 @@ class EntityQueries(
         override fun toString(): String = "select"
     }
 
+    /**
+     * Builds the common filter/order query list shared by keyset paging queries.
+     */
+    private fun buildBaseQueries(
+        entityName: String,
+        where: Where<*>?,
+        orderBy: List<OrderBy<*>>,
+        expiresAt: Instant?,
+    ): List<SqlQuery> = buildList {
+        add(
+            SqlQuery(
+                where = "entity_name = ?",
+                parameters = 1,
+                bindArgs = { bindString(entityName) },
+            )
+        )
+        if (expiresAt != null) add(
+            SqlQuery(
+                where = "expires_at IS NULL OR expires_at >= ?",
+                parameters = 1,
+                bindArgs = { bindLong(expiresAt.toEpochMilliseconds()) },
+            )
+        )
+        addAll(listOfNotNull(where?.toSqlQuery(increment = 1)))
+        addAll(orderBy.toSqlQueries())
+    }
+
+    /**
+     * Builds an ORDER BY clause with entity_key ASC as tiebreaker, for deterministic keyset ordering.
+     */
+    private fun List<SqlQuery>.buildOrderByWithTiebreaker(): String =
+        buildOrderBy(prefix = "ORDER BY")
+            .let { if (it.isNotBlank()) "$it, entity.entity_key ASC" else "ORDER BY entity.entity_key ASC" }
+
+    /**
+     * Returns a factory that produces page boundary queries for keyset paging.
+     * Uses ROW_NUMBER() to pick every Nth key from the ordered result set.
+     */
+    fun selectPageBoundaries(
+        entityName: String,
+        where: Where<*>? = null,
+        orderBy: List<OrderBy<*>> = emptyList(),
+        expiresAt: Instant? = null,
+    ): (anchor: String?, limit: Long) -> Query<String> = { _, limit ->
+        val queries = buildBaseQueries(entityName, where, orderBy, expiresAt)
+        val orderBySql = queries.buildOrderByWithTiebreaker()
+        val queryIdentifier = identifier("pageBoundaries", queries.identifier().toString())
+        val sql = """
+            SELECT entity_key FROM (
+                SELECT entity.entity_key, ROW_NUMBER() OVER ($orderBySql) as rn
+                FROM entity${queries.buildFrom()} ${queries.buildWhere()}
+            ) WHERE (rn - 1) % ? = 0
+            ORDER BY rn ASC
+        """.trimIndent().replace('\n', ' ')
+        object : Query<String>({ cursor -> cursor.getString(0)!! }) {
+            override fun addListener(listener: Listener) =
+                driver.addListener("entity_$entityName", listener = listener)
+
+            override fun removeListener(listener: Listener) =
+                driver.removeListener("entity_$entityName", listener = listener)
+
+            override fun <R> execute(mapper: (SqlCursor) -> QueryResult<R>): QueryResult<R> {
+                return try {
+                    driver.executeQuery(
+                        identifier = queryIdentifier, sql = sql, mapper = mapper,
+                        parameters = queries.sumParameters() + 1,
+                    ) {
+                        val binder = AutoIncrementSqlPreparedStatement(preparedStatement = this)
+                        queries.forEach { it.bindArgs(binder) }
+                        binder.bindLong(limit)
+                    }
+                } catch (ex: SqlException) {
+                    println("SQL Error: $sql")
+                    throw ex
+                }
+            }
+
+            override fun toString(): String = "pageBoundaries"
+        }
+    }
+
+    /**
+     * Returns a factory that produces keyed range queries for keyset paging.
+     * Selects entities within a key range using ROW_NUMBER() for consistent ordering.
+     */
+    fun selectKeyed(
+        entityName: String,
+        where: Where<*>? = null,
+        orderBy: List<OrderBy<*>> = emptyList(),
+        expiresAt: Instant? = null,
+    ): (beginInclusive: String, endExclusive: String?) -> Query<Entity> =
+        { beginInclusive, endExclusive ->
+            val queries = buildBaseQueries(entityName, where, orderBy, expiresAt)
+            val orderBySql = queries.buildOrderByWithTiebreaker()
+            val hasEndExclusive = endExclusive != null
+            val queryIdentifier = identifier(
+                "keyedSelect", queries.identifier().toString(),
+                if (hasEndExclusive) "bounded" else "unbounded",
+            )
+            val sql = """
+                WITH ordered AS (
+                    SELECT entity.entity_name, entity.entity_key, entity.added_at,
+                    entity.updated_at, entity.expires_at, entity.read_at, entity.write_at,
+                    json_extract(entity.value, '$') value,
+                    ROW_NUMBER() OVER ($orderBySql) as rn
+                    FROM entity${queries.buildFrom()} ${queries.buildWhere()}
+                )
+                SELECT entity_name, entity_key, added_at, updated_at, expires_at, read_at, write_at, value
+                FROM ordered
+                WHERE rn >= (SELECT rn FROM ordered WHERE entity_key = ?)
+                ${if (hasEndExclusive) "AND rn < (SELECT rn FROM ordered WHERE entity_key = ?)" else ""}
+                ORDER BY rn ASC
+            """.trimIndent().replace('\n', ' ')
+            val extraParams = if (hasEndExclusive) 2 else 1
+            object : Query<Entity>({ cursor ->
+                Entity(
+                    entity_name = cursor.getString(0)!!,
+                    entity_key = cursor.getString(1)!!,
+                    added_at = cursor.getLong(2)!!,
+                    updated_at = cursor.getLong(3)!!,
+                    expires_at = cursor.getLong(4),
+                    read_at = cursor.getLong(5),
+                    write_at = cursor.getLong(6),
+                    value_ = cursor.getString(7)!!,
+                )
+            }) {
+                override fun addListener(listener: Listener) =
+                    driver.addListener("entity_$entityName", listener = listener)
+
+                override fun removeListener(listener: Listener) =
+                    driver.removeListener("entity_$entityName", listener = listener)
+
+                override fun <R> execute(mapper: (SqlCursor) -> QueryResult<R>): QueryResult<R> {
+                    return try {
+                        driver.executeQuery(
+                            identifier = queryIdentifier, sql = sql, mapper = mapper,
+                            parameters = queries.sumParameters() + extraParams,
+                        ) {
+                            val binder = AutoIncrementSqlPreparedStatement(preparedStatement = this)
+                            queries.forEach { it.bindArgs(binder) }
+                            binder.bindString(beginInclusive)
+                            if (hasEndExclusive) binder.bindString(endExclusive)
+                        }
+                    } catch (ex: SqlException) {
+                        println("SQL Error: $sql")
+                        throw ex
+                    }
+                }
+
+                override fun toString(): String = "keyedSelect"
+            }
+        }
+
     fun delete(
         entityName: String,
         entityKeys: Collection<String>? = null,

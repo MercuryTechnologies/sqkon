@@ -1,6 +1,6 @@
 package com.mercury.sqkon.db.paging
 
-import app.cash.paging.PagingSource
+import androidx.paging.PagingSource
 import app.cash.sqldelight.Query
 import com.mercury.sqkon.db.Entity
 import kotlin.properties.Delegates

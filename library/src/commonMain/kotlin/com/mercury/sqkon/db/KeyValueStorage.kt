@@ -1,6 +1,6 @@
 package com.mercury.sqkon.db
 
-import app.cash.paging.PagingSource
+import androidx.paging.PagingSource
 import app.cash.sqldelight.Transacter
 import app.cash.sqldelight.TransactionCallbacks
 import app.cash.sqldelight.coroutines.asFlow
@@ -8,6 +8,7 @@ import app.cash.sqldelight.coroutines.mapToList
 import app.cash.sqldelight.coroutines.mapToOne
 import app.cash.sqldelight.coroutines.mapToOneNotNull
 import com.mercury.sqkon.db.KeyValueStorage.Config.DeserializePolicy
+import com.mercury.sqkon.db.paging.KeysetQueryPagingSource
 import com.mercury.sqkon.db.paging.OffsetQueryPagingSource
 import com.mercury.sqkon.db.serialization.KotlinSqkonSerializer
 import com.mercury.sqkon.db.serialization.SqkonJson
@@ -327,6 +328,54 @@ open class KeyValueStorage<T : Any>(
         deserialize = { it.deserialize() },
         initialOffset = initialOffset,
     )
+
+    /**
+     * Create a [PagingSource] that pages through results using keyset-based pagination.
+     * Unlike [selectPagingSource], this avoids the O(n) cost of SQL OFFSET on large datasets
+     * by using pre-calculated page boundary keys.
+     *
+     * Page boundaries are computed once per PagingSource lifecycle. When data changes, the
+     * PagingSource is invalidated and a new one is created with fresh boundaries.
+     *
+     * Note: [PagingSource.jumpingSupported] is false for keyset paging — pages must be
+     * loaded sequentially from the start or a refresh key.
+     *
+     * @param pageSize The number of items per page, used to compute stable page boundaries.
+     *   Should match the [PagingConfig.pageSize] used with the Pager.
+     * @param expiresAfter null ignores expiresAt, will not return any row which has expired set
+     *   and is before expiresAfter. This is normally [Clock.System.now].
+     */
+    fun selectKeysetPagingSource(
+        pageSize: Int,
+        where: Where<T>? = null,
+        orderBy: List<OrderBy<T>> = emptyList(),
+        expiresAfter: Instant? = null,
+    ): PagingSource<String, T> {
+        val queryProvider = entityQueries.selectKeyed(
+            entityName = entityName,
+            where = where,
+            orderBy = orderBy,
+            expiresAt = expiresAfter,
+        )
+        val pageBoundariesProvider = entityQueries.selectPageBoundaries(
+            entityName = entityName,
+            where = where,
+            orderBy = orderBy,
+            expiresAt = expiresAfter,
+        )
+        return KeysetQueryPagingSource(
+            queryProvider = { begin, end ->
+                queryProvider(begin, end).also { query ->
+                    updateReadAt(query.executeAsList().map { it.entity_key })
+                }
+            },
+            pageBoundariesProvider = pageBoundariesProvider,
+            transacter = entityQueries,
+            context = readDispatcher,
+            deserialize = { it.deserialize() },
+            pageSize = pageSize,
+        )
+    }
 
     /**
      * Delete all rows. Basically an alias for [delete] with no where set.

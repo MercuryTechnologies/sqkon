@@ -7,7 +7,7 @@ agp = "8.13.2"
 kotlinx-coroutines = "1.10.2"
 kotlinx-serialization = { require = "1.10.0" }
 kotlinx-datetime = "0.7.1"
-paging = "3.3.0-alpha02-0.5.1"
+paging = "3.5.0-beta01"
 sqlDelight = "2.3.2"
 turbine = "1.2.1"
 
@@ -22,8 +22,8 @@ kotlinx-coroutines-swing = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinx-coroutines" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
 kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinx-datetime" }
-paging-common = { module = "app.cash.paging:paging-common", version.ref = "paging" }
-paging-testing = { module = "app.cash.paging:paging-testing", version.ref = "paging" }
+paging-common = { module = "androidx.paging:paging-common", version.ref = "paging" }
+paging-testing = { module = "androidx.paging:paging-testing", version.ref = "paging" }
 sqlDelight-androidx-driver = { module = "com.eygraber:sqldelight-androidx-driver", version = "0.0.17" }
 sqlDelight-driver-sqlite = { module = "app.cash.sqldelight:sqlite-driver", version.ref = "sqlDelight" }
 sqlDelight-driver-android = { module = "app.cash.sqldelight:android-driver", version.ref = "sqlDelight" }
