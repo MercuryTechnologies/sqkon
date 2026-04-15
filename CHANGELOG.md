@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.1](https://github.com/MercuryTechnologies/sqkon/compare/1.3.0...1.3.1) (2026-04-15)
+
+
+### Bug Fixes
+
+* trigger Maven Central deploy from release-please workflow ([945bb8b](https://github.com/MercuryTechnologies/sqkon/commit/945bb8bfc40799b15e305a833d903adfbfdba6bd))
+
 ## [1.3.0](https://github.com/MercuryTechnologies/sqkon/compare/1.2.0...1.3.0) (2026-04-15)
 
 
