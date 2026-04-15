@@ -1,11 +1,11 @@
 package com.mercury.sqkon.db
 
+import androidx.paging.Pager
+import androidx.paging.PagingConfig
+import androidx.paging.PagingData
 import androidx.paging.PagingSource.LoadResult
-import app.cash.paging.Pager
-import app.cash.paging.PagingConfig
-import app.cash.paging.PagingData
-import app.cash.paging.testing.TestPager
-import app.cash.paging.testing.asSnapshot
+import androidx.paging.testing.TestPager
+import androidx.paging.testing.asSnapshot
 import com.mercury.sqkon.TestObject
 import com.mercury.sqkon.until
 import kotlinx.coroutines.MainScope
