@@ -1,6 +1,6 @@
 package com.mercury.sqkon.db.utils
 
-import kotlinx.datetime.Clock
+import kotlin.time.Clock
 
 /**
  * Now in milliseconds. Unix epoch.

@@ -6,7 +6,7 @@ import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
-import kotlinx.datetime.Clock
+import kotlin.time.Clock
 import java.lang.Thread.sleep
 import kotlin.test.AfterTest
 import kotlin.test.Test

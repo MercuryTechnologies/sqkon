@@ -9,6 +9,7 @@ import androidx.sqlite.driver.bundled.SQLITE_OPEN_CREATE
 import androidx.sqlite.driver.bundled.SQLITE_OPEN_FULLMUTEX
 import androidx.sqlite.driver.bundled.SQLITE_OPEN_READWRITE
 import app.cash.sqldelight.db.SqlDriver
+import com.eygraber.sqldelight.androidx.driver.AndroidxSqliteConcurrencyModel
 import com.eygraber.sqldelight.androidx.driver.AndroidxSqliteConfiguration
 import com.eygraber.sqldelight.androidx.driver.AndroidxSqliteConnectionFactory
 import com.eygraber.sqldelight.androidx.driver.AndroidxSqliteDatabaseType
@@ -54,7 +55,10 @@ internal actual class DriverFactory(
             configuration = AndroidxSqliteConfiguration(
                 journalMode = SqliteJournalMode.WAL,
                 sync = SqliteSync.Normal,
-                readerConnectionsCount = connectionPoolSize,
+                concurrencyModel = AndroidxSqliteConcurrencyModel.MultipleReadersSingleWriter(
+                    isWal = true,
+                    walCount = connectionPoolSize,
+                ),
             ),
         )
     }

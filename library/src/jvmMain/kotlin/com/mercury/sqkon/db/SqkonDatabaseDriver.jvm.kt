@@ -2,6 +2,7 @@ package com.mercury.sqkon.db
 
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import app.cash.sqldelight.db.SqlDriver
+import com.eygraber.sqldelight.androidx.driver.AndroidxSqliteConcurrencyModel
 import com.eygraber.sqldelight.androidx.driver.AndroidxSqliteConfiguration
 import com.eygraber.sqldelight.androidx.driver.AndroidxSqliteDatabaseType
 import com.eygraber.sqldelight.androidx.driver.AndroidxSqliteDriver
@@ -31,7 +32,10 @@ internal actual class DriverFactory(
             configuration = AndroidxSqliteConfiguration(
                 journalMode = SqliteJournalMode.WAL,
                 sync = SqliteSync.Normal,
-                readerConnectionsCount = connectionPoolSize,
+                concurrencyModel = AndroidxSqliteConcurrencyModel.MultipleReadersSingleWriter(
+                    isWal = true,
+                    walCount = connectionPoolSize,
+                ),
             )
         )
     }

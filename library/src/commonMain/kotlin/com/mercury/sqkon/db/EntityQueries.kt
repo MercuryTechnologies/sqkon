@@ -6,7 +6,7 @@ import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.db.SqlCursor
 import app.cash.sqldelight.db.SqlDriver
 import com.mercury.sqkon.db.utils.nowMillis
-import kotlinx.datetime.Clock
+import kotlin.time.Clock
 import kotlinx.datetime.Instant
 import org.jetbrains.annotations.VisibleForTesting
 
