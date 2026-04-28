@@ -46,10 +46,17 @@ internal class KeysetQueryPagingSource<T : Any>(
                 {
                     // Always use the stable pageSize for boundary computation, not
                     // params.loadSize which varies (initialLoadSize on first Refresh).
-                    val boundaries = pageBoundaries
-                        ?: pageBoundariesProvider(params.key, pageSize.toLong())
-                            .executeAsList()
-                            .also { pageBoundaries = it }
+                    val boundaries = pageBoundaries ?: run {
+                        val boundariesQuery = pageBoundariesProvider(params.key, pageSize.toLong())
+                        val list = boundariesQuery.executeAsList()
+                        pageBoundaries = list
+                        if (list.isEmpty()) {
+                            // Register a listener on the boundaries query so an empty→populated
+                            // transition (e.g., RemoteMediator initial write) triggers invalidation.
+                            currentQuery = boundariesQuery
+                        }
+                        list
+                    }
 
                     if (boundaries.isEmpty()) {
                         PagingSource.LoadResult.Page(

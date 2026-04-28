@@ -298,8 +298,8 @@ open class KeyValueStorage<T : Any>(
      *
      * Queries will be executed on [Config.dispatcher].
      *
-     * Note: Offset Paging is not very efficient on large datasets. Use wisely. We are working
-     * on supporting [keyset paging](https://sqldelight.github.io/sqldelight/2.0.2/common/androidx_paging_multiplatform/#keyset-paging) in the future.
+     * Note: Offset paging is not very efficient on large datasets. Use wisely — for large or
+     * infinite-scroll lists prefer [selectKeysetPagingSource], which has constant cost per page.
      *
      * @param expiresAfter null ignores expiresAt, will not return any row which has expired set
      *   and is before expiresAfter. This is normally [Clock.System.now].
