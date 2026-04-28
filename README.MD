@@ -89,6 +89,15 @@ val cardNumberWhere = Card::cardNumber eq "1234"
 
 ```
 
+## Paging
+
+Sqkon provides two `PagingSource` factories on `KeyValueStorage` that plug into AndroidX Paging 3:
+
+- `selectPagingSource(...)` — offset-based, supports random page jumps, simple.
+- `selectKeysetPagingSource(pageSize, ...)` — keyset-based, constant cost per page, recommended for large lists and `RemoteMediator`-backed feeds.
+
+See [docs/paging.md](docs/paging.md) for a full guide with examples, diagrams, and a chooser.
+
 ## Installation
 
 ### Gradle
