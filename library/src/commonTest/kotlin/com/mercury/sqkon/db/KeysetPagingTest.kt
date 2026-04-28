@@ -239,6 +239,37 @@ class KeysetPagingTest {
     }
 
     @Test
+    fun keysetPaging_emptyToPopulated_invalidates() = runTest {
+        // Storage starts empty — simulates the Paging3 RemoteMediator initial-write
+        // scenario where the local DB is empty until the network call completes.
+        val config = PagingConfig(pageSize = 10, prefetchDistance = 0, initialLoadSize = 10)
+        val results = mutableListOf<PagingData<TestObject>>()
+        val pagerFlow = Pager(
+            config,
+            pagingSourceFactory = { testObjectStorage.selectKeysetPagingSource(pageSize = 10) }
+        ).flow.shareIn(scope = backgroundScope, replay = 1, started = SharingStarted.Eagerly)
+
+        backgroundScope.launch { pagerFlow.collect { results.add(it) } }
+
+        // Initial refresh against an empty store yields an empty page.
+        val initialSet = pagerFlow.asSnapshot { this.refresh() }
+        assertEquals(0, initialSet.size, "Initial snapshot should be empty")
+
+        until { results.size >= 2 }
+
+        // Insert data after the empty load — the listener registered during the
+        // empty load must fire and invalidate the PagingSource.
+        val items = (1..15).map { TestObject() }.associateBy { it.id }
+        testObjectStorage.insertAll(items)
+
+        // Without the fix this until() times out (5s) because no listener was ever
+        // attached to observe the table. With the fix, results.size advances.
+        until { results.size >= 3 }
+        val populated = pagerFlow.asSnapshot()
+        assertEquals(10, populated.size, "Should load first page after invalidation")
+    }
+
+    @Test
     fun keysetPageWithWhere() = runTest {
         val matching = (1..50).map { TestObject(value = 1) }.associateBy { it.id }
         val nonMatching = (1..50).map { TestObject(value = 2) }.associateBy { it.id }
