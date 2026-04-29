@@ -1,0 +1,92 @@
+// Mercury-themed typography and layout overrides.
+// Just the Docs auto-loads `_sass/custom/custom.scss` after its own styles.
+//
+// !default fallbacks let this file compile cleanly under any color scheme
+// (mercury overrides them; dark/light fall back to neutral defaults).
+$mercury-bg:           #ffffff !default;
+$mercury-bg-alt:       #efeee9 !default;
+$mercury-text:         #272735 !default;
+$mercury-text-mid:     #535461 !default;
+$mercury-text-low:     #70707d !default;
+$mercury-accent:       #5266eb !default;
+$mercury-accent-2:     #4354c8 !default;
+$mercury-border-soft:  #e7e6e0 !default;
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+  letter-spacing: -0.005em;
+}
+
+h1, h2, h3, h4 {
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+// Hero block on landing
+.hero {
+  background: linear-gradient(180deg, $mercury-bg 0%, $mercury-bg-alt 100%);
+  padding: 4rem 2rem 3rem;
+  text-align: center;
+  border-bottom: 1px solid $mercury-border-soft;
+  margin: -1.5rem -1.5rem 2rem;
+  border-radius: 0;
+}
+
+.hero__title {
+  font-size: 3rem;
+  margin-bottom: 0.5rem;
+  color: $mercury-text;
+}
+
+.hero__tagline {
+  font-size: 1.25rem;
+  color: $mercury-text-mid;
+  max-width: 40ch;
+  margin: 0 auto 2rem;
+}
+
+// Code block tweaks
+.highlight, pre.highlight {
+  border-radius: 8px;
+  border: 1px solid $mercury-border-soft;
+}
+
+// Feature grid
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1.25rem;
+  margin: 2rem 0;
+}
+
+.feature-card {
+  background: $mercury-bg;
+  border: 1px solid $mercury-border-soft;
+  border-radius: 12px;
+  padding: 1.5rem;
+}
+
+.feature-card h3 {
+  margin-top: 0;
+  color: $mercury-accent;
+  font-size: 1.05rem;
+}
+
+.feature-card p {
+  margin-bottom: 0;
+  color: $mercury-text-mid;
+  font-size: 0.95rem;
+}
+
+// Buttons aligned with Mercury palette
+.btn-primary {
+  background: $mercury-accent;
+  color: $mercury-bg;
+  border: 1px solid $mercury-accent;
+
+  &:hover, &:focus {
+    background: $mercury-accent-2;
+    border-color: $mercury-accent-2;
+    color: $mercury-bg;
+  }
+}

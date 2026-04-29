@@ -20,3 +20,10 @@ Pods/
 .claude/todos/
 .worktrees/
 .claude/.worktrees/
+
+# Jekyll
+docs/_site/
+docs/.jekyll-cache/
+docs/.jekyll-metadata
+docs/vendor/
+docs/api/

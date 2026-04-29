@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#efeee9"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <circle cx="990" cy="180" r="140" fill="#edecfb"/>
+  <circle cx="1060" cy="240" r="60" fill="#5266eb"/>
+  <text x="80" y="280" font-family="-apple-system,BlinkMacSystemFont,Inter,sans-serif"
+        font-size="120" font-weight="700" fill="#272735" letter-spacing="-3">Sqkon</text>
+  <text x="80" y="360" font-family="-apple-system,BlinkMacSystemFont,Inter,sans-serif"
+        font-size="36" font-weight="500" fill="#535461">
+    Type-safe JSONB-powered key-value store
+  </text>
+  <text x="80" y="410" font-family="-apple-system,BlinkMacSystemFont,Inter,sans-serif"
+        font-size="36" font-weight="500" fill="#535461">
+    for Kotlin Multiplatform.
+  </text>
+  <text x="80" y="540" font-family="-apple-system,BlinkMacSystemFont,Inter,sans-serif"
+        font-size="22" font-weight="500" fill="#5266eb">
+    com.mercury.sqkon:library
+  </text>
+  <text x="80" y="575" font-family="-apple-system,BlinkMacSystemFont,Inter,sans-serif"
+        font-size="18" font-weight="400" fill="#70707d">
+    mercurytechnologies.github.io/sqkon
+  </text>
+</svg>
