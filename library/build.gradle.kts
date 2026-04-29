@@ -3,12 +3,41 @@ import com.android.build.api.variant.HasUnitTestBuilder
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSetTree
 
+import java.net.URI
+
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.multiplatform)
     alias(libs.plugins.kotlinx.serialization)
     alias(libs.plugins.sqlDelight)
     alias(libs.plugins.maven.publish)
+    alias(libs.plugins.dokka)
+}
+
+dokka {
+    dokkaPublications.html {
+        moduleName.set("Sqkon")
+        outputDirectory.set(rootDir.resolve("docs/api"))
+        includes.from(rootDir.resolve("README.MD"))
+    }
+    dokkaSourceSets.configureEach {
+        skipEmptyPackages.set(true)
+        skipDeprecated.set(false)
+        sourceLink {
+            localDirectory.set(file("src"))
+            remoteUrl.set(URI("https://github.com/MercuryTechnologies/sqkon/blob/main/library/src"))
+            remoteLineSuffix.set("#L")
+        }
+        externalDocumentationLinks.register("kotlinx-serialization") {
+            url.set(URI("https://kotlinlang.org/api/kotlinx.serialization/"))
+        }
+        externalDocumentationLinks.register("kotlinx-coroutines") {
+            url.set(URI("https://kotlinlang.org/api/kotlinx.coroutines/"))
+        }
+        externalDocumentationLinks.register("kotlinx-datetime") {
+            url.set(URI("https://kotlinlang.org/api/kotlinx-datetime/"))
+        }
+    }
 }
 
 kotlin {
