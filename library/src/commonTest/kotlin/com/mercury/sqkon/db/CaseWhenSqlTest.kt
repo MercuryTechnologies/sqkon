@@ -1,0 +1,47 @@
+package com.mercury.sqkon.db
+
+import app.cash.sqldelight.db.SqlPreparedStatement
+import com.mercury.sqkon.TestObject
+import com.mercury.sqkon.TestSealed
+import org.junit.Test
+import kotlin.test.assertEquals
+
+class CaseWhenSqlTest {
+
+    @Test
+    fun case_singleBranch_emitsExpectedSql() {
+        val case: CaseWhen<TestObject> = TestObject::sealed.case<TestObject, TestSealed> {
+            whenIs<TestSealed.Impl>(TestObject::sealed.then(TestSealed.Impl::boolean))
+        }
+
+        val frag = case.toSqlValue()
+
+        assertEquals(
+            "(CASE WHEN json_extract(entity.value, ?) = ? THEN json_extract(entity.value, ?) END)",
+            frag.sql,
+        )
+        assertEquals(3, frag.parameters)
+        assertEquals(
+            listOf("\$.sealed[0]", "Impl", "\$.sealed[1].boolean"),
+            captureBoundArgs(frag.parameters, frag.bindArgs),
+        )
+    }
+}
+
+/** Replays a bindArgs lambda against a recording prepared statement so tests can assert binds. */
+internal fun captureBoundArgs(
+    parameters: Int,
+    bindArgs: AutoIncrementSqlPreparedStatement.() -> Unit,
+): List<Any?> {
+    val captured = arrayOfNulls<Any?>(parameters)
+    val recorder = object : SqlPreparedStatement {
+        override fun bindBoolean(index: Int, boolean: Boolean?) { captured[index] = boolean }
+        override fun bindBytes(index: Int, bytes: ByteArray?) { captured[index] = bytes }
+        override fun bindDouble(index: Int, double: Double?) { captured[index] = double }
+        override fun bindLong(index: Int, long: Long?) { captured[index] = long }
+        override fun bindString(index: Int, string: String?) { captured[index] = string }
+    }
+    val binder = AutoIncrementSqlPreparedStatement(preparedStatement = recorder)
+    bindArgs(binder)
+    return captured.toList()
+}
