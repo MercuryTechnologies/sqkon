@@ -100,3 +100,22 @@ enum class TestEnum {
     @SerialName("unknown")
     LAST;
 }
+
+@Serializable
+sealed interface SealedTimed {
+    val id: String
+
+    @Serializable
+    @SerialName("Active")
+    data class Active(
+        override val id: String,
+        val activatedAt: Long,
+    ) : SealedTimed
+
+    @Serializable
+    @SerialName("Pending")
+    data class Pending(
+        override val id: String,
+        val requestedAt: Long,
+    ) : SealedTimed
+}
