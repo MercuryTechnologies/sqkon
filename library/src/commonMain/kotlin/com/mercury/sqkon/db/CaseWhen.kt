@@ -9,7 +9,7 @@ import kotlin.reflect.KProperty1
  * or KClass. Use as the LHS of a comparison operator (`eq`, `gt`, …) to produce a [Where], or
  * pass to [OrderBy] to drive ordering.
  */
-class CaseWhen<T : Any> internal constructor(
+data class CaseWhen<T : Any> internal constructor(
     private val discriminatorPath: String,
     private val branches: List<Branch>,
     private val elseValuePath: String?,
@@ -17,18 +17,13 @@ class CaseWhen<T : Any> internal constructor(
     @PublishedApi
     internal data class Branch(val discriminatorValue: String, val valuePath: String)
 
-    internal fun toSqlValue(): SqlValueFragment {
+    private val fragment: SqlValueFragment by lazy {
         require(branches.isNotEmpty()) { "CaseWhen requires at least one whenIs branch" }
-        val parts = mutableListOf<String>()
-        branches.forEach { _ ->
-            parts += "WHEN json_extract(entity.value, ?) = ? THEN json_extract(entity.value, ?)"
-        }
-        if (elseValuePath != null) parts += "ELSE json_extract(entity.value, ?)"
-        val sql = "(CASE ${parts.joinToString(" ")} END)"
-        val parameters = branches.size * 3 + (if (elseValuePath != null) 1 else 0)
-        return SqlValueFragment(
-            sql = sql,
-            parameters = parameters,
+        val whenSql = "WHEN json_extract(entity.value, ?) = ? THEN json_extract(entity.value, ?)"
+        val elseSql = elseValuePath?.let { " ELSE json_extract(entity.value, ?)" } ?: ""
+        SqlValueFragment(
+            sql = "(CASE ${branches.joinToString(" ") { whenSql }}$elseSql END)",
+            parameters = branches.size * 3 + (if (elseValuePath != null) 1 else 0),
             bindArgs = {
                 branches.forEach { branch ->
                     bindString(discriminatorPath)
@@ -39,6 +34,8 @@ class CaseWhen<T : Any> internal constructor(
             },
         )
     }
+
+    internal fun toSqlValue(): SqlValueFragment = fragment
 }
 
 internal data class SqlValueFragment(
@@ -86,6 +83,8 @@ inline fun <reified T : Any, reified S : Any> KProperty1<T, S>.case(
 /**
  * `CASE WHEN` expression rooted at the entity itself when it is a sealed type
  * (e.g. `KeyValueStorage<BaseSealed>`). Discriminator path is `$[0]`, payload is under `$[1]`.
+ *
+ * The receiver provides the type anchor `R` for inference; its identity is unused at runtime.
  */
 @Suppress("UnusedReceiverParameter")
 inline fun <reified R : Any> KClass<R>.case(

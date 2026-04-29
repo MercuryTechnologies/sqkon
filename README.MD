@@ -131,7 +131,7 @@ storage.select(where = effectiveTime gt 1_700_000_000L)
 storage.select(orderBy = listOf(OrderBy(effectiveTime, OrderDirection.DESC)))
 ```
 
-Supported comparison operators on `CaseWhen<T>`: `eq`, `neq`, `gt`, `gte`, `lt`, `lte`, plus `isNull()` / `isNotNull()` (rows whose variant has no matching `whenIs` branch fall through to NULL). `case { … }` is also available on a sealed *property* (e.g. `MyEntity::status.case<MyEntity, Status> { … }`) for the common case where the sealed type is nested inside a larger object.
+Supported comparison operators on `CaseWhen<T>`: `eq`, `neq`, `gt`, `lt`, plus `isNull()` / `isNotNull()` (rows whose variant has no matching `whenIs` branch fall through to NULL). `case { … }` is also available on a sealed *property* (e.g. `MyEntity::status.case<MyEntity, Status> { … }`) for the common case where the sealed type is nested inside a larger object.
 
 ## Paging
 
