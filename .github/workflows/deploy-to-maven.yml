@@ -2,6 +2,11 @@ name: Create and publish a release to Maven Central
 
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Semver version to publish (e.g. 1.3.2)'
+        required: true
+        type: string
 
 jobs:
   build-and-publish:
@@ -19,11 +24,11 @@ jobs:
       - name: Validate version
         id: version
         run: |
-          VERSION="${{ github.event.release.name }}"
+          VERSION="${{ inputs.version }}"
           # Strip leading 'v' if present
           VERSION="${VERSION#v}"
           if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]]; then
-            echo "::error::Invalid semver release name: '$VERSION'"
+            echo "::error::Invalid semver version input: '$VERSION'"
             exit 1
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
