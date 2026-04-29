@@ -48,6 +48,25 @@ class KeyValueStorageCaseWhenTest {
     }
 
     @Test
+    fun where_caseGt_combinedWith_jsonTreeEq_viaAnd() = runTest {
+        storage.insertAll(mapOf(
+            "a1" to SealedTimed.Active(id = "a1", activatedAt = 100L),
+            "a2" to SealedTimed.Active(id = "a2", activatedAt = 300L),
+            "p1" to SealedTimed.Pending(id = "p1", requestedAt = 250L),
+            "p2" to SealedTimed.Pending(id = "p2", requestedAt = 400L),
+        ))
+
+        val activeAndAbove150 = storage.select(
+            where = (timeCase() gt 150L) and (
+                SealedTimed::class.with(SealedTimed.Active::id) eq "a2"
+            ),
+        ).first()
+
+        assertEquals(1, activeAndAbove150.size)
+        assertEquals("a2", (activeAndAbove150.single() as SealedTimed.Active).id)
+    }
+
+    @Test
     fun orderBy_caseExpression_ordersAcrossVariantsByLogicalTimestamp() = runTest {
         storage.insertAll(mapOf(
             "a1" to SealedTimed.Active(id = "a1", activatedAt = 100L),
