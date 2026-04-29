@@ -46,4 +46,23 @@ class KeyValueStorageCaseWhenTest {
 
         assertEquals(listOf("a2", "p2"), ids)
     }
+
+    @Test
+    fun orderBy_caseExpression_ordersAcrossVariantsByLogicalTimestamp() = runTest {
+        storage.insertAll(mapOf(
+            "a1" to SealedTimed.Active(id = "a1", activatedAt = 100L),
+            "p1" to SealedTimed.Pending(id = "p1", requestedAt = 400L),
+            "a2" to SealedTimed.Active(id = "a2", activatedAt = 300L),
+            "p2" to SealedTimed.Pending(id = "p2", requestedAt = 200L),
+        ))
+
+        val ordered = storage.select(
+            orderBy = listOf(OrderBy(timeCase(), OrderDirection.DESC)),
+        ).first()
+
+        val ids = ordered.map {
+            when (it) { is SealedTimed.Active -> it.id; is SealedTimed.Pending -> it.id }
+        }
+        assertEquals(listOf("p1", "a2", "p2", "a1"), ids)
+    }
 }
