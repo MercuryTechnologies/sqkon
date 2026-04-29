@@ -6,19 +6,11 @@ $mercury-bg:           #ffffff;  // primary white
 $mercury-bg-alt:       #efeee9;  // cream (used by mercury.com section blocks)
 $mercury-text:         #272735;  // dark navy/charcoal — primary text
 $mercury-text-mid:     #535461;  // mid gray — secondary text
-$mercury-text-low:     #70707d;  // tertiary gray
 $mercury-accent:       #5266eb;  // brand blue — links, CTA
 $mercury-accent-2:     #4354c8;  // hover blue
-$mercury-accent-3:     #3442a6;  // pressed blue
-$mercury-accent-light: #9cb4e8;  // tinted blue
-$mercury-accent-bg:    #edecfb;  // blue-lavender wash
-$mercury-pink:         #d03275;  // pink secondary accent
-$mercury-pink-light:   #fc92b4;  // tint
 $mercury-border:       #c3c3cc;  // light border / divider
 $mercury-border-soft:  #e7e6e0;  // softer divider on cream
 $mercury-code-bg:      #f4f2ee;  // very light cream for code blocks
-$mercury-warning:      #d27c2e;
-$mercury-danger:       #c8344c;
 
 // --- Just the Docs variable overrides ---
 $body-background-color:        $mercury-bg;
@@ -36,12 +28,5 @@ $search-background-color:      $mercury-bg;
 $search-result-preview-color:  $mercury-text-mid;
 $border-color:                 $mercury-border;
 
-// --- Callout colors (key, value tuple = (border-color, background-color)) ---
-$callouts: (
-  highlight: ($mercury-accent, rgba($mercury-accent, 0.08)),
-  important: ($mercury-pink, rgba($mercury-pink, 0.08)),
-  note: ($mercury-text-mid, rgba($mercury-text-mid, 0.06)),
-  warning: ($mercury-warning, rgba($mercury-warning, 0.10)),
-  caution: ($mercury-danger, rgba($mercury-danger, 0.08)),
-  new: ($mercury-accent, rgba($mercury-accent, 0.08)),
-);
+// Callout colors are configured via _config.yml `callouts:` (Just the Docs
+// 0.12+ reads them from site config, not SCSS).

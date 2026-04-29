@@ -17,7 +17,6 @@ plugins {
 dokka {
     dokkaPublications.html {
         moduleName.set("Sqkon")
-        outputDirectory.set(rootDir.resolve("docs/api"))
         includes.from(rootDir.resolve("README.MD"))
     }
     dokkaSourceSets.configureEach {
@@ -28,14 +27,14 @@ dokka {
             remoteUrl.set(URI("https://github.com/MercuryTechnologies/sqkon/blob/main/library/src"))
             remoteLineSuffix.set("#L")
         }
-        externalDocumentationLinks.register("kotlinx-serialization") {
-            url.set(URI("https://kotlinlang.org/api/kotlinx.serialization/"))
-        }
-        externalDocumentationLinks.register("kotlinx-coroutines") {
-            url.set(URI("https://kotlinlang.org/api/kotlinx.coroutines/"))
-        }
-        externalDocumentationLinks.register("kotlinx-datetime") {
-            url.set(URI("https://kotlinlang.org/api/kotlinx-datetime/"))
+        listOf(
+            "kotlinx-serialization" to "https://kotlinlang.org/api/kotlinx.serialization/",
+            "kotlinx-coroutines"    to "https://kotlinlang.org/api/kotlinx.coroutines/",
+            "kotlinx-datetime"      to "https://kotlinlang.org/api/kotlinx-datetime/",
+        ).forEach { (name, url) ->
+            externalDocumentationLinks.register(name) {
+                this.url.set(URI(url))
+            }
         }
     }
 }

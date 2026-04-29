@@ -1,13 +1,16 @@
 // Mercury-themed typography and layout overrides.
 // Just the Docs auto-loads `_sass/custom/custom.scss` after its own styles.
 //
-// !default fallbacks let this file compile cleanly under any color scheme
-// (mercury overrides them; dark/light fall back to neutral defaults).
+// `!default` fallbacks are required because JTD ALWAYS compiles
+// just-the-docs-light.scss and just-the-docs-dark.scss alongside the
+// active scheme; those don't import the Mercury palette, so without
+// fallbacks here the build fails on the first `$mercury-*` reference.
+// The mercury scheme overrides these; dark/light keep these defaults.
+// Keep this list trimmed to what custom.scss actually consumes.
 $mercury-bg:           #ffffff !default;
 $mercury-bg-alt:       #efeee9 !default;
 $mercury-text:         #272735 !default;
 $mercury-text-mid:     #535461 !default;
-$mercury-text-low:     #70707d !default;
 $mercury-accent:       #5266eb !default;
 $mercury-accent-2:     #4354c8 !default;
 $mercury-border-soft:  #e7e6e0 !default;
