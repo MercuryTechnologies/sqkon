@@ -123,10 +123,25 @@ class MyMoshiSerializer(private val moshi: Moshi) : SqkonSerializer {
 > the result with SQLite's JSONB and queries against it. Binary formats like
 > protobuf or CBOR will break querying.
 
-Custom serializers are wired in by constructing `Sqkon` via the internal
-constructor, which is intentionally not part of the stable public API today.
-If you have a strong use case for a non-`kotlinx` serializer, please open an
-issue.
+A custom `SqkonSerializer` is wired in via the public top-level
+`keyValueStorage(...)` factory, which accepts a `serializer` parameter:
+
+```kotlin
+val store = keyValueStorage<Merchant>(
+    entityName = "merchants",
+    entityQueries = sqkon.entityQueries,
+    metadataQueries = sqkon.metadataQueries,
+    scope = appScope,
+    serializer = MyMoshiSerializer(moshi),
+)
+```
+
+This is the supported path today. The `Sqkon(...)` per-platform factories
+always use `KotlinSqkonSerializer` internally; if you want a custom serializer
+across every store created through `Sqkon`, construct your stores via the
+factory above instead of `sqkon.keyValueStorage(...)`. See
+[Serialization tips]({{ '/guides/serialization-tips/' | relative_url }}) for
+the broader story.
 
 ## Next
 

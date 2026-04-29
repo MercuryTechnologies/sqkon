@@ -11,8 +11,8 @@ Sqkon takes typed Kotlin objects, runs them through `kotlinx.serialization` to J
 and stores them as JSONB blobs in a single SQLite table. Reads and writes go through
 SQLDelight, which gives us type-safe SQL, automatic Flow invalidation, and a single
 driver abstraction across Android and JVM. Queries built with the `JsonPath` DSL
-compile down to `json_extract(value, '$.field')` predicates — pushing all filtering
-into SQLite's query planner instead of materializing rows in Kotlin.
+compile down to `json_tree`-based predicates against the stored JSON — pushing all
+filtering into SQLite's query planner instead of materializing rows in Kotlin.
 
 ## Components
 
@@ -37,7 +37,9 @@ flowchart LR
   defaults. You can pass your own `Json` instance to the `Sqkon` constructor.
 - **`JsonPath` DSL** — turns Kotlin property references and operators (`eq`, `neq`,
   `inList`, `notInList`, `like`, `gt`, `lt`, plus `and`, `or`, `not`) into
-  parameterized `WHERE` fragments backed by `json_extract`.
+  parameterized `WHERE` fragments that join the row against `json_tree(entity.value)`
+  and match by `fullkey LIKE '$.field' AND value <op> ?`. The final row payload is
+  pulled out separately with `json_extract` in the `SELECT`.
 - **`EntityQueries` / `MetadataQueries`** — generated and hand-written SQLDelight
   queries against the two tables described below.
 - **SQLite driver** — `androidx.sqlite` on both platforms. JVM uses an in-process
@@ -60,9 +62,10 @@ flowchart LR
 
 1. Caller composes a `Where<T>` — for example,
    `Merchant::category eq "Food" and Merchant::name like "Chi%"`.
-2. The DSL compiles each operator to a SQL fragment using
-   `json_extract(value, '$.field') = ?` (or `LIKE`, `IN`, `>`, `<`, `IS NOT`, etc.)
-   with parameter placeholders.
+2. The DSL compiles each operator to a SQL fragment that joins the row against
+   `json_tree(entity.value)` and filters by
+   `fullkey LIKE '$.field' AND value = ?` (or `LIKE`, `IN`, `>`, `<`, `IS NOT`, etc.),
+   all with parameter placeholders.
 3. SQLDelight runs the parameterized query against SQLite. Filtering happens inside
    the database — Kotlin never sees rows that don't match.
 4. Returned blobs are deserialized back to `T` on the read dispatcher.
@@ -74,11 +77,13 @@ flowchart LR
 - **One physical table for every type.** Adding a new `@Serializable` data class
   requires zero schema changes and zero migrations — just call
   `keyValueStorage<NewType>("name")`.
-- **Filtering pushes into SQLite's planner.** `json_extract` is a native SQLite
-  function. Predicates execute alongside index scans and key lookups, not in app
-  code.
-- **Indexes can target JSON paths.** SQLite supports expression indexes like
-  `CREATE INDEX ON entity (json_extract(value, '$.userId'))` for hot query paths.
+- **Filtering pushes into SQLite's planner.** `json_tree` and `json_extract`
+  are native SQLite functions. Predicates execute alongside index scans and
+  key lookups, not in app code.
+- **The `entity_name` slice is always applied first.** Every query Sqkon
+  emits prefilters by `entity_name` via the primary-key index before the
+  JSON-tree walk begins, so per-store cost stays bounded as the database
+  grows.
 
 ## Schema
 

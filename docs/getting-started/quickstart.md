@@ -93,7 +93,12 @@ val merchants: KeyValueStorage<Merchant> =
 
 ## 4. Insert, update, and delete
 
-All write methods are `suspend`. Run them from a coroutine.
+Write methods are blocking transactions on the calling thread (not `suspend`),
+but they're cheap — Sqkon dispatches the SQLite work onto its internal
+write dispatcher under the hood. You can call them from any context, but for
+UI threads on Android you'll typically still wrap them in
+`launch { ... }` / `withContext(...)` to keep the calling site uniformly
+async with the rest of your code.
 
 ```kotlin
 val chipotle = Merchant(id = "1", name = "Chipotle", category = "Food")
@@ -147,7 +152,7 @@ val cheapEats = merchants.select(
 )
 
 // Count without materializing rows
-val foodCount: Flow<Long> = merchants.count(where = Merchant::category eq "Food")
+val foodCount: Flow<Int> = merchants.count(where = Merchant::category eq "Food")
 ```
 
 Where DSL operators: `eq`, `neq`, `inList`, `notInList`, `like`, `gt`, `lt`,

@@ -20,7 +20,7 @@ hand it to a `Pager`.
 | | `selectPagingSource` (offset) | `selectKeysetPagingSource` (keyset) |
 |---|---|---|
 | **Key type** | `Int` (row offset) | `String` (entity key at page boundary) |
-| **First-page cost** | O(pageSize) | O(n) — boundaries computed once |
+| **First-page cost** | O(pageSize) | O(pageSize) for the load + O(n) once for boundary precompute |
 | **Late-page cost** | O(offset + pageSize) — grows with depth | O(log n) — same regardless of depth |
 | **Random page jumps** | yes | no (`jumpingSupported = false`) |
 | **Best for** | Small/medium datasets, random access | Large datasets, deep scrolling, `RemoteMediator` |

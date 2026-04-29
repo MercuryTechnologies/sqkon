@@ -21,44 +21,39 @@ library itself uses so your app tests can do the same.
 data class Merchant(val id: String, val name: String, val category: String)
 ```
 
-## In-memory driver
+## In-memory database
 
-Sqkon's tests use an `expect`/`actual` `driverFactory()` helper. On JVM the
-actual implementation builds a memory-backed driver:
+For tests, build a `Sqkon` against an in-memory SQLite database. Both
+platforms support this through the regular public factories:
 
-```kotlin
-// library/src/jvmTest/kotlin/com/mercury/sqkon/db/SqkonDatabaseDriverTest.jvm.kt
-internal actual fun driverFactory(): DriverFactory =
-    DriverFactory(databaseType = AndroidxSqliteDatabaseType.Memory)
-```
+- **JVM** — `Sqkon(scope)` defaults to `AndroidxSqliteDatabaseType.Memory`,
+  so a no-arg call gives you a hermetic in-memory database.
+- **Android** — pass `dbFileName = null` to `Sqkon(context, scope, dbFileName = null)`
+  to get an in-memory database for instrumented tests.
 
-You can do the same in your project — instantiate `DriverFactory` with
-`AndroidxSqliteDatabaseType.Memory` for tests, and your production
-`AndroidxSqliteDatabaseType.FileProvider(...)` for the real app.
+`DriverFactory` and the raw `EntityQueries` / `MetadataQueries` types are
+`internal` — don't reach for them directly. The `Sqkon(...)` factory is the
+supported entry point for both production and tests.
 
 ## Test setup pattern
-
-The pattern below works directly on JVM and is the one used throughout
-the library's own test suite:
 
 ```kotlin
 class MerchantStorageTest {
 
-    private val mainScope = MainScope()
-    private val driver = driverFactory().createDriver()
-    private val entityQueries = EntityQueries(driver)
-    private val metadataQueries = MetadataQueries(driver)
-    private val storage = keyValueStorage<Merchant>(
-        "merchants", entityQueries, metadataQueries, mainScope,
-    )
+    private val testScope = TestScope()
+
+    // JVM: in-memory by default
+    private val sqkon: Sqkon = Sqkon(scope = testScope)
+    private val storage: KeyValueStorage<Merchant> =
+        sqkon.keyValueStorage("merchants")
 
     @After
     fun tearDown() {
-        mainScope.cancel()
+        testScope.cancel()
     }
 
     @Test
-    fun roundtrip() = runTest {
+    fun roundtrip() = testScope.runTest {
         val merchant = Merchant(id = "m-1", name = "Cafe", category = "Coffee")
         storage.insert(merchant.id, merchant)
 
@@ -67,6 +62,10 @@ class MerchantStorageTest {
     }
 }
 ```
+
+The library's own internal tests construct `EntityQueries` directly because
+they live in the same module — that pattern is private to the library and not
+the recommended consumer setup.
 
 Notes:
 
@@ -77,8 +76,8 @@ Notes:
   Tests don't share state.
 
 {: .warning }
-> **Always cancel `MainScope` in `tearDown`.** Sqkon launches background
-> coroutines on the scope you pass in (for `read_at` / `write_at`
+> **Always cancel the scope you passed to `Sqkon` in `tearDown`.** Sqkon
+> launches background coroutines on it (for `read_at` / `write_at`
 > bookkeeping and `DeserializePolicy.DELETE` cleanup). If you don't cancel
 > the scope, those coroutines keep running across tests, which leaks
 > memory and can cause non-deterministic failures when one test sees rows

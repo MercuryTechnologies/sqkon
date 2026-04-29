@@ -41,21 +41,23 @@ data class Merchant(
     val category: String,
 )
 
-// Android: pass an Application/Context. JVM: pass a CoroutineScope.
+// Android needs context + scope; JVM needs scope only.
 val sqkon = Sqkon(context = applicationContext, scope = appScope)
 val merchants = sqkon.keyValueStorage<Merchant>("merchants")
 
-// Insert
+// Insert (sync) — Sqkon dispatches the SQLite work internally.
 merchants.insert("m_1", Merchant("m_1", "Chipotle", "Food"))
 
-// Observe — emits whenever the store changes
-merchants.selectAll().collect { list ->
-    println("Now have ${list.size} merchants")
+// Observe — emits whenever the store changes. Collect from a coroutine.
+appScope.launch {
+    merchants.selectAll().collect { list ->
+        println("Now have ${list.size} merchants")
+    }
 }
 
-// Query with the type-safe DSL
-val foodMerchants = merchants.select(where = Merchant::category eq "Food").first()
-val matches      = merchants.select(where = Merchant::name like "Chi%").first()
+// One-shot reads use Flow.first() inside a suspend block.
+suspend fun loadFood(): List<Merchant> =
+    merchants.select(where = Merchant::category eq "Food").first()
 ```
 
 ## Why Sqkon?

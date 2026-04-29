@@ -33,6 +33,29 @@ nav_external_links:
 mermaid:
   version: "10.9.1"
 
+# --- Callouts (Just the Docs 0.12+) ---
+# These names match the {: .name } classes used across the docs and align with
+# the colors defined in _sass/color_schemes/mercury.scss (kept for future use).
+callouts:
+  note:
+    title: Note
+    color: grey-dk
+  highlight:
+    title: Tip
+    color: blue
+  important:
+    title: Important
+    color: green
+  warning:
+    title: Warning
+    color: yellow
+  caution:
+    title: Caution
+    color: red
+  new:
+    title: New
+    color: blue
+
 # --- Footer ---
 footer_content: 'Built by <a href="https://mercury.com">Mercury</a>. Released under the <a href="https://github.com/MercuryTechnologies/sqkon/blob/main/LICENSE">Apache 2.0 License</a>.'
 last_edit_timestamp: true

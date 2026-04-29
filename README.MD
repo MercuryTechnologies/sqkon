@@ -30,8 +30,8 @@ val sqkon = Sqkon(
     context = context // (only for Android)
 )
 
-// Create a Store for each type/entity you want to create 
-val merchantStore = sqkon.keyValueStore<Merchant>("merchant")
+// Create a Store for each type/entity you want to create
+val merchantStore = sqkon.keyValueStorage<Merchant>("merchant")
 
 // Insert a new entity
 val merchant = Merchant(
@@ -116,21 +116,22 @@ Full guide with examples, diagrams, and a chooser: [Paging](https://mercurytechn
 
 ### Gradle
 
-Multiplatform projects (Android, JVM, iOS (coming soon))
+Multiplatform projects (Android, JVM; iOS on the roadmap):
 
 ```kotlin
 commonMain {
     dependencies {
-        implementation("com.mercury.sqkon:library:1.2.0")
+        implementation("com.mercury.sqkon:library:1.3.2")
     }
 }
 ```
 
-Or you can use the platform specific dependencies, e.g: Android only:
+Android-only or JVM-only projects use the same coordinate — Gradle resolves the
+right artifact for your target platform:
 
 ```kotlin
 dependencies {
-    implementation("com.mercury.sqkon:library-android:1.2.0")
+    implementation("com.mercury.sqkon:library:1.3.2")
 }
 ```
 
@@ -182,8 +183,8 @@ Test reports: `library/build/reports/tests/jvmTest/index.html` (JVM), `library/b
 
 #### Android aar
 
-- Run `./gradlew :core:assembleRelease`
+- Run `./gradlew :library:assembleRelease`
 
 #### JVM jar
 
-- Run `./gradlew :core:jvmJar`
+- Run `./gradlew :library:jvmJar`

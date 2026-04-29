@@ -27,7 +27,7 @@ data class Merchant(
     val createdAt: Instant = Clock.System.now(),
 )
 
-val merchants: KeyValueStorage<Merchant> = sqkon.keyValueStore("merchants")
+val merchants: KeyValueStorage<Merchant> = sqkon.keyValueStorage("merchants")
 
 merchants.select(
     where = Merchant::category eq "Coffee",
@@ -43,7 +43,7 @@ for change-propagation details.
 ```mermaid
 flowchart LR
     DSL["Merchant::name eq 'X'"] --> Where["Where&lt;Merchant&gt;"]
-    Where --> SQL["json_extract(value, '$.name') = 'X'"]
+    Where --> SQL["json_tree join: fullkey LIKE '$.name' AND value = 'X'"]
     SQL --> Plan["SQLite query plan"]
 ```
 

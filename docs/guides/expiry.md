@@ -110,10 +110,14 @@ merchants.deleteStale(
 merchants.deleteStale(writeInstant = Clock.System.now() - 7.days, readInstant = null)
 ```
 
-Default values for both parameters are `Clock.System.now()` — without
-arguments, the call deletes rows untouched as of *right now* (effectively
-everything not currently being read or written, useful in tests but rarely in
-production). Always pass an explicit threshold.
+{: .warning }
+> The default for both `writeInstant` and `readInstant` is
+> `Clock.System.now()`. With no arguments, `deleteStale` deletes every row
+> whose `write_at < now` AND (`read_at IS NULL OR read_at < now`) — i.e.
+> almost everything in the store, since nearly every row's last write or
+> read is in the past. **Never call `deleteStale()` with no arguments in
+> production.** Always pass explicit thresholds (typically a window like
+> `Clock.System.now() - 7.days`).
 
 ## Verbatim test snippet
 

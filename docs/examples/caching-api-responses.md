@@ -33,9 +33,14 @@ Make sure `T` itself is `@Serializable` — Sqkon delegates to
 
 ## The cache class
 
-The cache exposes a single suspending entry point: `getOrFetch`. It returns
-the cached value if one exists, otherwise it calls your `fetch` lambda and
-writes the result with a 15-minute TTL.
+The cache exposes a single suspending entry point: `getOrFetch`. It returns the
+cached value when a non-expired one exists, otherwise it calls your `fetch`
+lambda and writes the result with a 15-minute TTL.
+
+`selectByKey` does NOT apply expiry filtering — it returns whatever row is in
+the store. The recipe below uses `select(...)` with `expiresAfter` instead so
+expired rows are excluded server-side, which is the only correct way to avoid
+serving stale values when `deleteExpired` hasn't run yet.
 
 ```kotlin
 import com.mercury.sqkon.db.KeyValueStorage
@@ -52,10 +57,15 @@ class ApiCache<T : Any>(
         key: String,
         fetch: suspend () -> CachedResponse<T>,
     ): CachedResponse<T> {
+        // Filter expired rows at read time — selectByKey does NOT do this.
         val cached = storage
-            .selectByKey(key)
-            // Filter out expired rows at read time
+            .select(
+                where = CachedResponse<T>::class.with(CachedResponse<T>::cacheKey) eq key,
+                expiresAfter = clock.now(),
+                limit = 1,
+            )
             .first()
+            .firstOrNull()
         if (cached != null) return cached
 
         val fresh = fetch()
@@ -65,14 +75,27 @@ class ApiCache<T : Any>(
 }
 ```
 
-A couple of subtleties worth knowing:
+For this `where` clause to work, the envelope needs a stored field that
+matches the lookup key:
 
-- `selectByKey` does **not** automatically apply expiry filtering. If you want
-  expired rows ignored on read, query with `select(where = ..., expiresAfter = clock.now())`
-  on a `where` lookup — or do as above and rely on `deleteExpired` to remove
-  stale rows on a schedule, then trust whatever `selectByKey` returns.
-- The envelope shape (`CachedResponse<T>`) makes it easy to grow later — add
-  `etag`, `lastModified`, or response headers without breaking the schema.
+```kotlin
+@Serializable
+data class CachedResponse<T>(
+    val cacheKey: String,
+    val payload: T,
+    val statusCode: Int,
+)
+```
+
+Then on write: `storage.upsert(key, CachedResponse(cacheKey = key, payload = ..., statusCode = ...))`.
+
+A simpler alternative if you're confident `deleteExpired` runs often enough:
+keep `selectByKey` and accept that an expired row may be returned in a small
+window between expiry and the next purge. Choose based on how stale "stale" is
+allowed to be.
+
+The envelope shape (`CachedResponse<T>`) is also easy to grow later — add
+`etag`, `lastModified`, or response headers without breaking the schema.
 
 {: .note }
 Inject `clock` rather than calling `Clock.System.now()` directly. Tests can

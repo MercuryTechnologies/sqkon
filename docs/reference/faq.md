@@ -35,11 +35,11 @@ Not currently. Sqkon targets Android and JVM today. iOS is on the roadmap — tr
 
 ## How do I upgrade between Sqkon versions?
 
-Read the [changelog]({{ '/reference/changelog/' | relative_url }}) for breaking changes between releases. The library handles its own internal SQL schema migrations transparently, so upgrading the dependency is usually a non-event. For changes to *your own* data shapes — adding a field, renaming a property, switching a type — see the [migrations guide]({{ '/guides/serialization-tips/' | relative_url }}) for safe-evolution patterns.
+Read the [changelog]({{ '/reference/changelog/' | relative_url }}) for breaking changes between releases. The library handles its own internal SQL schema migrations transparently, so upgrading the dependency is usually a non-event. For changes to *your own* data shapes — adding a field, renaming a property, switching a type — see the [migrations guide]({{ '/guides/migrations/' | relative_url }}) for safe-evolution patterns.
 
 ## Does Sqkon work with KMM / Compose Multiplatform?
 
-Yes for `commonMain` code targeting the supported platforms (Android and JVM today). Once iOS targets are added, Compose Multiplatform projects targeting iOS should "just work" with no API changes — Sqkon's public surface lives in `commonMain`.
+Yes for `commonMain` code targeting the supported platforms (Android and JVM today). The public API lives in `commonMain`, so it should remain stable when iOS targets land — but the driver story will need additional wiring, so expect the iOS rollout to ship alongside platform-specific guidance rather than transparently.
 
 ## Can I use Sqkon outside coroutines?
 

@@ -45,23 +45,24 @@ Two consequences worth internalizing:
 
 ## Query planning for JSON paths
 
-Filters on JSON fields hit `json_extract(value, '$.path')`. SQLite cannot
-use a regular index on that expression — it computes it per row inside the
-`entity_name` slice. That's fine for small-to-mid stores; for hot queries
-on large stores, watch out for:
+Where-clause filters on JSON fields are implemented by joining the row
+against `json_tree(entity.value)` and matching by `fullkey LIKE '$.path'
+AND value <op> ?`. The `entity_name` slice is always applied first via the
+primary-key index, so the JSON-tree walk only ever runs over rows in your
+store. SQLite cannot use a regular index on a `json_tree` join, so for hot
+queries on large stores watch out for:
 
 - **Leading wildcards in `like`.** `name like '%foo%'` always scans every
   row in the slice. Trailing wildcards (`'foo%'`) are cheaper because the
   string comparison can short-circuit, but neither uses an index on the
   JSON value.
-- **Deep nested paths in hot loops.** Each `json_extract` walks the JSONB
-  tree to the path you asked for. A query that filters on five levels of
-  nesting per row, run thousands of times, will cost more than one
-  filtering at the top level. Cache where you can.
-- **Doing real work in the filter.** The DSL doesn't let you call
-  arbitrary SQL functions, but if you ever drop into raw SQLDelight,
-  resist the urge to wrap `json_extract` in something the planner can't
-  flatten.
+- **Deep nested paths in hot loops.** Each `json_tree` walk visits every
+  JSON node looking for the matching `fullkey`. A query that filters deep
+  in the tree, run thousands of times, will cost more than one filtering
+  at the top level. Cache where you can.
+- **One predicate per `json_tree` join.** Multiple `and`-combined
+  predicates each add a `json_tree` alias to the query; for very wide
+  filters consider whether you can pre-narrow with one cheap predicate.
 
 When in doubt, see the next section.
 
@@ -69,18 +70,20 @@ When in doubt, see the next section.
 
 You can introspect any query Sqkon would run by inspecting the query plan
 against a debug build of your database. Open the SQLite file with the
-`sqlite3` CLI (or DB Browser for SQLite) and run:
+`sqlite3` CLI (or DB Browser for SQLite) and run a query shaped like the
+ones Sqkon emits:
 
 ```sql
 EXPLAIN QUERY PLAN
-SELECT * FROM entity
-WHERE entity_name = 'merchants'
-  AND json_extract(value, '$.category') = 'Coffee';
+SELECT json_extract(entity.value, '$') FROM entity, json_tree(entity.value, '$') t0
+WHERE entity.entity_name = 'merchants'
+  AND t0.fullkey LIKE '$.category'
+  AND t0.value = 'Coffee';
 ```
 
-You're looking for `SEARCH entity USING ... PRIMARY KEY` — that means
-SQLite is using the `(entity_name, entity_key)` index to slice down to your
-store before evaluating the JSON predicate. If you see `SCAN entity`
+You're looking for `SEARCH entity USING ... PRIMARY KEY` first — that
+means SQLite is using the `(entity_name, entity_key)` index to slice down
+to your store before walking the JSON tree. If you see `SCAN entity`
 without an index reference, the query is doing a full table scan, which
 means the entity-name slicing isn't being applied (it always should be —
 file an issue if you can reproduce).
@@ -136,12 +139,18 @@ propagation details.
 
 SQLite doesn't return space to the OS after deletes — pages are reused,
 but the file size stays put. Periodically calling `VACUUM` rewrites the
-database compactly. Sqkon doesn't expose `VACUUM` directly, but you can
-run it through the underlying SQLDelight driver:
+database compactly.
 
-```kotlin
-sqkon.driver.execute(null, "VACUUM", 0)
-```
+Sqkon does not currently expose a public `VACUUM` API. The underlying
+`SqlDriver` is held internally by `EntityQueries` and is not part of the
+stable public surface. If you need `VACUUM` today, you have two options:
+
+1. Build your own `SqlDriver` (the same way the platform `Sqkon(...)`
+   factories do) and run a one-off `execute(null, "VACUUM", 0)` against it
+   before constructing the `Sqkon` instance — your driver, your call.
+2. Open a feature request on
+   [GitHub](https://github.com/MercuryTechnologies/sqkon/issues) for a
+   first-class `Sqkon.vacuum()` helper.
 
 A few caveats:
 

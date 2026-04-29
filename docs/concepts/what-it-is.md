@@ -73,16 +73,18 @@ deliberately doesn't — saves you from fighting it later.
 
 ## Stability
 
-Sqkon is pre-2.0. The public API is stable in practice — most releases are additive —
-but breaking changes can land in a minor version until 1.x graduates. We use
-[Conventional Commits](https://www.conventionalcommits.org/) and
-[release-please](https://github.com/googleapis/release-please) to enforce semver:
+Sqkon is on a 1.x line and follows semver strictly through
+[Conventional Commits](https://www.conventionalcommits.org/) +
+[release-please](https://github.com/googleapis/release-please). Most releases
+are additive; breaking changes are rare and require an explicit `!`:
 
 - `feat:` → minor bump
 - `fix:` / `perf:` / `deps:` → patch bump
 - `feat!:` / `fix!:` → **major** bump (used sparingly)
 
-Every release is published to Maven Central as `com.mercury.sqkon:library:{% raw %}{{ site.sqkon_version }}{% endraw %}`.
+In practice that means `1.x` upgrades are safe within the line — no breaking
+changes will land in a minor or patch release. Every release is published to
+Maven Central as `com.mercury.sqkon:library:{% raw %}{{ site.sqkon_version }}{% endraw %}`.
 
 {: .note }
 > Comparing Sqkon against Room, DataStore, Realm, MMKV, or raw SQLDelight? See
