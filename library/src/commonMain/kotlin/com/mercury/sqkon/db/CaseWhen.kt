@@ -17,16 +17,24 @@ class CaseWhen<T : Any> internal constructor(
     internal data class Branch(val discriminatorValue: String, val valuePath: String)
 
     internal fun toSqlValue(): SqlValueFragment {
-        // Minimal impl for Task 2: only single-branch, no ELSE. Generalized in Task 3.
-        val branch = branches.single()
-        require(elseValuePath == null) { "ELSE branch not yet supported" }
+        require(branches.isNotEmpty()) { "CaseWhen requires at least one whenIs branch" }
+        val parts = mutableListOf<String>()
+        branches.forEach { _ ->
+            parts += "WHEN json_extract(entity.value, ?) = ? THEN json_extract(entity.value, ?)"
+        }
+        if (elseValuePath != null) parts += "ELSE json_extract(entity.value, ?)"
+        val sql = "(CASE ${parts.joinToString(" ")} END)"
+        val parameters = branches.size * 3 + (if (elseValuePath != null) 1 else 0)
         return SqlValueFragment(
-            sql = "(CASE WHEN json_extract(entity.value, ?) = ? THEN json_extract(entity.value, ?) END)",
-            parameters = 3,
+            sql = sql,
+            parameters = parameters,
             bindArgs = {
-                bindString(discriminatorPath)
-                bindString(branch.discriminatorValue)
-                bindString(branch.valuePath)
+                branches.forEach { branch ->
+                    bindString(discriminatorPath)
+                    bindString(branch.discriminatorValue)
+                    bindString(branch.valuePath)
+                }
+                elseValuePath?.let { bindString(it) }
             },
         )
     }

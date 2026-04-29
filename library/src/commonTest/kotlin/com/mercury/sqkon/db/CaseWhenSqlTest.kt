@@ -26,6 +26,35 @@ class CaseWhenSqlTest {
             captureBoundArgs(frag.parameters, frag.bindArgs),
         )
     }
+
+    @Test
+    fun case_multipleBranches_withElse_emitsExpectedSql() {
+        val case: CaseWhen<TestObject> = TestObject::sealed.case<TestObject, TestSealed> {
+            whenIs<TestSealed.Impl>(TestObject::sealed.then(TestSealed.Impl::boolean))
+            whenIs<TestSealed.Impl2>(TestObject::sealed.then(TestSealed.Impl2::value))
+            elseValue(TestObject::name.builder())
+        }
+
+        val frag = case.toSqlValue()
+
+        assertEquals(
+            "(CASE " +
+                "WHEN json_extract(entity.value, ?) = ? THEN json_extract(entity.value, ?) " +
+                "WHEN json_extract(entity.value, ?) = ? THEN json_extract(entity.value, ?) " +
+                "ELSE json_extract(entity.value, ?) " +
+                "END)",
+            frag.sql,
+        )
+        assertEquals(7, frag.parameters)
+        assertEquals(
+            listOf(
+                "\$.sealed[0]", "Impl", "\$.sealed[1].boolean",
+                "\$.sealed[0]", "Impl2", "\$.sealed[1]",
+                "\$.name",
+            ),
+            captureBoundArgs(frag.parameters, frag.bindArgs),
+        )
+    }
 }
 
 /** Replays a bindArgs lambda against a recording prepared statement so tests can assert binds. */
