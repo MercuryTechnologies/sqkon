@@ -95,6 +95,41 @@ class CaseWhenSqlTest {
     }
 
     @Test
+    fun orderBy_caseExpression_emitsCaseInOrderBy() {
+        val case = TestObject::sealed.case<TestObject, TestSealed> {
+            whenIs<TestSealed.Impl>(TestObject::sealed.then(TestSealed.Impl::boolean))
+        }
+
+        val list: List<OrderBy<*>> = listOf(OrderBy(case, OrderDirection.DESC))
+        val queries: List<SqlQuery> = list.toSqlQueries()
+
+        assertEquals(1, queries.size)
+        val q = queries.single()
+        assertEquals(null, q.from)
+        assertEquals(null, q.where)
+        assertEquals(
+            "(CASE WHEN json_extract(entity.value, ?) = ? THEN json_extract(entity.value, ?) END) DESC",
+            q.orderBy,
+        )
+        assertEquals(3, q.parameters)
+        assertEquals(
+            listOf("\$.sealed[0]", "Impl", "\$.sealed[1].boolean"),
+            captureBoundArgs(q.parameters, q.bindArgs),
+        )
+    }
+
+    @Test
+    fun orderBy_jsonPath_stillEmitsJsonTreeAfterRefactor() {
+        val list: List<OrderBy<*>> = listOf(OrderBy(TestObject::name, OrderDirection.ASC))
+        val q = list.toSqlQueries().single()
+
+        assertEquals("json_tree(entity.value, '\$') as order_0", q.from)
+        assertEquals("order_0.fullkey LIKE ?", q.where)
+        assertEquals("order_0.value ASC", q.orderBy)
+        assertEquals(1, q.parameters)
+    }
+
+    @Test
     fun caseIsNull_caseIsNotNull_emitNullPredicates() {
         val case = TestObject::sealed.case<TestObject, TestSealed> {
             whenIs<TestSealed.Impl>(TestObject::sealed.then(TestSealed.Impl::boolean))

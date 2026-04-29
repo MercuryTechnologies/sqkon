@@ -290,19 +290,62 @@ abstract class Where<T : Any> {
     abstract fun toSqlQuery(increment: Int): SqlQuery
 }
 
-data class OrderBy<T : Any>(
+sealed class OrderBy<T : Any> {
+    internal abstract val direction: OrderDirection?
+    internal abstract fun toSqlQuery(index: Int): SqlQuery
+}
+
+data class JsonPathOrderBy<T : Any> @PublishedApi internal constructor(
     private val builder: JsonPathBuilder<T>,
     /**
      * Sqlite defaults to ASC when not specified
      */
-    internal val direction: OrderDirection? = null,
-) {
-    val path: String = builder.buildPath()
+    override val direction: OrderDirection? = null,
+) : OrderBy<T>() {
+    private val path: String = builder.buildPath()
+
+    override fun toSqlQuery(index: Int): SqlQuery {
+        val treeName = "order_$index"
+        return SqlQuery(
+            from = "json_tree(entity.value, '$') as $treeName",
+            where = "$treeName.fullkey LIKE ?",
+            parameters = 1,
+            bindArgs = { bindString(path) },
+            orderBy = "$treeName.value ${direction?.value ?: ""}".trimEnd(),
+        )
+    }
 }
 
+data class CaseOrderBy<T : Any> internal constructor(
+    private val case: CaseWhen<T>,
+    override val direction: OrderDirection? = null,
+) : OrderBy<T>() {
+    override fun toSqlQuery(index: Int): SqlQuery {
+        val frag = case.toSqlValue()
+        return SqlQuery(
+            from = null,
+            where = null,
+            parameters = frag.parameters,
+            bindArgs = { frag.bindArgs(this) },
+            orderBy = "${frag.sql} ${direction?.value ?: ""}".trimEnd(),
+        )
+    }
+}
+
+fun <T : Any> OrderBy(
+    builder: JsonPathBuilder<T>,
+    direction: OrderDirection? = null,
+): OrderBy<T> = JsonPathOrderBy(builder, direction)
+
 inline fun <reified T : Any, reified V> OrderBy(
-    property: KProperty1<T, V>, direction: OrderDirection? = null,
-) = OrderBy(property.builder(), direction)
+    property: KProperty1<T, V>,
+    direction: OrderDirection? = null,
+): OrderBy<T> = JsonPathOrderBy(property.builder(), direction)
+
+fun <T : Any> OrderBy(
+    case: CaseWhen<T>,
+    direction: OrderDirection? = null,
+): OrderBy<T> = CaseOrderBy(case, direction)
 
 enum class OrderDirection(val value: String) {
     ASC(value = "ASC"),
@@ -311,16 +354,7 @@ enum class OrderDirection(val value: String) {
 
 fun List<OrderBy<*>>.toSqlQueries(): List<SqlQuery> {
     if (isEmpty()) return emptyList()
-    return mapIndexed { index, orderBy ->
-        val treeName = "order_$index"
-        SqlQuery(
-            from = "json_tree(entity.value, '$') as $treeName",
-            where = "$treeName.fullkey LIKE ?",
-            parameters = 1,
-            bindArgs = { bindString(orderBy.path) },
-            orderBy = "$treeName.value ${orderBy.direction?.value ?: ""}",
-        )
-    }
+    return mapIndexed { index, orderBy -> orderBy.toSqlQuery(index) }
 }
 
 data class SqlQuery(
