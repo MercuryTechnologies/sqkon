@@ -401,18 +401,19 @@ internal fun List<SqlQuery>.identifier(): Int = fold(0) { acc, sqlQuery ->
     31 * acc + sqlQuery.identifier()
 }
 
-// ---- CASE / WHEN comparison operators ----
+private enum class CaseOp(val sql: String) { EQ("="), NEQ("!="), GT(">"), LT("<") }
+private enum class CaseNullOp(val sql: String) { IS_NULL("IS NULL"), IS_NOT_NULL("IS NOT NULL") }
 
 private fun <T : Any, V> caseCompare(
     case: CaseWhen<T>,
-    sqlOp: String,
+    op: CaseOp,
     value: V?,
 ): Where<T> = object : Where<T>() {
     override fun toSqlQuery(increment: Int): SqlQuery {
         val frag = case.toSqlValue()
         return SqlQuery(
             from = null,
-            where = "(${frag.sql} $sqlOp ?)",
+            where = "(${frag.sql} ${op.sql} ?)",
             parameters = frag.parameters + 1,
             bindArgs = {
                 frag.bindArgs(this)
@@ -424,28 +425,26 @@ private fun <T : Any, V> caseCompare(
 
 private fun <T : Any> caseUnary(
     case: CaseWhen<T>,
-    suffix: String,
+    op: CaseNullOp,
 ): Where<T> = object : Where<T>() {
     override fun toSqlQuery(increment: Int): SqlQuery {
         val frag = case.toSqlValue()
         return SqlQuery(
             from = null,
-            where = "(${frag.sql} $suffix)",
+            where = "(${frag.sql} ${op.sql})",
             parameters = frag.parameters,
             bindArgs = { frag.bindArgs(this) },
         )
     }
 }
 
-infix fun <T : Any, V> CaseWhen<T>.eq(value: V?): Where<T> = caseCompare(this, "=", value)
-infix fun <T : Any, V> CaseWhen<T>.neq(value: V?): Where<T> = caseCompare(this, "!=", value)
-infix fun <T : Any, V> CaseWhen<T>.gt(value: V?): Where<T> = caseCompare(this, ">", value)
-infix fun <T : Any, V> CaseWhen<T>.gte(value: V?): Where<T> = caseCompare(this, ">=", value)
-infix fun <T : Any, V> CaseWhen<T>.lt(value: V?): Where<T> = caseCompare(this, "<", value)
-infix fun <T : Any, V> CaseWhen<T>.lte(value: V?): Where<T> = caseCompare(this, "<=", value)
+infix fun <T : Any, V> CaseWhen<T>.eq(value: V?): Where<T> = caseCompare(this, CaseOp.EQ, value)
+infix fun <T : Any, V> CaseWhen<T>.neq(value: V?): Where<T> = caseCompare(this, CaseOp.NEQ, value)
+infix fun <T : Any, V> CaseWhen<T>.gt(value: V?): Where<T> = caseCompare(this, CaseOp.GT, value)
+infix fun <T : Any, V> CaseWhen<T>.lt(value: V?): Where<T> = caseCompare(this, CaseOp.LT, value)
 
-fun <T : Any> CaseWhen<T>.isNull(): Where<T> = caseUnary(this, "IS NULL")
-fun <T : Any> CaseWhen<T>.isNotNull(): Where<T> = caseUnary(this, "IS NOT NULL")
+fun <T : Any> CaseWhen<T>.isNull(): Where<T> = caseUnary(this, CaseNullOp.IS_NULL)
+fun <T : Any> CaseWhen<T>.isNotNull(): Where<T> = caseUnary(this, CaseNullOp.IS_NOT_NULL)
 
 class AutoIncrementSqlPreparedStatement(
     private var index: Int = 0,

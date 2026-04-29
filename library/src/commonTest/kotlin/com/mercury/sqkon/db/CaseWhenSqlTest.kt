@@ -76,7 +76,7 @@ class CaseWhenSqlTest {
     }
 
     @Test
-    fun caseEq_caseNeq_caseLt_caseLte_caseGte_emitCorrectOperators() {
+    fun caseEq_caseNeq_caseLt_caseGt_emitCorrectOperators() {
         val case = TestObject::sealed.case<TestObject, TestSealed> {
             whenIs<TestSealed.Impl>(TestObject::sealed.then(TestSealed.Impl::boolean))
         }
@@ -89,9 +89,7 @@ class CaseWhenSqlTest {
         assertEndsWith("=",  case eq 1L)
         assertEndsWith("!=", case neq 1L)
         assertEndsWith("<",  case lt 1L)
-        assertEndsWith("<=", case lte 1L)
         assertEndsWith(">",  case gt 1L)
-        assertEndsWith(">=", case gte 1L)
     }
 
     @Test
