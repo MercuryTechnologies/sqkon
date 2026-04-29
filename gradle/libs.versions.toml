@@ -2,12 +2,12 @@
 androidx-monitor = "1.8.0"
 androidx-runner = "1.7.0"
 androidx-sqlite = "2.6.2"
-kotlin = "2.3.20"
+kotlin = "2.3.21"
 agp = "8.13.2"
 kotlinx-coroutines = "1.10.2"
-kotlinx-serialization = { require = "1.10.0" }
+kotlinx-serialization = { require = "1.11.0" }
 kotlinx-datetime = "0.7.1"
-paging = "3.5.0-beta01"
+paging = "3.5.0-rc01"
 sqlDelight = "2.3.2"
 turbine = "1.2.1"
 
