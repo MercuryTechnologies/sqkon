@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.2](https://github.com/MercuryTechnologies/sqkon/compare/1.3.1...1.3.2) (2026-04-28)
+
+
+### Bug Fixes
+
+* keyset paging invalidation on empty start + paging docs ([#38](https://github.com/MercuryTechnologies/sqkon/issues/38)) ([170d437](https://github.com/MercuryTechnologies/sqkon/commit/170d4379e57da25d8ab15e8c5651ffb06d6b2a52))
+
 ## [1.3.1](https://github.com/MercuryTechnologies/sqkon/compare/1.3.0...1.3.1) (2026-04-15)
 
 
