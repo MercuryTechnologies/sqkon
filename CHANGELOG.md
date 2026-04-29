@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.3.3](https://github.com/MercuryTechnologies/sqkon/compare/1.3.2...1.3.3) (2026-04-29)
+
+
+### Dependencies
+
+* bump kotlin, serialization, paging; refresh tooling and CI actions ([#40](https://github.com/MercuryTechnologies/sqkon/issues/40)) ([f6148af](https://github.com/MercuryTechnologies/sqkon/commit/f6148af4e45185a47fb8582b0f7e8ea608e154a0))
+
+
+### Documentation
+
+* GitHub Pages site (Jekyll + Just the Docs + Dokka v2) ([#42](https://github.com/MercuryTechnologies/sqkon/issues/42)) ([0ecfdf5](https://github.com/MercuryTechnologies/sqkon/commit/0ecfdf5f815738b3c69a0005864d2bcf812b0bc2))
+
 ## [1.3.2](https://github.com/MercuryTechnologies/sqkon/compare/1.3.1...1.3.2) (2026-04-28)
 
 
