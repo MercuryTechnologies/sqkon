@@ -53,6 +53,7 @@ jump to its section.
 | [`gt`](#numeric-comparison-gt-lt) / [`lt`](#numeric-comparison-gt-lt) | strict greater/less |
 | [`inList`](#set-membership-inlist-notinlist) / [`notInList`](#set-membership-inlist-notinlist) | value present in / absent from a list |
 | [`and`](#boolean-composition-and-or-not) / [`or`](#boolean-composition-and-or-not) / [`not`](#boolean-composition-and-or-not) | combine other Wheres |
+| [`case { … }`](#case--when-per-variant-path-selection) | pick a JSON path per sealed-class variant (CASE/WHEN) |
 
 All operators are available as **infix functions on a `KProperty1`** (the
 common case — `Merchant::name`) or on a `JsonPathBuilder` for nested fields
@@ -240,6 +241,54 @@ val byId = merchants.select(
 ```
 
 Reference test: `select_byEntityId`.
+
+## CASE / WHEN: per-variant path selection
+
+Standard operators like `eq` and `gt` match a **single JSON path** against
+every row. When the store holds a sealed type and you want a value whose
+path differs per variant — for example "the timestamp of whatever happened
+to this row" — use a `CaseWhen<T>` expression.
+
+```kotlin
+@Serializable
+sealed interface Status {
+    @Serializable @SerialName("Active")
+    data class Active(val activatedAt: Long) : Status
+    @Serializable @SerialName("Pending")
+    data class Pending(val requestedAt: Long) : Status
+}
+
+val effectiveTime: CaseWhen<Status> = Status::class.case {
+    whenIs<Status.Active>(Status::class.with(Status.Active::activatedAt))
+    whenIs<Status.Pending>(Status::class.with(Status.Pending::requestedAt))
+}
+
+val recent = statusStore.select(where = effectiveTime gt 1_700_000_000L).first()
+```
+
+`CaseWhen<T>` compiles to a SQL `CASE WHEN … END` over the sealed
+discriminator. Each `whenIs<V>` picks the value path used when the row's
+discriminator matches `V`'s `@SerialName`. Rows whose variant has no
+matching branch fall through to SQL `NULL` — `<op> NULL` is falsy in a
+WHERE, so they're filtered out automatically.
+
+`case { … }` is also available on a sealed *property* when the sealed type
+is nested inside a larger object:
+
+```kotlin
+val time = Account::status.case<Account, Status> {
+    whenIs<Status.Active>(Account::status.then(Status.Active::activatedAt))
+    whenIs<Status.Pending>(Account::status.then(Status.Pending::requestedAt))
+}
+```
+
+Operators on `CaseWhen<T>`: `eq`, `neq`, `gt`, `lt`, plus `isNull()` /
+`isNotNull()` (handy for selecting rows that fell through every branch).
+A `CaseWhen` predicate composes with the json-tree-based operators above
+under `and` / `or` exactly like any other `Where<T>`.
+
+For ordering by a `CaseWhen` value, see
+[Ordering]({{ '/guides/ordering/' | relative_url }}).
 
 ## Common pitfalls
 
