@@ -68,7 +68,7 @@ defaults — but doing so opts out of the guarantees above:
 ```kotlin
 val json = Json {
     encodeDefaults = true   // keep — required for query correctness
-    ignoreUnknownKeys = false // your call; see "Schema evolution" below
+    ignoreUnknownKeys = false // your call; see "Migrations" below
     serializersModule = myCustomModule
 }
 ```
@@ -84,7 +84,7 @@ existing rows in SQLite still hold the old JSON shape. Setting
 after a refactor.
 
 If you set this to `false`, you take responsibility for migrating values when
-you change a class. See [Schema evolution]({{ '/guides/schema-evolution/' | relative_url }})
+you change a class. See [Migrations]({{ '/guides/migrations/' | relative_url }})
 for patterns.
 
 ### `encodeDefaults = true` is about query correctness
