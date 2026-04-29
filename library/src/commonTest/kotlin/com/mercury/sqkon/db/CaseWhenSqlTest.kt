@@ -56,6 +56,60 @@ class CaseWhenSqlTest {
     }
 
     @Test
+    fun caseGt_producesExpectedWhereFragment() {
+        val case = TestObject::sealed.case<TestObject, TestSealed> {
+            whenIs<TestSealed.Impl>(TestObject::sealed.then(TestSealed.Impl::boolean))
+        }
+
+        val q: SqlQuery = (case gt 100L).toSqlQuery(increment = 1)
+
+        assertEquals(null, q.from)
+        assertEquals(
+            "((CASE WHEN json_extract(entity.value, ?) = ? THEN json_extract(entity.value, ?) END) > ?)",
+            q.where,
+        )
+        assertEquals(4, q.parameters)
+        assertEquals(
+            listOf("\$.sealed[0]", "Impl", "\$.sealed[1].boolean", 100L),
+            captureBoundArgs(q.parameters, q.bindArgs),
+        )
+    }
+
+    @Test
+    fun caseEq_caseNeq_caseLt_caseLte_caseGte_emitCorrectOperators() {
+        val case = TestObject::sealed.case<TestObject, TestSealed> {
+            whenIs<TestSealed.Impl>(TestObject::sealed.then(TestSealed.Impl::boolean))
+        }
+
+        fun assertEndsWith(op: String, w: Where<TestObject>) {
+            val sql = w.toSqlQuery(1).where!!
+            assertEquals(true, sql.endsWith(") $op ?)"), "expected '$sql' to end with ') $op ?)'")
+        }
+
+        assertEndsWith("=",  case eq 1L)
+        assertEndsWith("!=", case neq 1L)
+        assertEndsWith("<",  case lt 1L)
+        assertEndsWith("<=", case lte 1L)
+        assertEndsWith(">",  case gt 1L)
+        assertEndsWith(">=", case gte 1L)
+    }
+
+    @Test
+    fun caseIsNull_caseIsNotNull_emitNullPredicates() {
+        val case = TestObject::sealed.case<TestObject, TestSealed> {
+            whenIs<TestSealed.Impl>(TestObject::sealed.then(TestSealed.Impl::boolean))
+        }
+
+        val isNullQ = case.isNull().toSqlQuery(1)
+        assertEquals(true, isNullQ.where!!.endsWith(") IS NULL)"))
+        assertEquals(3, isNullQ.parameters)
+
+        val isNotNullQ = case.isNotNull().toSqlQuery(1)
+        assertEquals(true, isNotNullQ.where!!.endsWith(") IS NOT NULL)"))
+        assertEquals(3, isNotNullQ.parameters)
+    }
+
+    @Test
     fun case_multipleBranches_withElse_emitsExpectedSql() {
         val case: CaseWhen<TestObject> = TestObject::sealed.case<TestObject, TestSealed> {
             whenIs<TestSealed.Impl>(TestObject::sealed.then(TestSealed.Impl::boolean))
