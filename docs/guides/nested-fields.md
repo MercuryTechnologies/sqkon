@@ -63,34 +63,38 @@ val builder = Merchant::location.builder {
 `.then()` works for arbitrary depth — keep chaining `then(...)` blocks until
 you reach the leaf value you want to match on.
 
-## `.thenList()` — collection elements
+## `.then()` into collection elements
 
-When the next hop is a `List` (or any `Collection`), use `.thenList()` instead.
-Sqkon emits the JSON path with `[%]` so JSONB matches against **any element**:
+When the next hop is a `List` (or any `Collection`), use the same `.then()`
+function — Kotlin picks the right overload from the property's type. Sqkon
+emits the JSON path with `[%]` so JSONB matches against **any element**:
 
 ```kotlin
 merchants.select(
-    where = Merchant::tags.thenList(Tag::name) eq "vegan",
+    where = Merchant::tags.then(Tag::name) eq "vegan",
 ).first()
 ```
 
 That builds `$.tags[%].name`, which JSONB evaluates as "any element of `tags`
 whose `name` is `'vegan'`".
 
+> The same `.then(...)` symbol covers nested-object hops AND list-element hops.
+> The compiler picks the overload by inspecting the property's type
+> (`KProperty1<R, Foo>` vs. `KProperty1<R, Collection<Foo>>`). At the JVM level
+> the list overload is named `thenList` (via `@JvmName`), but you always call
+> it as `.then(...)` from Kotlin. There is no `.thenList(...)` Kotlin symbol.
+{: .note }
+
 A few common shapes:
 
 ```kotlin
-// String list — match a list element directly
-val builder = Merchant::class.withList(Merchant::aliases) { /* leaf */ }
-// path: $.aliases[%]
-
 // List<Object> — chain into a property of each element
-val builder2 = Merchant::tags.then(Tag::name)
+val builder = Merchant::tags.then(Tag::name)
 // path: $.tags[%].name
 
-// List<List<...>> nested — same .thenList() inside a then block
-val builder3 = Merchant::tags.thenList(Tag::name)
-// path: $.tags[%].name
+// Top-level Collection of Strings — start from the class
+val builder2 = Merchant::class.withList(Merchant::aliases) { /* leaf */ }
+// path: $.aliases[%]
 ```
 
 The `JsonPathBuilderTest.kt` suite is the source of truth for what each

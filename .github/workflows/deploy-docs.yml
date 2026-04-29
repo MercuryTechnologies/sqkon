@@ -47,9 +47,13 @@ jobs:
         run: ./gradlew :library:dokkaGeneratePublicationHtml
 
       - name: Mirror CHANGELOG into docs
+        # Strip the leading "# Changelog" H1 from CHANGELOG.md so the wrapper
+        # page (docs/reference/changelog.md) doesn't end up with two top-level
+        # headings after `include_relative` runs.
         run: |
           if [ -f CHANGELOG.md ]; then
-            cp CHANGELOG.md docs/reference/_changelog_body.md
+            awk '/^# Changelog$/ { skipped = 1; next } skipped && NR <= 3 && /^[[:space:]]*$/ { next } { print }' \
+              CHANGELOG.md > docs/reference/_changelog_body.md
           fi
 
       - name: Set up Ruby

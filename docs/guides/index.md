@@ -19,7 +19,7 @@ for as your store grows.
 ## Querying & shaping results
 
 - [Querying]({{ '/guides/querying/' | relative_url }}) — type-safe Where DSL, operators, AND/OR/NOT composition.
-- [Nested fields]({{ '/guides/nested-fields/' | relative_url }}) — `.then()` and `.thenList()` for paths into nested objects and lists.
+- [Nested fields]({{ '/guides/nested-fields/' | relative_url }}) — `.then(...)` for paths into nested objects and list elements.
 - [Ordering]({{ '/guides/ordering/' | relative_url }}) — sort with `OrderBy`, multi-field precedence, ASC/DESC.
 
 ## Reading at scale

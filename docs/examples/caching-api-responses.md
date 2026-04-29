@@ -38,9 +38,9 @@ cached value when a non-expired one exists, otherwise it calls your `fetch`
 lambda and writes the result with a 15-minute TTL.
 
 `selectByKey` does NOT apply expiry filtering — it returns whatever row is in
-the store. The recipe below uses `select(...)` with `expiresAfter` instead so
-expired rows are excluded server-side, which is the only correct way to avoid
-serving stale values when `deleteExpired` hasn't run yet.
+the store. Use `selectByKeys(..., expiresAfter = ...)` for the single-key
+read; it's the supported way to combine an exact-key lookup with TTL
+filtering, and it stays correct even when `deleteExpired` hasn't run yet.
 
 ```kotlin
 import com.mercury.sqkon.db.KeyValueStorage
@@ -57,13 +57,9 @@ class ApiCache<T : Any>(
         key: String,
         fetch: suspend () -> CachedResponse<T>,
     ): CachedResponse<T> {
-        // Filter expired rows at read time — selectByKey does NOT do this.
+        // Filter expired rows at read time — selectByKey alone does NOT.
         val cached = storage
-            .select(
-                where = CachedResponse<T>::class.with(CachedResponse<T>::cacheKey) eq key,
-                expiresAfter = clock.now(),
-                limit = 1,
-            )
+            .selectByKeys(listOf(key), expiresAfter = clock.now())
             .first()
             .firstOrNull()
         if (cached != null) return cached
@@ -75,24 +71,10 @@ class ApiCache<T : Any>(
 }
 ```
 
-For this `where` clause to work, the envelope needs a stored field that
-matches the lookup key:
-
-```kotlin
-@Serializable
-data class CachedResponse<T>(
-    val cacheKey: String,
-    val payload: T,
-    val statusCode: Int,
-)
-```
-
-Then on write: `storage.upsert(key, CachedResponse(cacheKey = key, payload = ..., statusCode = ...))`.
-
 A simpler alternative if you're confident `deleteExpired` runs often enough:
-keep `selectByKey` and accept that an expired row may be returned in a small
-window between expiry and the next purge. Choose based on how stale "stale" is
-allowed to be.
+keep `selectByKey` and accept that an expired row may be returned in the
+small window between expiry and the next purge. Choose based on how stale
+"stale" is allowed to be.
 
 The envelope shape (`CachedResponse<T>`) is also easy to grow later — add
 `etag`, `lastModified`, or response headers without breaking the schema.

@@ -11,11 +11,13 @@ nav_order: 8
 1. TOC
 {:toc}
 
-Sqkon stores your `@Serializable` Kotlin objects as JSONB blobs and queries
-them with `json_extract` paths. That means the JSON shape your serializer
-produces is the schema your queries see — `Merchant::name` only resolves if
-your JSON actually contains a top-level `name` field. This page covers the
-serialization patterns that come up most often.
+Sqkon stores your `@Serializable` Kotlin objects as JSONB blobs and resolves
+field predicates by joining each row against `json_tree(entity.value)` and
+matching on `fullkey LIKE '$.field' AND value <op> ?`. That means the JSON
+shape your serializer produces is the schema your queries see —
+`Merchant::name` only resolves if your JSON actually contains a top-level
+`name` field. This page covers the serialization patterns that come up most
+often.
 
 ```kotlin
 @Serializable

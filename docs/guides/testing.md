@@ -31,9 +31,11 @@ platforms support this through the regular public factories:
 - **Android** — pass `dbFileName = null` to `Sqkon(context, scope, dbFileName = null)`
   to get an in-memory database for instrumented tests.
 
-`DriverFactory` and the raw `EntityQueries` / `MetadataQueries` types are
-`internal` — don't reach for them directly. The `Sqkon(...)` factory is the
-supported entry point for both production and tests.
+`DriverFactory` and Sqkon's internal driver wiring are not part of the
+supported public surface — go through the `Sqkon(...)` factory instead.
+`EntityQueries` / `MetadataQueries` are visible types, but constructing them
+yourself bypasses the dispatcher / lifecycle setup the factory does for you;
+prefer `Sqkon(...)` in app and test code alike.
 
 ## Test setup pattern
 

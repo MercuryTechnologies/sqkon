@@ -30,7 +30,7 @@ merchants.selectAll(
 - `OrderBy(property: KProperty1<T, V>, direction: OrderDirection? = null)` —
   for top-level fields.
 - `OrderBy(builder: JsonPathBuilder<T>, direction: OrderDirection? = null)` —
-  for nested fields built with `.then()` / `.thenList()`.
+  for nested fields built with `.then(...)`.
 
 Both produce the same `OrderBy<T>` value, which the store turns into a
 `json_tree(...)` join plus an `ORDER BY ...` clause.

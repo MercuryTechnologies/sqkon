@@ -183,15 +183,22 @@ val foodOrCoffee = merchants.select(
 ### `inList` into nested list elements
 
 `inList` works on a path that ends inside a collection — every element gets
-checked:
+checked. Extend the model with a `tags: List<Tag>` field to demonstrate:
 
 ```kotlin
+@Serializable data class Tag(val name: String)
+@Serializable data class Merchant(
+    val id: String, val name: String, val category: String,
+    val score: Int = 0, val tags: List<Tag> = emptyList(),
+)
+
 val withTagged = merchants.select(
-    where = Merchant::tags.thenList(Tag::name) inList listOf("vegan", "halal"),
+    where = Merchant::tags.then(Tag::name) inList listOf("vegan", "halal"),
 ).first()
 ```
 
-(See [Nested fields]({{ '/guides/nested-fields/' | relative_url }}) for `thenList`.)
+(See [Nested fields]({{ '/guides/nested-fields/' | relative_url }}) for the
+list-traversal `.then(...)` overload.)
 
 ### Range with `gt` / `lt`
 
