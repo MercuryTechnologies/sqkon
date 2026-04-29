@@ -67,6 +67,29 @@ class KeyValueStorageCaseWhenTest {
     }
 
     @Test
+    fun where_caseIsNull_matchesRowsWithNoMatchingBranch() = runTest {
+        storage.insertAll(mapOf(
+            "a1" to SealedTimed.Active(id = "a1", activatedAt = 100L),
+            "p1" to SealedTimed.Pending(id = "p1", requestedAt = 200L),
+        ))
+
+        // CaseWhen with only an Active branch -> Pending rows fall through to NULL
+        val activeOnly: CaseWhen<SealedTimed> = SealedTimed::class.case {
+            whenIs<SealedTimed.Active>(
+                SealedTimed::class.with(SealedTimed.Active::activatedAt)
+            )
+        }
+
+        val nulls = storage.select(where = activeOnly.isNull()).first()
+        assertEquals(1, nulls.size)
+        assertEquals("p1", (nulls.single() as SealedTimed.Pending).id)
+
+        val nonNulls = storage.select(where = activeOnly.isNotNull()).first()
+        assertEquals(1, nonNulls.size)
+        assertEquals("a1", (nonNulls.single() as SealedTimed.Active).id)
+    }
+
+    @Test
     fun orderBy_caseExpression_ordersAcrossVariantsByLogicalTimestamp() = runTest {
         storage.insertAll(mapOf(
             "a1" to SealedTimed.Active(id = "a1", activatedAt = 100L),
