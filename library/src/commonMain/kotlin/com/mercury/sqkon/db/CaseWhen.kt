@@ -1,6 +1,7 @@
 package com.mercury.sqkon.db
 
 import kotlinx.serialization.serializer
+import kotlin.reflect.KClass
 import kotlin.reflect.KProperty1
 
 /**
@@ -81,3 +82,15 @@ inline fun <reified T : Any, reified S : Any> KProperty1<T, S>.case(
     val discriminatorPath = parentPath.removeSuffix("[1]") + "[0]"
     return CaseWhenBuilder<T>(discriminatorPath).apply(block).build()
 }
+
+/**
+ * `CASE WHEN` expression rooted at the entity itself when it is a sealed type
+ * (e.g. `KeyValueStorage<BaseSealed>`). Discriminator path is `$[0]`, payload is under `$[1]`.
+ */
+@Suppress("UnusedReceiverParameter")
+inline fun <reified R : Any> KClass<R>.case(
+    block: CaseWhenBuilder<R>.() -> Unit,
+): CaseWhen<R> {
+    return CaseWhenBuilder<R>(discriminatorPath = "\$[0]").apply(block).build()
+}
+
