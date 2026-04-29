@@ -5,8 +5,22 @@
 Sqkon (/sk-on/) A Kotlin Multiplatform KeyValue Store with the ability to query on values using
 SQLite and JSONB.
 
-![Maven Central Version](https://img.shields.io/maven-central/v/com.mercury.sqkon/library)
-![GitHub branch check runs](https://img.shields.io/github/check-runs/MercuryTechnologies/sqkon/main)
+[![Maven Central Version](https://img.shields.io/maven-central/v/com.mercury.sqkon/library)](https://central.sonatype.com/artifact/com.mercury.sqkon/library)
+[![GitHub branch check runs](https://img.shields.io/github/check-runs/MercuryTechnologies/sqkon/main)](https://github.com/MercuryTechnologies/sqkon/actions)
+[![Docs](https://img.shields.io/badge/docs-mercurytechnologies.github.io%2Fsqkon-272735?style=flat&labelColor=272735&color=5266EB)](https://mercurytechnologies.github.io/sqkon/)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+
+## Documentation
+
+📘 **Full docs at [mercurytechnologies.github.io/sqkon](https://mercurytechnologies.github.io/sqkon/)** — guides, examples, API reference (Dokka), and architecture overview.
+
+| Topic | Link |
+|---|---|
+| Quickstart | [getting-started/quickstart](https://mercurytechnologies.github.io/sqkon/getting-started/quickstart/) |
+| Querying with the type-safe DSL | [guides/querying](https://mercurytechnologies.github.io/sqkon/guides/querying/) |
+| Paging | [guides/paging](https://mercurytechnologies.github.io/sqkon/guides/paging/) |
+| Sealed classes & polymorphism | [guides/serialization-tips](https://mercurytechnologies.github.io/sqkon/guides/serialization-tips/) |
+| API reference (Dokka) | [/api/](https://mercurytechnologies.github.io/sqkon/api/) |
 
 ## Usage
 
@@ -16,8 +30,8 @@ val sqkon = Sqkon(
     context = context // (only for Android)
 )
 
-// Create a Store for each type/entity you want to create 
-val merchantStore = sqkon.keyValueStore<Merchant>("merchant")
+// Create a Store for each type/entity you want to create
+val merchantStore = sqkon.keyValueStorage<Merchant>("merchant")
 
 // Insert a new entity
 val merchant = Merchant(
@@ -96,27 +110,28 @@ Sqkon provides two `PagingSource` factories on `KeyValueStorage` that plug into 
 - `selectPagingSource(...)` — offset-based, supports random page jumps, simple.
 - `selectKeysetPagingSource(pageSize, ...)` — keyset-based, constant cost per page, recommended for large lists and `RemoteMediator`-backed feeds.
 
-See [docs/paging.md](docs/paging.md) for a full guide with examples, diagrams, and a chooser.
+Full guide with examples, diagrams, and a chooser: [Paging](https://mercurytechnologies.github.io/sqkon/guides/paging/).
 
 ## Installation
 
 ### Gradle
 
-Multiplatform projects (Android, JVM, iOS (coming soon))
+Multiplatform projects (Android, JVM; iOS on the roadmap):
 
 ```kotlin
 commonMain {
     dependencies {
-        implementation("com.mercury.sqkon:library:1.2.0")
+        implementation("com.mercury.sqkon:library:1.3.2")
     }
 }
 ```
 
-Or you can use the platform specific dependencies, e.g: Android only:
+Android-only or JVM-only projects use the same coordinate — Gradle resolves the
+right artifact for your target platform:
 
 ```kotlin
 dependencies {
-    implementation("com.mercury.sqkon:library-android:1.2.0")
+    implementation("com.mercury.sqkon:library:1.3.2")
 }
 ```
 
@@ -168,8 +183,8 @@ Test reports: `library/build/reports/tests/jvmTest/index.html` (JVM), `library/b
 
 #### Android aar
 
-- Run `./gradlew :core:assembleRelease`
+- Run `./gradlew :library:assembleRelease`
 
 #### JVM jar
 
-- Run `./gradlew :core:jvmJar`
+- Run `./gradlew :library:jvmJar`

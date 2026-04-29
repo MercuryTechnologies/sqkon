@@ -1,0 +1,93 @@
+name: Deploy Docs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - "library/src/**"
+      - "library/build.gradle.kts"
+      - "gradle/libs.versions.toml"
+      - "CHANGELOG.md"
+      - "README.MD"
+      - ".github/workflows/deploy-docs.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build docs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Full history so JTD's `last_edit_timestamp` and `gh_edit_link`
+          # can resolve per-page commit timestamps.
+          fetch-depth: 0
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build Dokka HTML
+        run: ./gradlew :library:dokkaGeneratePublicationHtml
+
+      - name: Mirror CHANGELOG into docs
+        # Strip the leading "# Changelog" H1 from CHANGELOG.md so the wrapper
+        # page (docs/reference/changelog.md) doesn't end up with two top-level
+        # headings after `include_relative` runs.
+        run: |
+          if [ -f CHANGELOG.md ]; then
+            awk '/^# Changelog$/ { skipped = 1; next } skipped && NR <= 3 && /^[[:space:]]*$/ { next } { print }' \
+              CHANGELOG.md > docs/reference/_changelog_body.md
+          fi
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+          working-directory: docs
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Build Jekyll
+        env:
+          JEKYLL_ENV: production
+        working-directory: docs
+        run: bundle exec jekyll build
+
+      - name: Place Dokka output under /api
+        run: cp -R library/build/dokka/html docs/_site/api
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: docs/_site
+
+  deploy:
+    name: Deploy to Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v5

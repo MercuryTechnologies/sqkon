@@ -2,6 +2,7 @@
 androidx-monitor = "1.8.0"
 androidx-runner = "1.7.0"
 androidx-sqlite = "2.6.2"
+dokka = "2.2.0"
 kotlin = "2.3.21"
 agp = "8.13.2"
 kotlinx-coroutines = "1.10.2"
@@ -34,6 +35,7 @@ turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 android-library = { id = "com.android.library", version.ref = "agp" }
+dokka = { id = "org.jetbrains.dokka", version.ref = "dokka" }
 maven-publish = { id = "com.vanniktech.maven.publish", version = "0.36.0" }
 multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }

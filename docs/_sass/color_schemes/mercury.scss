@@ -1,0 +1,32 @@
+// Mercury color scheme — sampled from mercury.com CSS bundles
+// Primary: blue-led palette with cream/white surfaces and a pink secondary.
+
+// --- Palette (canonical Mercury hex codes from CSS sampling) ---
+$mercury-bg:           #ffffff;  // primary white
+$mercury-bg-alt:       #efeee9;  // cream (used by mercury.com section blocks)
+$mercury-text:         #272735;  // dark navy/charcoal — primary text
+$mercury-text-mid:     #535461;  // mid gray — secondary text
+$mercury-accent:       #5266eb;  // brand blue — links, CTA
+$mercury-accent-2:     #4354c8;  // hover blue
+$mercury-border:       #c3c3cc;  // light border / divider
+$mercury-border-soft:  #e7e6e0;  // softer divider on cream
+$mercury-code-bg:      #f4f2ee;  // very light cream for code blocks
+
+// --- Just the Docs variable overrides ---
+$body-background-color:        $mercury-bg;
+$sidebar-color:                $mercury-bg-alt;
+$body-text-color:              $mercury-text;
+$body-heading-color:           $mercury-text;
+$nav-child-link-color:         $mercury-text-mid;
+$link-color:                   $mercury-accent;
+$btn-primary-color:            $mercury-accent;
+$base-button-color:            $mercury-bg;
+$code-background-color:        $mercury-code-bg;
+$feedback-color:               darken($mercury-bg, 3%);
+$table-background-color:       $mercury-bg;
+$search-background-color:      $mercury-bg;
+$search-result-preview-color:  $mercury-text-mid;
+$border-color:                 $mercury-border;
+
+// Callout colors are configured via _config.yml `callouts:` (Just the Docs
+// 0.12+ reads them from site config, not SCSS).

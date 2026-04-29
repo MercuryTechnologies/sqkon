@@ -1,0 +1,96 @@
+title: Sqkon
+description: Type-safe JSONB-powered key-value store for Kotlin Multiplatform.
+url: https://mercurytechnologies.github.io
+baseurl: /sqkon
+theme: just-the-docs
+
+# --- Theme ---
+color_scheme: mercury
+logo: /assets/images/logo.svg
+favicon_ico: /assets/images/favicon.svg
+
+# --- Search ---
+search_enabled: true
+search:
+  heading_level: 3
+  previews: 3
+  preview_words_before: 5
+  preview_words_after: 10
+  tokenizer_separator: /[\s/]+/
+  rel_url: true
+  button: false
+
+# --- Navigation ---
+nav_external_links:
+  - title: API Reference
+    url: /sqkon/api/
+    hide_icon: false
+  - title: GitHub
+    url: https://github.com/MercuryTechnologies/sqkon
+    hide_icon: false
+
+# --- Mermaid (built-in) ---
+mermaid:
+  version: "10.9.1"
+
+# --- Callouts (Just the Docs 0.12+) ---
+# These names match the {: .name } classes used across the docs and align with
+# the colors defined in _sass/color_schemes/mercury.scss (kept for future use).
+callouts:
+  note:
+    title: Note
+    color: grey-dk
+  highlight:
+    title: Tip
+    color: blue
+  important:
+    title: Important
+    color: green
+  warning:
+    title: Warning
+    color: yellow
+  caution:
+    title: Caution
+    color: red
+  new:
+    title: New
+    color: blue
+
+# --- Footer ---
+footer_content: 'Built by <a href="https://mercury.com">Mercury</a>. Released under the <a href="https://github.com/MercuryTechnologies/sqkon/blob/main/LICENSE">Apache 2.0 License</a>.'
+last_edit_timestamp: true
+last_edit_time_format: "%b %e %Y"
+gh_edit_link: true
+gh_edit_link_text: "Edit this page on GitHub"
+gh_edit_repository: "https://github.com/MercuryTechnologies/sqkon"
+gh_edit_branch: "main"
+gh_edit_source: docs
+gh_edit_view_mode: "tree"
+
+# --- Build ---
+plugins:
+  - jekyll-seo-tag
+  - jekyll-redirect-from
+
+exclude:
+  - vendor/
+  - Gemfile
+  - Gemfile.lock
+  - node_modules/
+  - api/
+  - README.md
+
+# --- SEO ---
+author: Mercury
+twitter:
+  username: MercuryTech
+  card: summary_large_image
+social:
+  name: Mercury
+  links:
+    - https://github.com/MercuryTechnologies/sqkon
+
+# --- Project metadata ---
+sqkon_version: "1.3.2"
+github_repo: "MercuryTechnologies/sqkon"
+og_image: /assets/images/og-card.png
