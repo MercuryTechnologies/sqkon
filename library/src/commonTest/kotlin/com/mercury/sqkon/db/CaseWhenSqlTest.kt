@@ -1,8 +1,11 @@
 package com.mercury.sqkon.db
 
 import app.cash.sqldelight.db.SqlPreparedStatement
+import com.mercury.sqkon.BaseSealed
 import com.mercury.sqkon.TestObject
 import com.mercury.sqkon.TestSealed
+import com.mercury.sqkon.TypeOneData
+import com.mercury.sqkon.TypeTwoData
 import org.junit.Test
 import kotlin.test.assertEquals
 
@@ -23,6 +26,31 @@ class CaseWhenSqlTest {
         assertEquals(3, frag.parameters)
         assertEquals(
             listOf("\$.sealed[0]", "Impl", "\$.sealed[1].boolean"),
+            captureBoundArgs(frag.parameters, frag.bindArgs),
+        )
+    }
+
+    @Test
+    fun case_rootSealed_viaKClass_emitsExpectedSql() {
+        val case: CaseWhen<BaseSealed> = BaseSealed::class.case {
+            whenIs<BaseSealed.TypeOne>(
+                BaseSealed::class.with(BaseSealed.TypeOne::data) { then(TypeOneData::key) }
+            )
+            whenIs<BaseSealed.TypeTwo>(
+                BaseSealed::class.with(BaseSealed.TypeTwo::data) { then(TypeTwoData::otherValue) }
+            )
+        }
+
+        val frag = case.toSqlValue()
+
+        assertEquals(6, frag.parameters)
+        assertEquals(
+            listOf(
+                // BaseSealed.TypeOne is a @JvmInline value class wrapping `data`,
+                // so JsonPath skips the wrapper -> $[1].key (not $[1].data.key).
+                "\$[0]", "TypeOne", "\$[1].key",
+                "\$[0]", "TypeTwo", "\$[1].data.otherValue",
+            ),
             captureBoundArgs(frag.parameters, frag.bindArgs),
         )
     }
