@@ -133,6 +133,34 @@ storage.select(orderBy = listOf(OrderBy(effectiveTime, OrderDirection.DESC)))
 
 Supported comparison operators on `CaseWhen<T>`: `eq`, `neq`, `gt`, `lt`, plus `isNull()` / `isNotNull()` (rows whose variant has no matching `whenIs` branch fall through to NULL). `case { … }` is also available on a sealed *property* (e.g. `MyEntity::status.case<MyEntity, Status> { … }`) for the common case where the sealed type is nested inside a larger object.
 
+### Per-variant *predicates* — `caseWhere`
+
+The `case { ... }` form above picks a value path; if you instead need a
+*different predicate per variant* (different fields, operators, RHS types),
+use `caseWhere { ... }`. The result is a `Where<T>` you can drop straight
+into `select(where = ...)`:
+
+```kotlin
+orders.select(where = Order::class.caseWhere {
+    whenIs<Order.Active>    { with(Order.Active::dueAt) lt cutoff }
+    whenIs<Order.Pending>   { with(Order.Pending::reviewedAt) eq null }
+    whenIs<Order.Cancelled> { with(Order.Cancelled::reason) eq "BLOCKED" }
+})
+```
+
+For non-sealed types with a discriminator field, dispatch on the property:
+
+```kotlin
+shipments.select(where = caseWhere(Shipment::status) {
+    whenEq(ShipmentStatus.KEPT)     { Shipment::trackerId neq null }
+    whenEq(ShipmentStatus.RETURNED) { Shipment::returnedAt gt cutoff }
+    default { Shipment::flagged eq true }
+})
+```
+
+`caseWhere` is WHERE-only. Use the value-selection `case` if you need a
+single value to feed into `ORDER BY`.
+
 ## Paging
 
 Sqkon provides two `PagingSource` factories on `KeyValueStorage` that plug into AndroidX Paging 3:

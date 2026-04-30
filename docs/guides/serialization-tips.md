@@ -105,6 +105,10 @@ per variant** (e.g. `Active.activatedAt` vs `Pending.requestedAt`), use a
 `CaseWhen<T>` — see
 [Querying → CASE / WHEN]({{ '/guides/querying/#case--when-per-variant-path-selection' | relative_url }}).
 
+For the inverse case — same field name across variants but **different
+predicates** per variant (different operators, different RHS types) — see
+[Querying → CASE / WHEN: per-variant predicate selection]({{ '/guides/querying/#case--when-per-variant-predicate-selection' | relative_url }}).
+
 ## Polymorphism in stores
 
 You can open a `KeyValueStorage<Card>` and put both `CreditCard` and
