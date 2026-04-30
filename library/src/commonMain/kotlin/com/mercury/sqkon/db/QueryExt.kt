@@ -307,8 +307,14 @@ data class Not<T : Any>(private val where: Where<T>) : Where<T>() {
         )
     }
 
-    override fun toScalarSqlValue(): SqlValueFragment =
-        TODO("scalar form not yet implemented")
+    override fun toScalarSqlValue(): SqlValueFragment {
+        val inner = where.toScalarSqlValue()
+        return SqlValueFragment(
+            sql = "(NOT ${inner.sql})",
+            parameters = inner.parameters,
+            bindArgs = { inner.bindArgs(this) },
+        )
+    }
 }
 
 /**
@@ -326,8 +332,15 @@ data class And<T : Any>(private val left: Where<T>, private val right: Where<T>)
         return SqlQuery(leftQuery, rightQuery, operator = "AND")
     }
 
-    override fun toScalarSqlValue(): SqlValueFragment =
-        TODO("scalar form not yet implemented")
+    override fun toScalarSqlValue(): SqlValueFragment {
+        val l = left.toScalarSqlValue()
+        val r = right.toScalarSqlValue()
+        return SqlValueFragment(
+            sql = "(${l.sql} AND ${r.sql})",
+            parameters = l.parameters + r.parameters,
+            bindArgs = { l.bindArgs(this); r.bindArgs(this) },
+        )
+    }
 }
 
 /**
@@ -345,8 +358,15 @@ data class Or<T : Any>(private val left: Where<T>, private val right: Where<T>) 
         return SqlQuery(leftQuery, rightQuery, operator = "OR")
     }
 
-    override fun toScalarSqlValue(): SqlValueFragment =
-        TODO("scalar form not yet implemented")
+    override fun toScalarSqlValue(): SqlValueFragment {
+        val l = left.toScalarSqlValue()
+        val r = right.toScalarSqlValue()
+        return SqlValueFragment(
+            sql = "(${l.sql} OR ${r.sql})",
+            parameters = l.parameters + r.parameters,
+            bindArgs = { l.bindArgs(this); r.bindArgs(this) },
+        )
+    }
 }
 
 /**

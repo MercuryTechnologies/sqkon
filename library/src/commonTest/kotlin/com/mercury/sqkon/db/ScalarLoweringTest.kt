@@ -62,4 +62,39 @@ class ScalarLoweringTest {
         val frag = w.toScalarSqlValue()
         assertEquals("(json_extract(entity.value, ?) IS NOT NULL)", frag.sql)
     }
+
+    @Test
+    fun and_scalarForm_concatsChildren() {
+        val w = (TestObject::name eq "Coffee").and(TestObject::value gt 100L)
+        val frag = w.toScalarSqlValue()
+        assertEquals(
+            "((json_extract(entity.value, ?) = ?) AND (json_extract(entity.value, ?) > ?))",
+            frag.sql,
+        )
+        assertEquals(4, frag.parameters)
+        assertEquals(
+            listOf("\$.name", "Coffee", "\$.value", 100L),
+            captureBoundArgs(frag.parameters, frag.bindArgs),
+        )
+    }
+
+    @Test
+    fun or_scalarForm_concatsChildrenWithOr() {
+        val w = (TestObject::name eq "A").or(TestObject::name eq "B")
+        val frag = w.toScalarSqlValue()
+        assertEquals(
+            "((json_extract(entity.value, ?) = ?) OR (json_extract(entity.value, ?) = ?))",
+            frag.sql,
+        )
+    }
+
+    @Test
+    fun not_scalarForm_wrapsChild() {
+        val w = not(TestObject::name eq "Hidden")
+        val frag = w.toScalarSqlValue()
+        assertEquals(
+            "(NOT (json_extract(entity.value, ?) = ?))",
+            frag.sql,
+        )
+    }
 }
