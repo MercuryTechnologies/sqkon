@@ -1,6 +1,8 @@
 package com.mercury.sqkon.db
 
 import com.mercury.sqkon.Order
+import com.mercury.sqkon.Shipment
+import com.mercury.sqkon.ShipmentStatus
 import org.junit.Test
 import kotlin.test.assertEquals
 
@@ -119,5 +121,33 @@ class CaseWhereSqlTest {
         } catch (e: IllegalArgumentException) {
             // ok
         }
+    }
+
+    @Test
+    fun caseWhere_onProperty_dispatchesByFieldValue() {
+        val w: Where<Shipment> = caseWhere(Shipment::status) {
+            whenEq(ShipmentStatus.KEPT)     { Shipment::trackerId neq null }
+            whenEq(ShipmentStatus.RETURNED) { Shipment::returnedAt gt 1000L }
+            default { Shipment::flagged eq true }
+        }
+
+        val q = w.toSqlQuery(1)
+
+        assertEquals(
+            "(CASE " +
+                "WHEN json_extract(entity.value, ?) = ? THEN (json_extract(entity.value, ?) IS NOT NULL) " +
+                "WHEN json_extract(entity.value, ?) = ? THEN (json_extract(entity.value, ?) > ?) " +
+                "ELSE (json_extract(entity.value, ?) = ?) " +
+                "END)",
+            q.where,
+        )
+        assertEquals(
+            listOf(
+                "\$.status", "KEPT", "\$.trackerId",
+                "\$.status", "RETURNED", "\$.returnedAt", 1000L,
+                "\$.flagged", true,
+            ),
+            captureBoundArgs(q.parameters, q.bindArgs),
+        )
     }
 }

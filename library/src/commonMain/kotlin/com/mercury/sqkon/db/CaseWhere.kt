@@ -152,3 +152,60 @@ inline fun <reified R : Any> KClass<R>.caseWhere(
     discriminatorPath = "\$[0]",
     payloadPath = "\$[1]",
 ).apply(block).build()
+
+/**
+ * Builder for predicate-dispatch CASE/WHEN where the discriminator is an
+ * arbitrary field (enum, string, etc.). Branches are matched against the value
+ * of [discriminatorPath] for equality.
+ */
+class CaseWhereOnBuilder<T : Any, K> @PublishedApi internal constructor(
+    @PublishedApi internal val discriminatorPath: String,
+) {
+    @PublishedApi internal val branches: MutableList<CaseWhere.Branch<T>> = mutableListOf()
+    @PublishedApi internal var default: Where<T>? = null
+    @PublishedApi internal var defaultSet: Boolean = false
+
+    fun whenEq(value: K, block: () -> Where<T>) {
+        branches += CaseWhere.Branch(
+            discriminatorValue = bindableForm(value),
+            predicate = block(),
+        )
+    }
+
+    fun default(block: () -> Where<T>) {
+        require(!defaultSet) { "default { ... } may only be specified once" }
+        defaultSet = true
+        default = block()
+    }
+
+    @PublishedApi internal fun build(): CaseWhere<T> =
+        CaseWhere(discriminatorPath, branches.toList(), default)
+
+    /**
+     * Render an enum/value as the string sqkon binds elsewhere. Enums use
+     * Kotlin `name` (matching `bindValue` in `QueryExt.kt`); other types use
+     * `toString()`.
+     *
+     * NOTE: `@SerialName` on enum constants is not yet honored at the binding
+     * layer. If you renamed an enum case with `@SerialName`, dispatch by the
+     * original Kotlin name for now.
+     */
+    @PublishedApi
+    internal fun bindableForm(value: K): String = when (value) {
+        is Enum<*> -> value.name
+        else -> value.toString()
+    }
+}
+
+/**
+ * Predicate-dispatch CASE/WHEN where the discriminator is an arbitrary field
+ * (enum, string, etc.). Compile safety: the [whenEq][CaseWhereOnBuilder.whenEq]
+ * value must match the discriminator field's type.
+ */
+inline fun <reified T : Any, reified K> caseWhere(
+    discriminator: KProperty1<T, K>,
+    block: CaseWhereOnBuilder<T, K>.() -> Unit,
+): Where<T> {
+    val path = discriminator.builder<T, K>().buildPath()
+    return CaseWhereOnBuilder<T, K>(path).apply(block).build()
+}
