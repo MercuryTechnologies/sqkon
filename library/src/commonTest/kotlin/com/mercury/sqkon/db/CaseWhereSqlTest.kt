@@ -124,6 +124,46 @@ class CaseWhereSqlTest {
     }
 
     @Test
+    fun caseWhere_branchWithCompoundAndPredicate() {
+        val w: Where<Order> = Order::class.caseWhere {
+            whenIs<Order.Active> {
+                (with(Order.Active::priority) gt 7).and(with(Order.Active::dueAt) lt 100L)
+            }
+        }
+
+        val q = w.toSqlQuery(1)
+
+        assertEquals(
+            "(CASE " +
+                "WHEN json_extract(entity.value, ?) = ? " +
+                "THEN ((json_extract(entity.value, ?) > ?) AND (json_extract(entity.value, ?) < ?)) " +
+                "END)",
+            q.where,
+        )
+        assertEquals(6, q.parameters)
+        assertEquals(
+            listOf("\$[0]", "Active", "\$[1].priority", 7L, "\$[1].dueAt", 100L),
+            captureBoundArgs(q.parameters, q.bindArgs),
+        )
+    }
+
+    @Test
+    fun caseWhere_nested_compilesAndLowers() {
+        val w: Where<Order> = Order::class.caseWhere {
+            whenIs<Order.Active> {
+                // nested caseWhere returning Where<Order>
+                Order::class.caseWhere {
+                    whenIs<Order.Active> { with(Order.Active::dueAt) lt 100L }
+                }
+            }
+        }
+
+        val q = w.toSqlQuery(1)
+        // outer CASE, inner CASE — verify the nested CASE appears in the THEN clause
+        assertEquals(true, q.where!!.contains("CASE WHEN json_extract(entity.value, ?) = ? THEN (CASE"))
+    }
+
+    @Test
     fun caseWhere_onProperty_dispatchesByFieldValue() {
         val w: Where<Shipment> = caseWhere(Shipment::status) {
             whenEq(ShipmentStatus.KEPT)     { Shipment::trackerId neq null }
