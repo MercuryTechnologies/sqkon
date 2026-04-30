@@ -22,14 +22,21 @@ data class Eq<T : Any, V>(
         )
     }
 
-    override fun toScalarSqlValue(): SqlValueFragment = SqlValueFragment(
-        sql = "(json_extract(entity.value, ?) = ?)",
-        parameters = 2,
-        bindArgs = {
-            bindString(builder.buildPath())
-            bindValue(value)
-        },
-    )
+    override fun toScalarSqlValue(): SqlValueFragment {
+        if (value == null) return SqlValueFragment(
+            sql = "(json_extract(entity.value, ?) IS NULL)",
+            parameters = 1,
+            bindArgs = { bindString(builder.buildPath()) },
+        )
+        return SqlValueFragment(
+            sql = "(json_extract(entity.value, ?) = ?)",
+            parameters = 2,
+            bindArgs = {
+                bindString(builder.buildPath())
+                bindValue(value)
+            },
+        )
+    }
 }
 
 /**
@@ -63,14 +70,21 @@ data class NotEq<T : Any, V>(
         )
     }
 
-    override fun toScalarSqlValue(): SqlValueFragment = SqlValueFragment(
-        sql = "(json_extract(entity.value, ?) != ?)",
-        parameters = 2,
-        bindArgs = {
-            bindString(builder.buildPath())
-            bindValue(value)
-        },
-    )
+    override fun toScalarSqlValue(): SqlValueFragment {
+        if (value == null) return SqlValueFragment(
+            sql = "(json_extract(entity.value, ?) IS NOT NULL)",
+            parameters = 1,
+            bindArgs = { bindString(builder.buildPath()) },
+        )
+        return SqlValueFragment(
+            sql = "(json_extract(entity.value, ?) != ?)",
+            parameters = 2,
+            bindArgs = {
+                bindString(builder.buildPath())
+                bindValue(value)
+            },
+        )
+    }
 }
 
 /**
@@ -210,8 +224,14 @@ data class GreaterThan<T : Any, V>(
         )
     }
 
-    override fun toScalarSqlValue(): SqlValueFragment =
-        TODO("scalar form not yet implemented")
+    override fun toScalarSqlValue(): SqlValueFragment = SqlValueFragment(
+        sql = "(json_extract(entity.value, ?) > ?)",
+        parameters = 2,
+        bindArgs = {
+            bindString(builder.buildPath())
+            bindValue(value)
+        },
+    )
 }
 
 /**
@@ -247,8 +267,14 @@ data class LessThan<T : Any, V>(
         )
     }
 
-    override fun toScalarSqlValue(): SqlValueFragment =
-        TODO("scalar form not yet implemented")
+    override fun toScalarSqlValue(): SqlValueFragment = SqlValueFragment(
+        sql = "(json_extract(entity.value, ?) < ?)",
+        parameters = 2,
+        bindArgs = {
+            bindString(builder.buildPath())
+            bindValue(value)
+        },
+    )
 }
 
 /**
