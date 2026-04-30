@@ -21,6 +21,15 @@ data class Eq<T : Any, V>(
             }
         )
     }
+
+    override fun toScalarSqlValue(): SqlValueFragment = SqlValueFragment(
+        sql = "(json_extract(entity.value, ?) = ?)",
+        parameters = 2,
+        bindArgs = {
+            bindString(builder.buildPath())
+            bindValue(value)
+        },
+    )
 }
 
 /**
@@ -53,6 +62,15 @@ data class NotEq<T : Any, V>(
             }
         )
     }
+
+    override fun toScalarSqlValue(): SqlValueFragment = SqlValueFragment(
+        sql = "(json_extract(entity.value, ?) != ?)",
+        parameters = 2,
+        bindArgs = {
+            bindString(builder.buildPath())
+            bindValue(value)
+        },
+    )
 }
 
 /**
@@ -85,6 +103,9 @@ data class In<T : Any, V>(
             }
         )
     }
+
+    override fun toScalarSqlValue(): SqlValueFragment =
+        TODO("scalar form not yet implemented")
 }
 
 data class NotIn<T : Any, V>(
@@ -102,6 +123,9 @@ data class NotIn<T : Any, V>(
             }
         )
     }
+
+    override fun toScalarSqlValue(): SqlValueFragment =
+        TODO("scalar form not yet implemented")
 }
 
 
@@ -147,6 +171,9 @@ data class Like<T : Any>(
             }
         )
     }
+
+    override fun toScalarSqlValue(): SqlValueFragment =
+        TODO("scalar form not yet implemented")
 }
 
 /**
@@ -182,6 +209,9 @@ data class GreaterThan<T : Any, V>(
             }
         )
     }
+
+    override fun toScalarSqlValue(): SqlValueFragment =
+        TODO("scalar form not yet implemented")
 }
 
 /**
@@ -216,6 +246,9 @@ data class LessThan<T : Any, V>(
             }
         )
     }
+
+    override fun toScalarSqlValue(): SqlValueFragment =
+        TODO("scalar form not yet implemented")
 }
 
 /**
@@ -247,6 +280,9 @@ data class Not<T : Any>(private val where: Where<T>) : Where<T>() {
             orderBy = query.orderBy
         )
     }
+
+    override fun toScalarSqlValue(): SqlValueFragment =
+        TODO("scalar form not yet implemented")
 }
 
 /**
@@ -263,6 +299,9 @@ data class And<T : Any>(private val left: Where<T>, private val right: Where<T>)
         val rightQuery = right.toSqlQuery((increment * 10) + 1)
         return SqlQuery(leftQuery, rightQuery, operator = "AND")
     }
+
+    override fun toScalarSqlValue(): SqlValueFragment =
+        TODO("scalar form not yet implemented")
 }
 
 /**
@@ -279,6 +318,9 @@ data class Or<T : Any>(private val left: Where<T>, private val right: Where<T>) 
         val rightQuery = right.toSqlQuery((increment * 10) + 1)
         return SqlQuery(leftQuery, rightQuery, operator = "OR")
     }
+
+    override fun toScalarSqlValue(): SqlValueFragment =
+        TODO("scalar form not yet implemented")
 }
 
 /**
@@ -287,7 +329,14 @@ data class Or<T : Any>(private val left: Where<T>, private val right: Where<T>) 
 infix fun <T : Any> Where<T>.or(other: Where<T>): Where<T> = Or(this, other)
 
 abstract class Where<T : Any> {
-    abstract fun toSqlQuery(increment: Int): SqlQuery
+    internal abstract fun toSqlQuery(increment: Int): SqlQuery
+
+    /**
+     * Emits a scalar boolean SQL fragment using `json_extract` (no LATERAL joins).
+     * Used when this Where appears inside a CASE expression branch where row-level
+     * dispatch is required.
+     */
+    internal abstract fun toScalarSqlValue(): SqlValueFragment
 }
 
 sealed class OrderBy<T : Any> {
@@ -409,11 +458,10 @@ private fun <T : Any, V> caseCompare(
     op: CaseOp,
     value: V?,
 ): Where<T> = object : Where<T>() {
-    override fun toSqlQuery(increment: Int): SqlQuery {
+    private fun fragment(): SqlValueFragment {
         val frag = case.toSqlValue()
-        return SqlQuery(
-            from = null,
-            where = "(${frag.sql} ${op.sql} ?)",
+        return SqlValueFragment(
+            sql = "(${frag.sql} ${op.sql} ?)",
             parameters = frag.parameters + 1,
             bindArgs = {
                 frag.bindArgs(this)
@@ -421,21 +469,44 @@ private fun <T : Any, V> caseCompare(
             },
         )
     }
+
+    override fun toSqlQuery(increment: Int): SqlQuery {
+        val frag = fragment()
+        return SqlQuery(
+            from = null,
+            where = frag.sql,
+            parameters = frag.parameters,
+            bindArgs = frag.bindArgs,
+        )
+    }
+
+    override fun toScalarSqlValue(): SqlValueFragment = fragment()
 }
 
 private fun <T : Any> caseUnary(
     case: CaseWhen<T>,
     op: CaseNullOp,
 ): Where<T> = object : Where<T>() {
-    override fun toSqlQuery(increment: Int): SqlQuery {
+    private fun fragment(): SqlValueFragment {
         val frag = case.toSqlValue()
-        return SqlQuery(
-            from = null,
-            where = "(${frag.sql} ${op.sql})",
+        return SqlValueFragment(
+            sql = "(${frag.sql} ${op.sql})",
             parameters = frag.parameters,
             bindArgs = { frag.bindArgs(this) },
         )
     }
+
+    override fun toSqlQuery(increment: Int): SqlQuery {
+        val frag = fragment()
+        return SqlQuery(
+            from = null,
+            where = frag.sql,
+            parameters = frag.parameters,
+            bindArgs = frag.bindArgs,
+        )
+    }
+
+    override fun toScalarSqlValue(): SqlValueFragment = fragment()
 }
 
 infix fun <T : Any, V> CaseWhen<T>.eq(value: V?): Where<T> = caseCompare(this, CaseOp.EQ, value)
