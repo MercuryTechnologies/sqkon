@@ -30,4 +30,33 @@ class CaseWhereSqlTest {
             captureBoundArgs(q.parameters, q.bindArgs),
         )
     }
+
+    @Test
+    fun caseWhere_multipleSealedBranches_emitsExpectedSql() {
+        val w: Where<Order> = Order::class.caseWhere {
+            whenIs<Order.Active> { with(Order.Active::dueAt) lt 100L }
+            whenIs<Order.Pending> { with(Order.Pending::reviewedAt) eq null }
+            whenIs<Order.Cancelled> { with(Order.Cancelled::reason) eq "BLOCKED" }
+        }
+
+        val q = w.toSqlQuery(1)
+
+        assertEquals(
+            "(CASE " +
+                "WHEN json_extract(entity.value, ?) = ? THEN (json_extract(entity.value, ?) < ?) " +
+                "WHEN json_extract(entity.value, ?) = ? THEN (json_extract(entity.value, ?) IS NULL) " +
+                "WHEN json_extract(entity.value, ?) = ? THEN (json_extract(entity.value, ?) = ?) " +
+                "END)",
+            q.where,
+        )
+        assertEquals(11, q.parameters)
+        assertEquals(
+            listOf(
+                "\$[0]", "Active", "\$[1].dueAt", 100L,
+                "\$[0]", "Pending", "\$[1].reviewedAt",
+                "\$[0]", "Cancelled", "\$[1].reason", "BLOCKED",
+            ),
+            captureBoundArgs(q.parameters, q.bindArgs),
+        )
+    }
 }
