@@ -119,3 +119,43 @@ sealed interface SealedTimed {
         val requestedAt: Long,
     ) : SealedTimed
 }
+
+@Serializable
+sealed interface Order {
+    val id: String
+
+    @Serializable
+    @SerialName("Active")
+    data class Active(
+        override val id: String,
+        val dueAt: Long,
+        val priority: Int,
+    ) : Order
+
+    @Serializable
+    @SerialName("Pending")
+    data class Pending(
+        override val id: String,
+        val reviewedAt: Long?,
+        val escalated: Boolean = false,
+    ) : Order
+
+    @Serializable
+    @SerialName("Cancelled")
+    data class Cancelled(
+        override val id: String,
+        val reason: String,
+    ) : Order
+}
+
+@Serializable
+enum class ShipmentStatus { KEPT, RETURNED, IN_TRANSIT }
+
+@Serializable
+data class Shipment(
+    val id: String,
+    val status: ShipmentStatus,
+    val trackerId: String? = null,
+    val returnedAt: Long? = null,
+    val flagged: Boolean = false,
+)
