@@ -33,6 +33,8 @@ dependencies {
 
 ## 30-second taste
 
+Android needs a `Context`; JVM needs a `CoroutineScope`. See [Platform setup]({{ '/getting-started/platform-setup/' | relative_url }}) for both.
+
 ```kotlin
 @Serializable
 data class Merchant(
@@ -41,7 +43,7 @@ data class Merchant(
     val category: String,
 )
 
-// Android needs context + scope; JVM needs scope only.
+// Android needs a Context + scope; JVM needs a scope only.
 val sqkon = Sqkon(context = applicationContext, scope = appScope)
 val merchants = sqkon.keyValueStorage<Merchant>("merchants")
 
@@ -63,30 +65,30 @@ suspend fun loadFood(): List<Merchant> =
 ## Why Sqkon?
 
 <div class="feature-grid">
-  <div class="feature-card">
+  <a class="feature-card" href="{{ '/getting-started/platform-setup/' | relative_url }}">
     <h3>Kotlin Multiplatform</h3>
     <p>One codebase, Android + JVM. iOS on the roadmap.</p>
-  </div>
-  <div class="feature-card">
+  </a>
+  <a class="feature-card" href="{{ '/guides/querying/' | relative_url }}">
     <h3>JSONB queries</h3>
     <p>Query nested fields and lists with a type-safe DSL — no manual SQL, no DAOs.</p>
-  </div>
-  <div class="feature-card">
+  </a>
+  <a class="feature-card" href="{{ '/guides/flow/' | relative_url }}">
     <h3>Reactive Flows</h3>
     <p>Every read returns a <code>Flow</code>. Writes auto-invalidate observers.</p>
-  </div>
-  <div class="feature-card">
+  </a>
+  <a class="feature-card" href="{{ '/guides/paging/' | relative_url }}">
     <h3>AndroidX Paging</h3>
     <p>Built-in keyset and offset <code>PagingSource</code>s for Compose and views.</p>
-  </div>
-  <div class="feature-card">
+  </a>
+  <a class="feature-card" href="{{ '/guides/expiry/' | relative_url }}">
     <h3>TTL / Expiry</h3>
     <p>First-class expiry on every entry. Perfect for caches.</p>
-  </div>
-  <div class="feature-card">
+  </a>
+  <a class="feature-card" href="{{ '/concepts/architecture/' | relative_url }}">
     <h3>Built on SQLDelight</h3>
     <p>Battle-tested SQLite, with type-safe codegen underneath.</p>
-  </div>
+  </a>
 </div>
 
 ## Next steps
@@ -94,4 +96,6 @@ suspend fun loadFood(): List<Merchant> =
 - [Quickstart →]({{ '/getting-started/quickstart/' | relative_url }})
 - [What it is, what it isn't →]({{ '/concepts/what-it-is/' | relative_url }})
 - [Querying with JsonPath →]({{ '/guides/querying/' | relative_url }})
+- [Compare with Room, DataStore, Realm, MMKV →]({{ '/concepts/comparison/' | relative_url }})
+- [Platform setup (Android & JVM) →]({{ '/getting-started/platform-setup/' | relative_url }})
 - [API reference →]({{ '/api/' | relative_url }})

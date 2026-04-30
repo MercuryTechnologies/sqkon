@@ -42,7 +42,7 @@ new result.
 ```mermaid
 sequenceDiagram
     participant Writer
-    participant SqkonStore as KeyValueStorage&lt;T&gt;
+    participant SqkonStore as KeyValueStorage(T)
     participant SQLDelight
     participant Reader as Flow consumer
     Writer->>SqkonStore: insert(...)
