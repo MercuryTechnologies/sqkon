@@ -78,6 +78,17 @@ merchants.select(
 That builds `$.tags[%].name`, which JSONB evaluates as "any element of `tags`
 whose `name` is `'vegan'`".
 
+Every operator works against a list-element path, not just `eq`. For example,
+`inList` over the same shape:
+
+```kotlin
+merchants.select(
+    where = Merchant::tags.then(Tag::name) inList listOf("vegan", "halal"),
+).first()
+```
+
+Matches any merchant where **any** tag's name appears in the supplied list.
+
 > The same `.then(...)` symbol covers nested-object hops AND list-element hops.
 > The compiler picks the overload by inspecting the property's type
 > (`KProperty1<R, Foo>` vs. `KProperty1<R, Collection<Foo>>`). At the JVM level

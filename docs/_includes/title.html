@@ -1,0 +1,5 @@
+{%- comment -%} Override JTD default to render logo + title side-by-side; JTD wraps this partial in <a class="site-title">. {%- endcomment -%}
+{%- if site.logo -%}
+  <img src="{{ site.logo | relative_url }}" alt="" class="site-logo" width="96" height="24" />
+{%- endif -%}
+<span class="site-title-text">{{ site.title }}</span>

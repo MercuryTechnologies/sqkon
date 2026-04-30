@@ -109,11 +109,9 @@ The single table that holds every value you store. Composite primary key is
 | `write_at`    | INTEGER | UTC epoch millis of last write.                |
 | `read_at`     | INTEGER | UTC epoch millis of last observed read.        |
 
-Indexes:
-
-- `idx_entity_read_at` on `read_at`
-- `idx_entity_write_at` on `write_at`
-- `idx_entity_expires_at` on `expires_at`
+Indexes ship for `read_at`, `write_at`, and `expires_at` — see
+[Performance: built-in indexes]({{ '/guides/performance/#built-in-indexes' | relative_url }})
+for the full table and what each one speeds up.
 
 ### `metadata`
 

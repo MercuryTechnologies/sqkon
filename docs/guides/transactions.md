@@ -77,11 +77,10 @@ emission.
 
 ## Flow emission timing
 
-Flows emit **after the transaction commits**, not while it's running. Inside a
-`transaction { … }` you can perform multiple writes and observers will see a
-single re-execution once the block returns. See
-[Reactive flows]({{ '/guides/flow/' | relative_url }}) for the underlying
-notification mechanism.
+Flows emit **after** the transaction commits, never mid-transaction — observers
+see one re-execution per committed block, regardless of how many writes it
+contained. The full notification mechanism (and the bulk-write guarantees) lives
+in [Reactive flows: when does it re-emit?]({{ '/guides/flow/#when-does-it-re-emit' | relative_url }}).
 
 ## Synchronous transactions
 

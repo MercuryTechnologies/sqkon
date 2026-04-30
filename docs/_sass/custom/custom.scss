@@ -54,6 +54,24 @@ h1, h2, h3, h4 {
   border: 1px solid $mercury-border-soft;
 }
 
+.site-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.site-logo {
+  display: inline-block;
+  height: 24px;
+  width: auto;
+}
+
+.site-title-text {
+  font-weight: 600;
+  font-size: 1.1rem;
+  letter-spacing: -0.01em;
+}
+
 // Feature grid
 .feature-grid {
   display: grid;
@@ -63,10 +81,26 @@ h1, h2, h3, h4 {
 }
 
 .feature-card {
+  display: block;
   background: $mercury-bg;
   border: 1px solid $mercury-border-soft;
   border-radius: 12px;
   padding: 1.5rem;
+  text-decoration: none;
+  color: inherit;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+
+  &:hover {
+    text-decoration: none;
+    color: inherit;
+    border-color: $mercury-accent;
+    box-shadow: 0 4px 16px rgba($mercury-accent, 0.08);
+  }
+
+  &:focus-visible {
+    outline: 2px solid $mercury-accent;
+    outline-offset: 2px;
+  }
 }
 
 .feature-card h3 {

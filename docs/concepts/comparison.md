@@ -13,7 +13,7 @@ out which one fits the problem in front of you.
 
 ## At a glance
 
-| Capability             | Sqkon                  | Room                  | DataStore (Proto)         | Realm                  | MMKV                  | SQLDelight (raw)       |
+| Capability             | Sqkon                  | Room                  | DataStore (Proto)[^ds]    | Realm[^realm]          | MMKV                  | SQLDelight (raw)       |
 |------------------------|------------------------|-----------------------|---------------------------|------------------------|-----------------------|------------------------|
 | KMP support            | Android, JVM           | Android only          | Android only              | KMP (Android, iOS)     | Android, iOS          | KMP (broad)            |
 | Typed objects          | Yes (`@Serializable`)  | Yes (entity classes)  | Yes (Proto schema)        | Yes (`RealmObject`)    | No (primitives + Parcelable) | Yes (codegen)   |
@@ -22,6 +22,9 @@ out which one fits the problem in front of you.
 | Schema migrations      | None per-type          | Required per change   | Proto-evolution rules     | Required per change    | None                  | Required per change    |
 | Encryption             | BYO (e.g. SQLCipher)   | BYO (e.g. SQLCipher)  | BYO                       | Built-in               | Built-in (optional)   | BYO                    |
 | Setup complexity       | Low                    | Medium                | Medium                    | Medium                 | Very low              | Medium-high            |
+
+[^ds]: A `androidx.datastore` Multiplatform port is in active development upstream; production guidance for Android today remains the Preferences and Proto pair.
+[^realm]: The Realm Kotlin SDK is now distributed as the **MongoDB Atlas Device SDK for Kotlin** (same library, renamed). Search for either name.
 
 ## When Sqkon wins
 
