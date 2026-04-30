@@ -97,4 +97,40 @@ class ScalarLoweringTest {
             frag.sql,
         )
     }
+
+    @Test
+    fun like_scalarForm() {
+        val w: Where<TestObject> = TestObject::name like "Star%"
+        val frag = w.toScalarSqlValue()
+        assertEquals("(json_extract(entity.value, ?) LIKE ?)", frag.sql)
+        assertEquals(listOf("\$.name", "Star%"), captureBoundArgs(frag.parameters, frag.bindArgs))
+    }
+
+    @Test
+    fun inList_scalarForm() {
+        val w: Where<TestObject> = TestObject::name inList listOf("A", "B", "C")
+        val frag = w.toScalarSqlValue()
+        assertEquals("(json_extract(entity.value, ?) IN (?, ?, ?))", frag.sql)
+        assertEquals(4, frag.parameters)
+        assertEquals(
+            listOf("\$.name", "A", "B", "C"),
+            captureBoundArgs(frag.parameters, frag.bindArgs),
+        )
+    }
+
+    @Test
+    fun inList_emptyList_scalarForm_isAlwaysFalse() {
+        val w: Where<TestObject> = TestObject::name inList emptyList<String>()
+        val frag = w.toScalarSqlValue()
+        assertEquals("(0)", frag.sql)
+        assertEquals(0, frag.parameters)
+    }
+
+    @Test
+    fun notInList_emptyList_scalarForm_isAlwaysTrue() {
+        val w: Where<TestObject> = TestObject::name.notInList(emptyList<String>())
+        val frag = w.toScalarSqlValue()
+        assertEquals("(1)", frag.sql)
+        assertEquals(0, frag.parameters)
+    }
 }

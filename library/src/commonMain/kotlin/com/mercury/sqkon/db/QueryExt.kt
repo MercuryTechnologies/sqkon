@@ -118,8 +118,22 @@ data class In<T : Any, V>(
         )
     }
 
-    override fun toScalarSqlValue(): SqlValueFragment =
-        TODO("scalar form not yet implemented")
+    override fun toScalarSqlValue(): SqlValueFragment {
+        if (value.isEmpty()) return SqlValueFragment(
+            sql = "(0)",
+            parameters = 0,
+            bindArgs = {},
+        )
+        val placeholders = value.joinToString(", ") { "?" }
+        return SqlValueFragment(
+            sql = "(json_extract(entity.value, ?) IN ($placeholders))",
+            parameters = 1 + value.size,
+            bindArgs = {
+                bindString(builder.buildPath())
+                value.forEach { bindValue(it) }
+            },
+        )
+    }
 }
 
 data class NotIn<T : Any, V>(
@@ -138,8 +152,22 @@ data class NotIn<T : Any, V>(
         )
     }
 
-    override fun toScalarSqlValue(): SqlValueFragment =
-        TODO("scalar form not yet implemented")
+    override fun toScalarSqlValue(): SqlValueFragment {
+        if (value.isEmpty()) return SqlValueFragment(
+            sql = "(1)",
+            parameters = 0,
+            bindArgs = {},
+        )
+        val placeholders = value.joinToString(", ") { "?" }
+        return SqlValueFragment(
+            sql = "(json_extract(entity.value, ?) NOT IN ($placeholders))",
+            parameters = 1 + value.size,
+            bindArgs = {
+                bindString(builder.buildPath())
+                value.forEach { bindValue(it) }
+            },
+        )
+    }
 }
 
 
@@ -186,8 +214,14 @@ data class Like<T : Any>(
         )
     }
 
-    override fun toScalarSqlValue(): SqlValueFragment =
-        TODO("scalar form not yet implemented")
+    override fun toScalarSqlValue(): SqlValueFragment = SqlValueFragment(
+        sql = "(json_extract(entity.value, ?) LIKE ?)",
+        parameters = 2,
+        bindArgs = {
+            bindString(builder.buildPath())
+            bindString(value)
+        },
+    )
 }
 
 /**
