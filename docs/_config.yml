@@ -4,6 +4,11 @@ url: https://mercurytechnologies.github.io
 baseurl: /sqkon
 theme: just-the-docs
 
+# Generate /section/page/index.html instead of /section/page.html so internal
+# `{{ '/path/' | relative_url }}` links (and the nav, which uses trailing
+# slashes too) resolve on GitHub Pages without manual rewrites.
+permalink: pretty
+
 # --- Theme ---
 color_scheme: mercury
 logo: /assets/images/logo.svg
