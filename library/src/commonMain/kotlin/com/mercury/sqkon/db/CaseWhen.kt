@@ -38,7 +38,7 @@ data class CaseWhen<T : Any> internal constructor(
     internal fun toSqlValue(): SqlValueFragment = fragment
 }
 
-internal data class SqlValueFragment(
+data class SqlValueFragment(
     val sql: String,
     val parameters: Int,
     val bindArgs: AutoIncrementSqlPreparedStatement.() -> Unit,

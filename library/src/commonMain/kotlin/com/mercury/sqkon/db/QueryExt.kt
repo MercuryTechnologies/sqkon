@@ -388,14 +388,14 @@ data class Or<T : Any>(private val left: Where<T>, private val right: Where<T>) 
 infix fun <T : Any> Where<T>.or(other: Where<T>): Where<T> = Or(this, other)
 
 abstract class Where<T : Any> {
-    internal abstract fun toSqlQuery(increment: Int): SqlQuery
+    abstract fun toSqlQuery(increment: Int): SqlQuery
 
     /**
      * Emits a scalar boolean SQL fragment using `json_extract` (no LATERAL joins).
      * Used when this Where appears inside a CASE expression branch where row-level
      * dispatch is required.
      */
-    internal abstract fun toScalarSqlValue(): SqlValueFragment
+    abstract fun toScalarSqlValue(): SqlValueFragment
 }
 
 sealed class OrderBy<T : Any> {
