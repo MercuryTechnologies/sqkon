@@ -103,6 +103,64 @@ val cardNumberWhere = Card::cardNumber eq "1234"
 
 ```
 
+### CASE / WHEN: choosing a path per variant
+
+The `with`-style queries above match a single field across variants. When you need to **filter or order by a value that lives under a different field name in each variant**, use a `CaseWhen<T>` expression. It compiles to a SQL `CASE WHEN … END` over the sealed discriminator.
+
+```kotlin
+@Serializable
+sealed interface Status {
+    val id: String
+    @Serializable @SerialName("Active")
+    data class Active(override val id: String, val activatedAt: Long) : Status
+    @Serializable @SerialName("Pending")
+    data class Pending(override val id: String, val requestedAt: Long) : Status
+}
+
+// Build a value expression: "the timestamp that means 'when this happened',
+// regardless of which variant the row holds".
+val effectiveTime: CaseWhen<Status> = Status::class.case {
+    whenIs<Status.Active>(Status::class.with(Status.Active::activatedAt))
+    whenIs<Status.Pending>(Status::class.with(Status.Pending::requestedAt))
+}
+
+// Filter: rows whose effective timestamp is after a pivot, across both variants.
+storage.select(where = effectiveTime gt 1_700_000_000L)
+
+// Order: sort the mixed result set by the per-variant timestamp.
+storage.select(orderBy = listOf(OrderBy(effectiveTime, OrderDirection.DESC)))
+```
+
+Supported comparison operators on `CaseWhen<T>`: `eq`, `neq`, `gt`, `lt`, plus `isNull()` / `isNotNull()` (rows whose variant has no matching `whenIs` branch fall through to NULL). `case { … }` is also available on a sealed *property* (e.g. `MyEntity::status.case<MyEntity, Status> { … }`) for the common case where the sealed type is nested inside a larger object.
+
+### Per-variant *predicates* — `caseWhere`
+
+The `case { ... }` form above picks a value path; if you instead need a
+*different predicate per variant* (different fields, operators, RHS types),
+use `caseWhere { ... }`. The result is a `Where<T>` you can drop straight
+into `select(where = ...)`:
+
+```kotlin
+orders.select(where = Order::class.caseWhere {
+    whenIs<Order.Active>    { with(Order.Active::dueAt) lt cutoff }
+    whenIs<Order.Pending>   { with(Order.Pending::reviewedAt) eq null }
+    whenIs<Order.Cancelled> { with(Order.Cancelled::reason) eq "BLOCKED" }
+})
+```
+
+For non-sealed types with a discriminator field, dispatch on the property:
+
+```kotlin
+shipments.select(where = caseWhere(Shipment::status) {
+    whenEq(ShipmentStatus.KEPT)     { Shipment::trackerId neq null }
+    whenEq(ShipmentStatus.RETURNED) { Shipment::returnedAt gt cutoff }
+    default { Shipment::flagged eq true }
+})
+```
+
+`caseWhere` is WHERE-only. Use the value-selection `case` if you need a
+single value to feed into `ORDER BY`.
+
 ## Paging
 
 Sqkon provides two `PagingSource` factories on `KeyValueStorage` that plug into AndroidX Paging 3:

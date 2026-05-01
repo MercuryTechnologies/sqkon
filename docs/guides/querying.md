@@ -53,6 +53,8 @@ jump to its section.
 | [`gt`](#numeric-comparison-gt-lt) / [`lt`](#numeric-comparison-gt-lt) | strict greater/less |
 | [`inList`](#set-membership-inlist-notinlist) / [`notInList`](#set-membership-inlist-notinlist) | value present in / absent from a list |
 | [`and`](#boolean-composition-and-or-not) / [`or`](#boolean-composition-and-or-not) / [`not`](#boolean-composition-and-or-not) | combine other Wheres |
+| [`case { … }`](#case--when-per-variant-path-selection) | pick a JSON path per sealed-class variant (CASE/WHEN) |
+| [`caseWhere { … }`](#case--when-per-variant-predicate-selection) | pick a JSON predicate per sealed-class variant or per discriminator field |
 
 All operators are available as **infix functions on a `KProperty1`** (the
 common case — `Merchant::name`) or on a `JsonPathBuilder` for nested fields
@@ -240,6 +242,143 @@ val byId = merchants.select(
 ```
 
 Reference test: `select_byEntityId`.
+
+## CASE / WHEN: per-variant path selection
+
+Standard operators like `eq` and `gt` match a **single JSON path** against
+every row. When the store holds a sealed type and you want a value whose
+path differs per variant — for example "the timestamp of whatever happened
+to this row" — use a `CaseWhen<T>` expression.
+
+```kotlin
+@Serializable
+sealed interface Status {
+    @Serializable @SerialName("Active")
+    data class Active(val activatedAt: Long) : Status
+    @Serializable @SerialName("Pending")
+    data class Pending(val requestedAt: Long) : Status
+}
+
+val effectiveTime: CaseWhen<Status> = Status::class.case {
+    whenIs<Status.Active>(Status::class.with(Status.Active::activatedAt))
+    whenIs<Status.Pending>(Status::class.with(Status.Pending::requestedAt))
+}
+
+val recent = statusStore.select(where = effectiveTime gt 1_700_000_000L).first()
+```
+
+`CaseWhen<T>` compiles to a SQL `CASE WHEN … END` over the sealed
+discriminator. Each `whenIs<V>` picks the value path used when the row's
+discriminator matches `V`'s `@SerialName`. Rows whose variant has no
+matching branch fall through to SQL `NULL` — `<op> NULL` is falsy in a
+WHERE, so they're filtered out automatically.
+
+`case { … }` is also available on a sealed *property* when the sealed type
+is nested inside a larger object:
+
+```kotlin
+val time = Account::status.case<Account, Status> {
+    whenIs<Status.Active>(Account::status.then(Status.Active::activatedAt))
+    whenIs<Status.Pending>(Account::status.then(Status.Pending::requestedAt))
+}
+```
+
+Operators on `CaseWhen<T>`: `eq`, `neq`, `gt`, `lt`, plus `isNull()` /
+`isNotNull()` (handy for selecting rows that fell through every branch).
+A `CaseWhen` predicate composes with the json-tree-based operators above
+under `and` / `or` exactly like any other `Where<T>`.
+
+For ordering by a `CaseWhen` value, see
+[Ordering]({{ '/guides/ordering/' | relative_url }}).
+
+## CASE / WHEN: per-variant predicate selection
+
+The `case { … }` expression above selects a *value path* per variant — one
+operator (`eq`, `gt`, …) compared against one RHS. When you instead want a
+*different predicate per variant* — different fields, different operators,
+different RHS types — use `caseWhere { … }`. It compiles to a SQL
+`CASE WHEN <disc> = ? THEN <pred> ... [ELSE <pred>] END` placed inside `WHERE`.
+
+```kotlin
+@Serializable
+sealed interface Order {
+    val id: String
+    @Serializable @SerialName("Active")
+    data class Active(override val id: String, val dueAt: Long, val priority: Int) : Order
+    @Serializable @SerialName("Pending")
+    data class Pending(override val id: String, val reviewedAt: Long?) : Order
+    @Serializable @SerialName("Cancelled")
+    data class Cancelled(override val id: String, val reason: String) : Order
+}
+
+orders.select(
+    where = Order::class.caseWhere {
+        whenIs<Order.Active>    { with(Order.Active::dueAt) lt cutoff }
+        whenIs<Order.Pending>   { with(Order.Pending::reviewedAt) eq null }
+        whenIs<Order.Cancelled> { with(Order.Cancelled::reason) eq "BLOCKED" }
+    },
+).first()
+```
+
+Inside each branch, `with(KProperty1<V, X>)` is **scoped to the variant** —
+`with(Pending::reviewedAt)` won't compile inside a `whenIs<Active> { ... }`
+block.
+
+### Compound predicates per branch
+
+Each branch is a full `Where<T>` — `and`/`or`/`not` compose normally:
+
+```kotlin
+Order::class.caseWhere {
+    whenIs<Order.Active> {
+        (with(Order.Active::priority) gt 5)
+            .and(with(Order.Active::dueAt) lt cutoff)
+    }
+}
+```
+
+### Discriminator-field dispatch (non-sealed)
+
+When the discriminator is a regular field (enum, string), pass the property
+to `caseWhere` instead of starting from `KClass`:
+
+```kotlin
+shipments.select(
+    where = caseWhere(Shipment::status) {
+        whenEq(ShipmentStatus.KEPT)     { Shipment::trackerId neq null }
+        whenEq(ShipmentStatus.RETURNED) { Shipment::returnedAt gt cutoff }
+        default { Shipment::flagged eq true }
+    },
+).first()
+```
+
+`whenEq(value)` requires the value type to match the discriminator
+property's type — wrong-typed branches won't compile.
+
+### Default (`ELSE`)
+
+`default { ... }` is optional. Without it, rows whose discriminator matches
+no branch fall through to SQL `NULL`, which is falsy in `WHERE` — those
+rows are excluded. With it, the default predicate runs.
+
+### `caseWhere` vs `case { }`
+
+| Use… | When |
+|---|---|
+| `case { whenIs<V>(path) }` | You need a *value* (for `eq` / `gt` / `ORDER BY` against a single RHS). |
+| `caseWhere { whenIs<V> { pred } }` | You need a *predicate* (different operator and/or RHS per variant). |
+
+`caseWhere` is **WHERE-only.** Predicates have no ordering, so there is no
+`OrderBy(caseWhere(...), ...)` form — use the value-selection `case` for
+that.
+
+{: .note }
+> Branch predicates lower to `json_extract` (scalar) rather than the
+> `json_tree` LATERAL joins used by top-level `eq`/`gt`/etc. For one-shot
+> boolean tests this is fine, but indexed scans on a generated column may
+> be slower for branch predicates than for top-level ones. See
+> [Performance]({{ '/guides/performance/' | relative_url }}) if your
+> store grows.
 
 ## Common pitfalls
 
