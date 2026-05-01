@@ -4,6 +4,57 @@ import app.cash.sqldelight.db.SqlPreparedStatement
 import kotlin.reflect.KProperty1
 
 /**
+ * Scalar `(json_extract(entity.value, ?) <op> ?)` fragment, with `IS NULL` /
+ * `IS NOT NULL` fall-through for null values when [nullOpSql] is provided.
+ */
+private fun scalarBinop(
+    builder: JsonPathBuilder<*>,
+    opSql: String,
+    value: Any?,
+    nullOpSql: String? = null,
+): SqlValueFragment {
+    if (value == null && nullOpSql != null) return SqlValueFragment(
+        sql = "(json_extract(entity.value, ?) $nullOpSql)",
+        parameters = 1,
+        bindArgs = { bindString(builder.buildPath()) },
+    )
+    return SqlValueFragment(
+        sql = "(json_extract(entity.value, ?) $opSql ?)",
+        parameters = 2,
+        bindArgs = {
+            bindString(builder.buildPath())
+            bindValue(value)
+        },
+    )
+}
+
+/**
+ * Scalar `(json_extract(entity.value, ?) [NOT ]IN (?, ?, ...))` fragment, with
+ * a constant short-circuit when [values] is empty.
+ */
+private fun scalarInOp(
+    builder: JsonPathBuilder<*>,
+    notIn: Boolean,
+    values: Collection<*>,
+): SqlValueFragment {
+    if (values.isEmpty()) return SqlValueFragment(
+        sql = if (notIn) "(1)" else "(0)",
+        parameters = 0,
+        bindArgs = {},
+    )
+    val placeholders = values.joinToString(", ") { "?" }
+    val keyword = if (notIn) "NOT IN" else "IN"
+    return SqlValueFragment(
+        sql = "(json_extract(entity.value, ?) $keyword ($placeholders))",
+        parameters = 1 + values.size,
+        bindArgs = {
+            bindString(builder.buildPath())
+            values.forEach { bindValue(it) }
+        },
+    )
+}
+
+/**
  * Equivalent to `=` in SQL
  */
 data class Eq<T : Any, V>(
@@ -22,21 +73,8 @@ data class Eq<T : Any, V>(
         )
     }
 
-    override fun toScalarSqlValue(): SqlValueFragment {
-        if (value == null) return SqlValueFragment(
-            sql = "(json_extract(entity.value, ?) IS NULL)",
-            parameters = 1,
-            bindArgs = { bindString(builder.buildPath()) },
-        )
-        return SqlValueFragment(
-            sql = "(json_extract(entity.value, ?) = ?)",
-            parameters = 2,
-            bindArgs = {
-                bindString(builder.buildPath())
-                bindValue(value)
-            },
-        )
-    }
+    override fun toScalarSqlValue(): SqlValueFragment =
+        scalarBinop(builder, opSql = "=", value = value, nullOpSql = "IS NULL")
 }
 
 /**
@@ -70,21 +108,8 @@ data class NotEq<T : Any, V>(
         )
     }
 
-    override fun toScalarSqlValue(): SqlValueFragment {
-        if (value == null) return SqlValueFragment(
-            sql = "(json_extract(entity.value, ?) IS NOT NULL)",
-            parameters = 1,
-            bindArgs = { bindString(builder.buildPath()) },
-        )
-        return SqlValueFragment(
-            sql = "(json_extract(entity.value, ?) != ?)",
-            parameters = 2,
-            bindArgs = {
-                bindString(builder.buildPath())
-                bindValue(value)
-            },
-        )
-    }
+    override fun toScalarSqlValue(): SqlValueFragment =
+        scalarBinop(builder, opSql = "!=", value = value, nullOpSql = "IS NOT NULL")
 }
 
 /**
@@ -118,22 +143,8 @@ data class In<T : Any, V>(
         )
     }
 
-    override fun toScalarSqlValue(): SqlValueFragment {
-        if (value.isEmpty()) return SqlValueFragment(
-            sql = "(0)",
-            parameters = 0,
-            bindArgs = {},
-        )
-        val placeholders = value.joinToString(", ") { "?" }
-        return SqlValueFragment(
-            sql = "(json_extract(entity.value, ?) IN ($placeholders))",
-            parameters = 1 + value.size,
-            bindArgs = {
-                bindString(builder.buildPath())
-                value.forEach { bindValue(it) }
-            },
-        )
-    }
+    override fun toScalarSqlValue(): SqlValueFragment =
+        scalarInOp(builder, notIn = false, values = value)
 }
 
 data class NotIn<T : Any, V>(
@@ -152,22 +163,8 @@ data class NotIn<T : Any, V>(
         )
     }
 
-    override fun toScalarSqlValue(): SqlValueFragment {
-        if (value.isEmpty()) return SqlValueFragment(
-            sql = "(1)",
-            parameters = 0,
-            bindArgs = {},
-        )
-        val placeholders = value.joinToString(", ") { "?" }
-        return SqlValueFragment(
-            sql = "(json_extract(entity.value, ?) NOT IN ($placeholders))",
-            parameters = 1 + value.size,
-            bindArgs = {
-                bindString(builder.buildPath())
-                value.forEach { bindValue(it) }
-            },
-        )
-    }
+    override fun toScalarSqlValue(): SqlValueFragment =
+        scalarInOp(builder, notIn = true, values = value)
 }
 
 
@@ -214,14 +211,8 @@ data class Like<T : Any>(
         )
     }
 
-    override fun toScalarSqlValue(): SqlValueFragment = SqlValueFragment(
-        sql = "(json_extract(entity.value, ?) LIKE ?)",
-        parameters = 2,
-        bindArgs = {
-            bindString(builder.buildPath())
-            bindString(value)
-        },
-    )
+    override fun toScalarSqlValue(): SqlValueFragment =
+        scalarBinop(builder, opSql = "LIKE", value = value)
 }
 
 /**
@@ -258,14 +249,8 @@ data class GreaterThan<T : Any, V>(
         )
     }
 
-    override fun toScalarSqlValue(): SqlValueFragment = SqlValueFragment(
-        sql = "(json_extract(entity.value, ?) > ?)",
-        parameters = 2,
-        bindArgs = {
-            bindString(builder.buildPath())
-            bindValue(value)
-        },
-    )
+    override fun toScalarSqlValue(): SqlValueFragment =
+        scalarBinop(builder, opSql = ">", value = value)
 }
 
 /**
@@ -301,14 +286,8 @@ data class LessThan<T : Any, V>(
         )
     }
 
-    override fun toScalarSqlValue(): SqlValueFragment = SqlValueFragment(
-        sql = "(json_extract(entity.value, ?) < ?)",
-        parameters = 2,
-        bindArgs = {
-            bindString(builder.buildPath())
-            bindValue(value)
-        },
-    )
+    override fun toScalarSqlValue(): SqlValueFragment =
+        scalarBinop(builder, opSql = "<", value = value)
 }
 
 /**
