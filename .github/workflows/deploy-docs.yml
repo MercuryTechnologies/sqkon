@@ -72,6 +72,19 @@ jobs:
         working-directory: docs
         run: bundle exec jekyll build
 
+      - name: Validate built HTML (smoke)
+        working-directory: docs
+        run: bundle exec ruby ../scripts/validate-docs.rb _site
+
+      - name: Run html-proofer
+        working-directory: docs
+        run: |
+          bundle exec htmlproofer ./_site \
+            --disable-external \
+            --allow-hash-href \
+            --swap-urls "^/sqkon:" \
+            --ignore-urls "/sqkon/api/"
+
       - name: Place Dokka output under /api
         run: cp -R library/build/dokka/html docs/_site/api
 
