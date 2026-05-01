@@ -23,7 +23,7 @@ class CaseWhere<T : Any> internal constructor(
 
     @PublishedApi
     internal data class Branch<T : Any>(
-        val discriminatorValue: String,
+        val discriminatorValue: Any?,
         val predicate: Where<T>,
     )
 
@@ -43,7 +43,7 @@ class CaseWhere<T : Any> internal constructor(
             val capturedPred = pred
             binders += {
                 bindString(discriminatorPath)
-                bindString(capturedDiscValue)
+                bindValue(capturedDiscValue)
                 capturedPred.bindArgs(this)
             }
         }
@@ -154,7 +154,7 @@ class CaseWhereOnBuilder<T : Any, K> @PublishedApi internal constructor(
 
     fun whenEq(value: K, block: () -> Where<T>) {
         branches += CaseWhere.Branch(
-            discriminatorValue = bindableForm(value),
+            discriminatorValue = value,
             predicate = block(),
         )
     }
@@ -167,21 +167,6 @@ class CaseWhereOnBuilder<T : Any, K> @PublishedApi internal constructor(
 
     @PublishedApi internal fun build(): CaseWhere<T> =
         CaseWhere(discriminatorPath, branches.toList(), default)
-
-    /**
-     * Render an enum/value as the string sqkon binds elsewhere. Enums use
-     * Kotlin `name` (matching `bindValue` in `QueryExt.kt`); other types use
-     * `toString()`.
-     *
-     * NOTE: `@SerialName` on enum constants is not yet honored at the binding
-     * layer. If you renamed an enum case with `@SerialName`, dispatch by the
-     * original Kotlin name for now.
-     */
-    @PublishedApi
-    internal fun bindableForm(value: K): String = when (value) {
-        is Enum<*> -> value.name
-        else -> value.toString()
-    }
 }
 
 /**
