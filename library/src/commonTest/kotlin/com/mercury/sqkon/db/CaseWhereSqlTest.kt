@@ -94,8 +94,7 @@ class CaseWhereSqlTest {
                 default { Order::class.with(Order::id) eq "b" }
             }
             kotlin.test.fail("expected IllegalArgumentException")
-        } catch (e: IllegalArgumentException) {
-            // ok
+        } catch (_: IllegalArgumentException) {
         }
     }
 
@@ -114,12 +113,11 @@ class CaseWhereSqlTest {
 
     @Test
     fun caseWhere_emptyBuilder_throwsAtFirstUse() {
-        val w: Where<Order> = Order::class.caseWhere { /* no branches */ }
+        val w: Where<Order> = Order::class.caseWhere { }
         try {
             w.toSqlQuery(1)
             kotlin.test.fail("expected IllegalArgumentException")
-        } catch (e: IllegalArgumentException) {
-            // ok
+        } catch (_: IllegalArgumentException) {
         }
     }
 
@@ -151,7 +149,6 @@ class CaseWhereSqlTest {
     fun caseWhere_nested_compilesAndLowers() {
         val w: Where<Order> = Order::class.caseWhere {
             whenIs<Order.Active> {
-                // nested caseWhere returning Where<Order>
                 Order::class.caseWhere {
                     whenIs<Order.Active> { with(Order.Active::dueAt) lt 100L }
                 }
@@ -159,7 +156,6 @@ class CaseWhereSqlTest {
         }
 
         val q = w.toSqlQuery(1)
-        // outer CASE, inner CASE — verify the nested CASE appears in the THEN clause
         assertEquals(true, q.where!!.contains("CASE WHEN json_extract(entity.value, ?) = ? THEN (CASE"))
     }
 

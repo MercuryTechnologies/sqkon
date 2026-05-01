@@ -144,8 +144,8 @@ class KeyValueStorageCaseWhereTest {
         ))
 
         val w = Order::class.caseWhere {
-            whenIs<Order.Active> { with(Order.Active::dueAt) lt 100L } // matches a
-            default { Order::class.with(Order.Cancelled::id) eq "c" } // matches c
+            whenIs<Order.Active> { with(Order.Active::dueAt) lt 100L }
+            default { Order::class.with(Order.Cancelled::id) eq "c" }
         }
         val matched = orders.select(where = w).first()
 
@@ -161,7 +161,6 @@ class KeyValueStorageCaseWhereTest {
 
         val w = Order::class.caseWhere {
             whenIs<Order.Active> { with(Order.Active::dueAt) lt 100L }
-            // no Pending branch, no default
         }
         val matched = orders.select(where = w).first()
 
