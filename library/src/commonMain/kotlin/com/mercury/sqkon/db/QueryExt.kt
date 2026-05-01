@@ -61,6 +61,17 @@ data class Eq<T : Any, V>(
     private val builder: JsonPathBuilder<T>, private val value: V?,
 ) : Where<T>() {
     override fun toSqlQuery(increment: Int): SqlQuery {
+        // SQLite `<col> = NULL` always evaluates to NULL (never true), so for `eq null`
+        // we drop the json_tree join and emit `json_extract(entity.value, ?) IS NULL`
+        // — matching the scalar lowering's null special-case.
+        if (value == null) {
+            return SqlQuery(
+                from = null,
+                where = "(json_extract(entity.value, ?) IS NULL)",
+                parameters = 1,
+                bindArgs = { bindString(builder.buildPath()) },
+            )
+        }
         val treeName = "eq_$increment"
         return SqlQuery(
             from = "json_tree(entity.value, '$') as $treeName",
@@ -96,6 +107,17 @@ data class NotEq<T : Any, V>(
     private val builder: JsonPathBuilder<T>, private val value: V?,
 ) : Where<T>() {
     override fun toSqlQuery(increment: Int): SqlQuery {
+        // SQLite `<col> != NULL` always evaluates to NULL (never true), so for `neq null`
+        // we drop the json_tree join and emit `json_extract(entity.value, ?) IS NOT NULL`
+        // — matching the scalar lowering's null special-case.
+        if (value == null) {
+            return SqlQuery(
+                from = null,
+                where = "(json_extract(entity.value, ?) IS NOT NULL)",
+                parameters = 1,
+                bindArgs = { bindString(builder.buildPath()) },
+            )
+        }
         val treeName = "eq_$increment"
         return SqlQuery(
             from = "json_tree(entity.value, '$') as $treeName",
