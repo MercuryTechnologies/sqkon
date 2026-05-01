@@ -3,6 +3,11 @@ source "https://rubygems.org"
 gem "jekyll", "~> 4.4"
 gem "just-the-docs", "~> 0.12"
 
+# Used directly by scripts/validate-docs.rb (Nokogiri::HTML5 needs 1.12+).
+# Pinning here so the validator does not silently break if html-proofer's
+# transitive dep ever drops Nokogiri.
+gem "nokogiri", "~> 1.13"
+
 group :jekyll_plugins do
   gem "jekyll-seo-tag", "~> 2.8"
   gem "jekyll-redirect-from", "~> 0.16"

@@ -65,12 +65,30 @@ suspend fun loadFood(): List<Merchant> =
 ## Why Sqkon?
 
 <div class="feature-grid" markdown="0">
-  <a class="feature-card" href="{{ '/getting-started/platform-setup/' | relative_url }}"><span class="feature-card__title">Kotlin Multiplatform</span><span class="feature-card__desc">One codebase, Android + JVM. iOS on the roadmap.</span></a>
-  <a class="feature-card" href="{{ '/guides/querying/' | relative_url }}"><span class="feature-card__title">JSONB queries</span><span class="feature-card__desc">Query nested fields and lists with a type-safe DSL — no manual SQL, no DAOs.</span></a>
-  <a class="feature-card" href="{{ '/guides/flow/' | relative_url }}"><span class="feature-card__title">Reactive Flows</span><span class="feature-card__desc">Every read returns a <code>Flow</code>. Writes auto-invalidate observers.</span></a>
-  <a class="feature-card" href="{{ '/guides/paging/' | relative_url }}"><span class="feature-card__title">AndroidX Paging</span><span class="feature-card__desc">Built-in keyset and offset <code>PagingSource</code>s for Compose and views.</span></a>
-  <a class="feature-card" href="{{ '/guides/expiry/' | relative_url }}"><span class="feature-card__title">TTL / Expiry</span><span class="feature-card__desc">First-class expiry on every entry. Perfect for caches.</span></a>
-  <a class="feature-card" href="{{ '/concepts/architecture/' | relative_url }}"><span class="feature-card__title">Built on SQLDelight</span><span class="feature-card__desc">Battle-tested SQLite, with type-safe codegen underneath.</span></a>
+  <a class="feature-card" href="{{ '/getting-started/platform-setup/' | relative_url }}">
+    <span class="feature-card__title">Kotlin Multiplatform</span>
+    <span class="feature-card__desc">One codebase, Android + JVM. iOS on the roadmap.</span>
+  </a>
+  <a class="feature-card" href="{{ '/guides/querying/' | relative_url }}">
+    <span class="feature-card__title">JSONB queries</span>
+    <span class="feature-card__desc">Query nested fields and lists with a type-safe DSL — no manual SQL, no DAOs.</span>
+  </a>
+  <a class="feature-card" href="{{ '/guides/flow/' | relative_url }}">
+    <span class="feature-card__title">Reactive Flows</span>
+    <span class="feature-card__desc">Every read returns a <code>Flow</code>. Writes auto-invalidate observers.</span>
+  </a>
+  <a class="feature-card" href="{{ '/guides/paging/' | relative_url }}">
+    <span class="feature-card__title">AndroidX Paging</span>
+    <span class="feature-card__desc">Built-in keyset and offset <code>PagingSource</code>s for Compose and views.</span>
+  </a>
+  <a class="feature-card" href="{{ '/guides/expiry/' | relative_url }}">
+    <span class="feature-card__title">TTL / Expiry</span>
+    <span class="feature-card__desc">First-class expiry on every entry. Perfect for caches.</span>
+  </a>
+  <a class="feature-card" href="{{ '/concepts/architecture/' | relative_url }}">
+    <span class="feature-card__title">Built on SQLDelight</span>
+    <span class="feature-card__desc">Battle-tested SQLite, with type-safe codegen underneath.</span>
+  </a>
 </div>
 
 ## Next steps

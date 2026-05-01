@@ -207,6 +207,7 @@ DEPENDENCIES
   jekyll-redirect-from (~> 0.16)
   jekyll-seo-tag (~> 2.8)
   just-the-docs (~> 0.12)
+  nokogiri (~> 1.13)
   tzinfo (>= 1, < 3)
   tzinfo-data
   wdm (~> 0.1.1)
