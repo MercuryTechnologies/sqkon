@@ -106,7 +106,6 @@ class CaseWhereBuilder<T : Any> @PublishedApi internal constructor(
 ) {
     @PublishedApi internal val branches: MutableList<CaseWhere.Branch<T>> = mutableListOf()
     @PublishedApi internal var default: Where<T>? = null
-    @PublishedApi internal var defaultSet: Boolean = false
 
     inline fun <reified V : T> whenIs(block: CaseWhereBranch<T, V>.() -> Where<T>) {
         val pred = CaseWhereBranch<T, V>().block()
@@ -117,8 +116,7 @@ class CaseWhereBuilder<T : Any> @PublishedApi internal constructor(
     }
 
     fun default(block: () -> Where<T>) {
-        require(!defaultSet) { "default { ... } may only be specified once" }
-        defaultSet = true
+        require(default == null) { "default { ... } may only be specified once" }
         default = block()
     }
 
@@ -150,7 +148,6 @@ class CaseWhereOnBuilder<T : Any, K> @PublishedApi internal constructor(
 ) {
     @PublishedApi internal val branches: MutableList<CaseWhere.Branch<T>> = mutableListOf()
     @PublishedApi internal var default: Where<T>? = null
-    @PublishedApi internal var defaultSet: Boolean = false
 
     fun whenEq(value: K, block: () -> Where<T>) {
         branches += CaseWhere.Branch(
@@ -160,8 +157,7 @@ class CaseWhereOnBuilder<T : Any, K> @PublishedApi internal constructor(
     }
 
     fun default(block: () -> Where<T>) {
-        require(!defaultSet) { "default { ... } may only be specified once" }
-        defaultSet = true
+        require(default == null) { "default { ... } may only be specified once" }
         default = block()
     }
 
