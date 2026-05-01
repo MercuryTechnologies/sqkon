@@ -81,47 +81,36 @@ class CaseWhere<T : Any> internal constructor(
  * so users can only reach into the variant's own properties —
  * `with(OtherVariant::field)` won't compile.
  */
-class CaseWhereBranch<T : Any, V : T> @PublishedApi internal constructor(
-    @PublishedApi internal val payloadPath: String,
-)
+class CaseWhereBranch<T : Any, V : T> @PublishedApi internal constructor()
 
 /**
  * Reach into a property of the variant `V` from inside a `whenIs<V> { ... }`
  * scope, producing a [JsonPathBuilder] rooted at the variant payload (e.g.
  * `$[1].dueAt` for a sealed-root entity).
  */
-inline fun <T : Any, reified V : T, reified X> CaseWhereBranch<T, V>.with(
+@Suppress("UnusedReceiverParameter")
+inline fun <reified T : Any, reified V : T, reified X> CaseWhereBranch<T, V>.with(
     prop: KProperty1<V, X>,
-): JsonPathBuilder<T> {
-    val propPath = prop.builder().buildPath().removePrefix("\$")
-    val builder = JsonPathBuilder<T>()
-    builder.rawPath = payloadPath + propPath
-    return builder
-}
+): JsonPathBuilder<T> = T::class.with(prop)
 
 /**
  * Nested-path variant — chains `then` onto the variant property path.
  */
-inline fun <T : Any, reified V : T, reified X> CaseWhereBranch<T, V>.with(
+@Suppress("UnusedReceiverParameter")
+inline fun <reified T : Any, reified V : T, reified X> CaseWhereBranch<T, V>.with(
     prop: KProperty1<V, X>,
-    nested: JsonPathBuilder<V>.() -> JsonPathBuilder<V>,
-): JsonPathBuilder<T> {
-    val nestedPath = prop.builder<V, X>().nested().buildPath().removePrefix("\$")
-    val builder = JsonPathBuilder<T>()
-    builder.rawPath = payloadPath + nestedPath
-    return builder
-}
+    noinline block: JsonPathNode<T, X>.() -> Unit,
+): JsonPathBuilder<T> = T::class.with(prop, block = block)
 
 class CaseWhereBuilder<T : Any> @PublishedApi internal constructor(
     @PublishedApi internal val discriminatorPath: String,
-    @PublishedApi internal val payloadPath: String,
 ) {
     @PublishedApi internal val branches: MutableList<CaseWhere.Branch<T>> = mutableListOf()
     @PublishedApi internal var default: Where<T>? = null
     @PublishedApi internal var defaultSet: Boolean = false
 
     inline fun <reified V : T> whenIs(block: CaseWhereBranch<T, V>.() -> Where<T>) {
-        val pred = CaseWhereBranch<T, V>(payloadPath).block()
+        val pred = CaseWhereBranch<T, V>().block()
         branches += CaseWhere.Branch(
             discriminatorValue = serializer<V>().descriptor.serialName,
             predicate = pred,
@@ -150,7 +139,6 @@ inline fun <reified R : Any> KClass<R>.caseWhere(
     block: CaseWhereBuilder<R>.() -> Unit,
 ): Where<R> = CaseWhereBuilder<R>(
     discriminatorPath = "\$[0]",
-    payloadPath = "\$[1]",
 ).apply(block).build()
 
 /**

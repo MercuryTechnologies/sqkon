@@ -44,14 +44,6 @@ class JsonPathBuilder<R : Any>
     @PublishedApi
     internal var parentNode: JsonPathNode<R, *>? = null
 
-    /**
-     * Optional precomputed path override. When set, [buildPath] short-circuits
-     * to this string instead of walking [parentNode]. Used by call sites that
-     * synthesize a path from a string (e.g. variant payload roots in CaseWhere).
-     */
-    @PublishedApi
-    internal var rawPath: String? = null
-
     @PublishedApi
     internal inline fun <reified R1 : R, reified V> with(
         property: KProperty1<R, V>,
@@ -138,7 +130,6 @@ class JsonPathBuilder<R : Any>
     }
 
     fun buildPath(): String {
-        rawPath?.let { return it }
         return fieldNames().joinToString("", prefix = "\$")
     }
 }
