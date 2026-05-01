@@ -128,6 +128,46 @@ class CaseWhenSqlTest {
     }
 
     @Test
+    fun caseEqNull_emitsIsNullPredicate() {
+        val case = TestObject::sealed.case<TestObject, TestSealed> {
+            whenIs<TestSealed.Impl>(TestObject::sealed.then(TestSealed.Impl::boolean))
+        }
+
+        val q = (case eq null).toSqlQuery(increment = 1)
+
+        assertEquals(null, q.from)
+        assertEquals(
+            "((CASE WHEN json_extract(entity.value, ?) = ? THEN json_extract(entity.value, ?) END) IS NULL)",
+            q.where,
+        )
+        assertEquals(3, q.parameters)
+        assertEquals(
+            listOf("\$.sealed[0]", "Impl", "\$.sealed[1].boolean"),
+            captureBoundArgs(q.parameters, q.bindArgs),
+        )
+    }
+
+    @Test
+    fun caseNeqNull_emitsIsNotNullPredicate() {
+        val case = TestObject::sealed.case<TestObject, TestSealed> {
+            whenIs<TestSealed.Impl>(TestObject::sealed.then(TestSealed.Impl::boolean))
+        }
+
+        val q = (case neq null).toSqlQuery(increment = 1)
+
+        assertEquals(null, q.from)
+        assertEquals(
+            "((CASE WHEN json_extract(entity.value, ?) = ? THEN json_extract(entity.value, ?) END) IS NOT NULL)",
+            q.where,
+        )
+        assertEquals(3, q.parameters)
+        assertEquals(
+            listOf("\$.sealed[0]", "Impl", "\$.sealed[1].boolean"),
+            captureBoundArgs(q.parameters, q.bindArgs),
+        )
+    }
+
+    @Test
     fun caseIsNull_caseIsNotNull_emitNullPredicates() {
         val case = TestObject::sealed.case<TestObject, TestSealed> {
             whenIs<TestSealed.Impl>(TestObject::sealed.then(TestSealed.Impl::boolean))

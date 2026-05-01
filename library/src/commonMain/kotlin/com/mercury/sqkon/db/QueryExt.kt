@@ -538,6 +538,25 @@ private fun <T : Any, V> caseCompare(
     case: CaseWhen<T>,
     op: CaseOp,
     value: V?,
+): Where<T> {
+    // SQLite `<expr> = NULL` / `<expr> != NULL` are always NULL (never true). For
+    // `case eq null` / `case neq null` fall through to the unary IS NULL / IS NOT NULL
+    // form so the predicate matches expected null semantics. Other ops (gt/lt) keep
+    // binding the RHS — comparing to a null bound there is a caller bug, not ours to mask.
+    if (value == null) {
+        when (op) {
+            CaseOp.EQ -> return caseUnary(case, CaseNullOp.IS_NULL)
+            CaseOp.NEQ -> return caseUnary(case, CaseNullOp.IS_NOT_NULL)
+            CaseOp.GT, CaseOp.LT -> { /* fall through to bound form */ }
+        }
+    }
+    return caseCompareBound(case, op, value)
+}
+
+private fun <T : Any, V> caseCompareBound(
+    case: CaseWhen<T>,
+    op: CaseOp,
+    value: V?,
 ): Where<T> = object : Where<T>() {
     private fun fragment(): SqlValueFragment {
         val frag = case.toSqlValue()
