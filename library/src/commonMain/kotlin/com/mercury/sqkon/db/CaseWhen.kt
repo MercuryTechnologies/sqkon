@@ -58,6 +58,7 @@ class CaseWhenBuilder<T : Any> @PublishedApi internal constructor(
     }
 
     fun elseValue(valuePath: JsonPathBuilder<T>) {
+        require(elseValuePath == null) { "elseValue() may only be called once" }
         elseValuePath = valuePath.buildPath()
     }
 

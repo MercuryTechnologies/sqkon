@@ -8,6 +8,7 @@ import com.mercury.sqkon.TypeOneData
 import com.mercury.sqkon.TypeTwoData
 import org.junit.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 
 class CaseWhenSqlTest {
 
@@ -180,6 +181,18 @@ class CaseWhenSqlTest {
         val isNotNullQ = case.isNotNull().toSqlQuery(1)
         assertEquals(true, isNotNullQ.where!!.endsWith(") IS NOT NULL)"))
         assertEquals(3, isNotNullQ.parameters)
+    }
+
+    @Test
+    fun elseValue_calledTwice_throws() {
+        val ex = assertFailsWith<IllegalArgumentException> {
+            TestObject::sealed.case<TestObject, TestSealed> {
+                whenIs<TestSealed.Impl>(TestObject::sealed.then(TestSealed.Impl::boolean))
+                elseValue(TestObject::name.builder())
+                elseValue(TestObject::description.builder())
+            }
+        }
+        assertEquals(true, ex.message!!.contains("elseValue"))
     }
 
     @Test
