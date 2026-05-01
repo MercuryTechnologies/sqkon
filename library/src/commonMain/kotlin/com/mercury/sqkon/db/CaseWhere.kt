@@ -27,7 +27,7 @@ class CaseWhere<T : Any> internal constructor(
         val predicate: Where<T>,
     )
 
-    private fun buildFragment(): SqlValueFragment {
+    private val fragment: SqlValueFragment by lazy {
         require(branches.isNotEmpty() || defaultPredicate != null) {
             "caseWhere requires at least one whenIs/whenEq branch or a default { }"
         }
@@ -54,7 +54,7 @@ class CaseWhere<T : Any> internal constructor(
             binders += { pred.bindArgs(this) }
         }
 
-        return SqlValueFragment(
+        SqlValueFragment(
             sql = "(CASE ${parts.joinToString(" ")} END)",
             parameters = paramCount,
             bindArgs = { binders.forEach { it(this) } },
@@ -62,16 +62,15 @@ class CaseWhere<T : Any> internal constructor(
     }
 
     override fun toSqlQuery(increment: Int): SqlQuery {
-        val frag = buildFragment()
         return SqlQuery(
             from = null,
-            where = frag.sql,
-            parameters = frag.parameters,
-            bindArgs = frag.bindArgs,
+            where = fragment.sql,
+            parameters = fragment.parameters,
+            bindArgs = fragment.bindArgs,
         )
     }
 
-    override fun toScalarSqlValue(): SqlValueFragment = buildFragment()
+    override fun toScalarSqlValue(): SqlValueFragment = fragment
 }
 
 /**
