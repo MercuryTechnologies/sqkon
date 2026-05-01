@@ -10,6 +10,7 @@ on:
       - "gradle/libs.versions.toml"
       - "CHANGELOG.md"
       - "README.MD"
+      - "scripts/validate-docs.rb"
       - ".github/workflows/deploy-docs.yml"
   workflow_dispatch:
 
@@ -72,8 +73,26 @@ jobs:
         working-directory: docs
         run: bundle exec jekyll build
 
+      - name: Validate built HTML (smoke)
+        working-directory: docs
+        run: bundle exec ruby ../scripts/validate-docs.rb _site
+
       - name: Place Dokka output under /api
         run: cp -R library/build/dokka/html docs/_site/api
+
+      - name: Run html-proofer
+        # Runs AFTER Dokka is in place so cross-links from docs into /api/
+        # are actually validated. --ignore-files skips scanning Dokka's
+        # generated HTML for outbound links (Dokka has its own validation
+        # and scanning thousands of API pages would dominate CI time);
+        # link targets inside _site/api/ are still resolved by file lookup.
+        working-directory: docs
+        run: |
+          bundle exec htmlproofer ./_site \
+            --disable-external \
+            --allow-hash-href \
+            --swap-urls "^/sqkon:" \
+            --ignore-files "/_site\/api\//"
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v5

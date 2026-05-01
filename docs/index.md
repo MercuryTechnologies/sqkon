@@ -64,30 +64,30 @@ suspend fun loadFood(): List<Merchant> =
 
 ## Why Sqkon?
 
-<div class="feature-grid">
+<div class="feature-grid" markdown="0">
   <a class="feature-card" href="{{ '/getting-started/platform-setup/' | relative_url }}">
-    <h3>Kotlin Multiplatform</h3>
-    <p>One codebase, Android + JVM. iOS on the roadmap.</p>
+    <span class="feature-card__title">Kotlin Multiplatform</span>
+    <span class="feature-card__desc">One codebase, Android + JVM. iOS on the roadmap.</span>
   </a>
   <a class="feature-card" href="{{ '/guides/querying/' | relative_url }}">
-    <h3>JSONB queries</h3>
-    <p>Query nested fields and lists with a type-safe DSL — no manual SQL, no DAOs.</p>
+    <span class="feature-card__title">JSONB queries</span>
+    <span class="feature-card__desc">Query nested fields and lists with a type-safe DSL — no manual SQL, no DAOs.</span>
   </a>
   <a class="feature-card" href="{{ '/guides/flow/' | relative_url }}">
-    <h3>Reactive Flows</h3>
-    <p>Every read returns a <code>Flow</code>. Writes auto-invalidate observers.</p>
+    <span class="feature-card__title">Reactive Flows</span>
+    <span class="feature-card__desc">Every read returns a <code>Flow</code>. Writes auto-invalidate observers.</span>
   </a>
   <a class="feature-card" href="{{ '/guides/paging/' | relative_url }}">
-    <h3>AndroidX Paging</h3>
-    <p>Built-in keyset and offset <code>PagingSource</code>s for Compose and views.</p>
+    <span class="feature-card__title">AndroidX Paging</span>
+    <span class="feature-card__desc">Built-in keyset and offset <code>PagingSource</code>s for Compose and views.</span>
   </a>
   <a class="feature-card" href="{{ '/guides/expiry/' | relative_url }}">
-    <h3>TTL / Expiry</h3>
-    <p>First-class expiry on every entry. Perfect for caches.</p>
+    <span class="feature-card__title">TTL / Expiry</span>
+    <span class="feature-card__desc">First-class expiry on every entry. Perfect for caches.</span>
   </a>
   <a class="feature-card" href="{{ '/concepts/architecture/' | relative_url }}">
-    <h3>Built on SQLDelight</h3>
-    <p>Battle-tested SQLite, with type-safe codegen underneath.</p>
+    <span class="feature-card__title">Built on SQLDelight</span>
+    <span class="feature-card__desc">Battle-tested SQLite, with type-safe codegen underneath.</span>
   </a>
 </div>
 

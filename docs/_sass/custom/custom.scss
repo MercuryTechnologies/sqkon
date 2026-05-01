@@ -103,14 +103,20 @@ h1, h2, h3, h4 {
   }
 }
 
-.feature-card h3 {
-  margin-top: 0;
+// Card title/desc are <span> (not <h3>/<p>) so Just the Docs' anchor-heading
+// injection cannot nest an <a> inside our outer <a class="feature-card"> —
+// nested anchors get auto-closed by browsers and the cards render empty.
+.feature-card__title {
+  display: block;
+  margin-bottom: 0.4rem;
   color: $mercury-accent;
   font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
 }
 
-.feature-card p {
-  margin-bottom: 0;
+.feature-card__desc {
+  display: block;
   color: $mercury-text-mid;
   font-size: 0.95rem;
 }
