@@ -331,21 +331,39 @@ inline infix fun <reified T : Any, reified V, VALUE> KProperty1<T, V>.lt(value: 
  * This just wraps the passed in where clause.
  */
 data class Not<T : Any>(private val where: Where<T>) : Where<T>() {
+    // Two-path lowering:
+    //  * Inner already-scalar (from == null): wrap as `NOT (<where>)` directly.
+    //  * Inner uses a json_tree join (from != null): isolate the join inside a
+    //    correlated `NOT EXISTS` subquery so the negation is evaluated once per
+    //    outer `entity` row. Wrapping the join's WHERE with a flat `NOT (...)`
+    //    is unsound — a single entity produces many json_tree rows, and any
+    //    non-target row satisfies the negation, making every entity match.
+    //    NOT EXISTS also preserves correctness for list-path predicates whose
+    //    paths use the `$.list[%]` wildcard (valid for `fullkey LIKE`, not for
+    //    `json_extract`), which the pure scalar form cannot express.
     override fun toSqlQuery(increment: Int): SqlQuery {
-        val query = where.toSqlQuery(increment)
+        val inner = where.toSqlQuery(increment)
+        val innerWhere = inner.where ?: return SqlQuery(from = null, where = null)
+        if (inner.from == null) {
+            return SqlQuery(
+                from = null,
+                where = "NOT ($innerWhere)",
+                parameters = inner.parameters,
+                bindArgs = inner.bindArgs,
+            )
+        }
         return SqlQuery(
-            from = query.from,
-            where = "NOT (${query.where})",
-            parameters = query.parameters,
-            bindArgs = query.bindArgs,
-            orderBy = query.orderBy
+            from = null,
+            where = "NOT EXISTS (SELECT 1 FROM ${inner.from} WHERE $innerWhere)",
+            parameters = inner.parameters,
+            bindArgs = inner.bindArgs,
         )
     }
 
     override fun toScalarSqlValue(): SqlValueFragment {
         val inner = where.toScalarSqlValue()
         return SqlValueFragment(
-            sql = "(NOT ${inner.sql})",
+            sql = "NOT (${inner.sql})",
             parameters = inner.parameters,
             bindArgs = { inner.bindArgs(this) },
         )
