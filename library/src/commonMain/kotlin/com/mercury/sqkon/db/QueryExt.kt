@@ -331,14 +331,16 @@ inline infix fun <reified T : Any, reified V, VALUE> KProperty1<T, V>.lt(value: 
  * This just wraps the passed in where clause.
  */
 data class Not<T : Any>(private val where: Where<T>) : Where<T>() {
+    // Delegate to the inner Where's scalar form (json_extract-based, no json_tree join).
+    // Wrapping the json_tree form with NOT(...) is unsound: a single entity produces many
+    // json_tree rows, and NOT is satisfied by any non-target row, so every entity matches.
     override fun toSqlQuery(increment: Int): SqlQuery {
-        val query = where.toSqlQuery(increment)
+        val inner = where.toScalarSqlValue()
         return SqlQuery(
-            from = query.from,
-            where = "NOT (${query.where})",
-            parameters = query.parameters,
-            bindArgs = query.bindArgs,
-            orderBy = query.orderBy
+            from = null,
+            where = "(NOT ${inner.sql})",
+            parameters = inner.parameters,
+            bindArgs = { inner.bindArgs(this) },
         )
     }
 

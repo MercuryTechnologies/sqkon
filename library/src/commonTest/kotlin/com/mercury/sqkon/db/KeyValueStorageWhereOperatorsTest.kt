@@ -64,20 +64,15 @@ class KeyValueStorageWhereOperatorsTest {
     }
 
     @Test
-    fun not_select_isBrokenForJsonTreeJoin() = runTest {
-        // KNOWN BUG (MOB-3287): Not.toSqlQuery() wraps the json_tree WHERE with NOT (...),
-        // but a single entity has many json_tree rows (id, name, value, …). The NOT condition
-        // is satisfied by any non-matching row, so every entity is returned regardless.
-        // not(eq 30) should return 4 items but actually returns all 5.
-        // neq 30 is the correct way to exclude a value (returns 4 as expected).
+    fun not_invertsPredicate() = runTest {
         seedTestObjects()
         val viaNeq = store.select(where = TestObject::value neq 30).first()
         assertEquals(4, viaNeq.size)
         assertTrue(viaNeq.none { it.value == 30 })
 
-        // Document broken not() behaviour — returns ALL items rather than inverted set
         val viaNot = store.select(where = not(TestObject::value eq 30)).first()
-        assertEquals(5, viaNot.size) // all 5 returned — bug
+        assertEquals(4, viaNot.size)
+        assertTrue(viaNot.none { it.value == 30 })
     }
 
     @Test
