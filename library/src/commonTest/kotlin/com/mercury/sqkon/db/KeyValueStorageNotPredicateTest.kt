@@ -1,6 +1,7 @@
 package com.mercury.sqkon.db
 
 import com.mercury.sqkon.TestObject
+import com.mercury.sqkon.TestObjectChild
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
@@ -62,5 +63,45 @@ class KeyValueStorageNotPredicateTest {
         assertEquals(2, result.size)
         assertTrue(result.none { it.attributes?.contains("22") == true })
         assertEquals(setOf("a", "c"), result.map { it.id }.toSet())
+    }
+
+    @Test
+    fun not_overListPath_inList_excludesMatchingEntities() = runTest {
+        val items = listOf(
+            TestObject(id = "a", attributes = listOf("11", "12")),
+            TestObject(id = "b", attributes = listOf("21", "22")),
+            TestObject(id = "c", attributes = listOf("31", "32")),
+            TestObject(id = "d", attributes = listOf("41", "42")),
+        )
+        store.insertAll(items.associateBy { it.id })
+
+        val result = store.select(
+            where = not(TestObject::attributes inList listOf("22", "32")),
+        ).first()
+        assertEquals(setOf("a", "d"), result.map { it.id }.toSet())
+    }
+
+    // Nested list-path via `.then(...)` — path becomes `$.list[%].createdAt`.
+    // Ensures NOT EXISTS correctly inverts predicates that drill into list element fields.
+    @Test
+    fun not_overNestedListPath_excludesMatchingEntities() = runTest {
+        val target = kotlin.time.Instant.fromEpochSeconds(1_700_000_000)
+        val other = kotlin.time.Instant.fromEpochSeconds(1_800_000_000)
+        val matching = TestObject(
+            id = "match",
+            list = listOf(TestObjectChild(createdAt = target), TestObjectChild(createdAt = other)),
+        )
+        val unrelated = TestObject(
+            id = "other",
+            list = listOf(TestObjectChild(createdAt = other), TestObjectChild(createdAt = other)),
+        )
+        store.insertAll(mapOf(matching.id to matching, unrelated.id to unrelated))
+
+        val result = store.select(
+            where = not(
+                TestObject::list.then(TestObjectChild::createdAt) eq target.toString(),
+            ),
+        ).first()
+        assertEquals(listOf("other"), result.map { it.id })
     }
 }
