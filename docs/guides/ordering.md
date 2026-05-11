@@ -121,6 +121,30 @@ merchants.selectAll(
 ).first()
 ```
 
+## Ordering by a per-variant value (CASE)
+
+When the store holds a sealed type whose variants don't share a common
+field name — say "the timestamp this row last changed" lives at
+`activatedAt` for `Active` and `requestedAt` for `Pending` — pass a
+`CaseWhen<T>` to `OrderBy` and the store will sort by the right field
+per row:
+
+```kotlin
+val effectiveTime: CaseWhen<Status> = Status::class.case {
+    whenIs<Status.Active>(Status::class.with(Status.Active::activatedAt))
+    whenIs<Status.Pending>(Status::class.with(Status.Pending::requestedAt))
+}
+
+statusStore.select(
+    orderBy = listOf(OrderBy(effectiveTime, OrderDirection.DESC)),
+).first()
+```
+
+Rows whose variant has no matching `whenIs` branch fall through to NULL
+and sort to the end (SQLite default for NULLs). See
+[Querying → CASE / WHEN]({{ '/guides/querying/#case--when-per-variant-path-selection' | relative_url }})
+for the full builder syntax.
+
 ## Where to next
 
 - [Querying]({{ '/guides/querying/' | relative_url }}) — combine ordering with filters.

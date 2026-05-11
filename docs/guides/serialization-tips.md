@@ -100,6 +100,15 @@ See the [Querying guide]({{ '/guides/querying/' | relative_url }}) and
 [Nested fields]({{ '/guides/nested-fields/' | relative_url }}) for the
 full path-builder API.
 
+When you need to filter or order by a value whose **field name differs
+per variant** (e.g. `Active.activatedAt` vs `Pending.requestedAt`), use a
+`CaseWhen<T>` — see
+[Querying → CASE / WHEN]({{ '/guides/querying/#case--when-per-variant-path-selection' | relative_url }}).
+
+For the inverse case — same field name across variants but **different
+predicates** per variant (different operators, different RHS types) — see
+[Querying → CASE / WHEN: per-variant predicate selection]({{ '/guides/querying/#case--when-per-variant-predicate-selection' | relative_url }}).
+
 ## Polymorphism in stores
 
 You can open a `KeyValueStorage<Card>` and put both `CreditCard` and

@@ -4,12 +4,74 @@ import app.cash.sqldelight.db.SqlPreparedStatement
 import kotlin.reflect.KProperty1
 
 /**
+ * Scalar `(json_extract(entity.value, ?) <op> ?)` fragment, with `IS NULL` /
+ * `IS NOT NULL` fall-through for null values when [nullOpSql] is provided.
+ */
+private fun scalarBinop(
+    builder: JsonPathBuilder<*>,
+    opSql: String,
+    value: Any?,
+    nullOpSql: String? = null,
+): SqlValueFragment {
+    if (value == null && nullOpSql != null) return SqlValueFragment(
+        sql = "(json_extract(entity.value, ?) $nullOpSql)",
+        parameters = 1,
+        bindArgs = { bindString(builder.buildPath()) },
+    )
+    return SqlValueFragment(
+        sql = "(json_extract(entity.value, ?) $opSql ?)",
+        parameters = 2,
+        bindArgs = {
+            bindString(builder.buildPath())
+            bindValue(value)
+        },
+    )
+}
+
+/**
+ * Scalar `(json_extract(entity.value, ?) [NOT ]IN (?, ?, ...))` fragment, with
+ * a constant short-circuit when [values] is empty.
+ */
+private fun scalarInOp(
+    builder: JsonPathBuilder<*>,
+    notIn: Boolean,
+    values: Collection<*>,
+): SqlValueFragment {
+    if (values.isEmpty()) return SqlValueFragment(
+        sql = if (notIn) "(1)" else "(0)",
+        parameters = 0,
+        bindArgs = {},
+    )
+    val placeholders = values.joinToString(", ") { "?" }
+    val keyword = if (notIn) "NOT IN" else "IN"
+    return SqlValueFragment(
+        sql = "(json_extract(entity.value, ?) $keyword ($placeholders))",
+        parameters = 1 + values.size,
+        bindArgs = {
+            bindString(builder.buildPath())
+            values.forEach { bindValue(it) }
+        },
+    )
+}
+
+/**
  * Equivalent to `=` in SQL
  */
 data class Eq<T : Any, V>(
     private val builder: JsonPathBuilder<T>, private val value: V?,
 ) : Where<T>() {
     override fun toSqlQuery(increment: Int): SqlQuery {
+        // SQLite `<col> = NULL` always evaluates to NULL (never true), so for `eq null`
+        // we drop the json_tree join and emit `json_extract(entity.value, ?) IS NULL`
+        // — matching the scalar lowering's null special-case.
+        if (value == null) {
+            return SqlQuery(
+                from = null,
+                where = "(json_extract(entity.value, ?) IS NULL)",
+                parameters = 1,
+                bindArgs = { bindString(builder.buildPath()) },
+            )
+        }
         val treeName = "eq_$increment"
         return SqlQuery(
             from = "json_tree(entity.value, '$') as $treeName",
@@ -21,6 +83,9 @@ data class Eq<T : Any, V>(
             }
         )
     }
+
+    override fun toScalarSqlValue(): SqlValueFragment =
+        scalarBinop(builder, opSql = "=", value = value, nullOpSql = "IS NULL")
 }
 
 /**
@@ -42,6 +107,17 @@ data class NotEq<T : Any, V>(
     private val builder: JsonPathBuilder<T>, private val value: V?,
 ) : Where<T>() {
     override fun toSqlQuery(increment: Int): SqlQuery {
+        // SQLite `<col> != NULL` always evaluates to NULL (never true), so for `neq null`
+        // we drop the json_tree join and emit `json_extract(entity.value, ?) IS NOT NULL`
+        // — matching the scalar lowering's null special-case.
+        if (value == null) {
+            return SqlQuery(
+                from = null,
+                where = "(json_extract(entity.value, ?) IS NOT NULL)",
+                parameters = 1,
+                bindArgs = { bindString(builder.buildPath()) },
+            )
+        }
         val treeName = "eq_$increment"
         return SqlQuery(
             from = "json_tree(entity.value, '$') as $treeName",
@@ -53,6 +129,9 @@ data class NotEq<T : Any, V>(
             }
         )
     }
+
+    override fun toScalarSqlValue(): SqlValueFragment =
+        scalarBinop(builder, opSql = "!=", value = value, nullOpSql = "IS NOT NULL")
 }
 
 /**
@@ -85,6 +164,9 @@ data class In<T : Any, V>(
             }
         )
     }
+
+    override fun toScalarSqlValue(): SqlValueFragment =
+        scalarInOp(builder, notIn = false, values = value)
 }
 
 data class NotIn<T : Any, V>(
@@ -102,6 +184,9 @@ data class NotIn<T : Any, V>(
             }
         )
     }
+
+    override fun toScalarSqlValue(): SqlValueFragment =
+        scalarInOp(builder, notIn = true, values = value)
 }
 
 
@@ -147,6 +232,9 @@ data class Like<T : Any>(
             }
         )
     }
+
+    override fun toScalarSqlValue(): SqlValueFragment =
+        scalarBinop(builder, opSql = "LIKE", value = value)
 }
 
 /**
@@ -182,6 +270,9 @@ data class GreaterThan<T : Any, V>(
             }
         )
     }
+
+    override fun toScalarSqlValue(): SqlValueFragment =
+        scalarBinop(builder, opSql = ">", value = value)
 }
 
 /**
@@ -216,6 +307,9 @@ data class LessThan<T : Any, V>(
             }
         )
     }
+
+    override fun toScalarSqlValue(): SqlValueFragment =
+        scalarBinop(builder, opSql = "<", value = value)
 }
 
 /**
@@ -247,6 +341,15 @@ data class Not<T : Any>(private val where: Where<T>) : Where<T>() {
             orderBy = query.orderBy
         )
     }
+
+    override fun toScalarSqlValue(): SqlValueFragment {
+        val inner = where.toScalarSqlValue()
+        return SqlValueFragment(
+            sql = "(NOT ${inner.sql})",
+            parameters = inner.parameters,
+            bindArgs = { inner.bindArgs(this) },
+        )
+    }
 }
 
 /**
@@ -262,6 +365,16 @@ data class And<T : Any>(private val left: Where<T>, private val right: Where<T>)
         val leftQuery = left.toSqlQuery(increment * 10)
         val rightQuery = right.toSqlQuery((increment * 10) + 1)
         return SqlQuery(leftQuery, rightQuery, operator = "AND")
+    }
+
+    override fun toScalarSqlValue(): SqlValueFragment {
+        val l = left.toScalarSqlValue()
+        val r = right.toScalarSqlValue()
+        return SqlValueFragment(
+            sql = "(${l.sql} AND ${r.sql})",
+            parameters = l.parameters + r.parameters,
+            bindArgs = { l.bindArgs(this); r.bindArgs(this) },
+        )
     }
 }
 
@@ -279,6 +392,16 @@ data class Or<T : Any>(private val left: Where<T>, private val right: Where<T>) 
         val rightQuery = right.toSqlQuery((increment * 10) + 1)
         return SqlQuery(leftQuery, rightQuery, operator = "OR")
     }
+
+    override fun toScalarSqlValue(): SqlValueFragment {
+        val l = left.toScalarSqlValue()
+        val r = right.toScalarSqlValue()
+        return SqlValueFragment(
+            sql = "(${l.sql} OR ${r.sql})",
+            parameters = l.parameters + r.parameters,
+            bindArgs = { l.bindArgs(this); r.bindArgs(this) },
+        )
+    }
 }
 
 /**
@@ -288,21 +411,71 @@ infix fun <T : Any> Where<T>.or(other: Where<T>): Where<T> = Or(this, other)
 
 abstract class Where<T : Any> {
     abstract fun toSqlQuery(increment: Int): SqlQuery
+
+    /**
+     * Emits a scalar boolean SQL fragment using `json_extract` (no LATERAL joins).
+     * Used when this Where appears inside a CASE expression branch where row-level
+     * dispatch is required.
+     */
+    abstract fun toScalarSqlValue(): SqlValueFragment
 }
 
-data class OrderBy<T : Any>(
+sealed class OrderBy<T : Any> {
+    internal abstract val direction: OrderDirection?
+    internal abstract fun toSqlQuery(index: Int): SqlQuery
+}
+
+data class JsonPathOrderBy<T : Any> @PublishedApi internal constructor(
     private val builder: JsonPathBuilder<T>,
     /**
      * Sqlite defaults to ASC when not specified
      */
-    internal val direction: OrderDirection? = null,
-) {
-    val path: String = builder.buildPath()
+    override val direction: OrderDirection? = null,
+) : OrderBy<T>() {
+    private val path: String = builder.buildPath()
+
+    override fun toSqlQuery(index: Int): SqlQuery {
+        val treeName = "order_$index"
+        return SqlQuery(
+            from = "json_tree(entity.value, '$') as $treeName",
+            where = "$treeName.fullkey LIKE ?",
+            parameters = 1,
+            bindArgs = { bindString(path) },
+            orderBy = "$treeName.value ${direction?.value ?: ""}".trimEnd(),
+        )
+    }
 }
 
+data class CaseOrderBy<T : Any> internal constructor(
+    private val case: CaseWhen<T>,
+    override val direction: OrderDirection? = null,
+) : OrderBy<T>() {
+    override fun toSqlQuery(index: Int): SqlQuery {
+        val frag = case.toSqlValue()
+        return SqlQuery(
+            from = null,
+            where = null,
+            parameters = frag.parameters,
+            bindArgs = { frag.bindArgs(this) },
+            orderBy = "${frag.sql} ${direction?.value ?: ""}".trimEnd(),
+        )
+    }
+}
+
+fun <T : Any> OrderBy(
+    builder: JsonPathBuilder<T>,
+    direction: OrderDirection? = null,
+): OrderBy<T> = JsonPathOrderBy(builder, direction)
+
 inline fun <reified T : Any, reified V> OrderBy(
-    property: KProperty1<T, V>, direction: OrderDirection? = null,
-) = OrderBy(property.builder(), direction)
+    property: KProperty1<T, V>,
+    direction: OrderDirection? = null,
+): OrderBy<T> = JsonPathOrderBy(property.builder(), direction)
+
+fun <T : Any> OrderBy(
+    case: CaseWhen<T>,
+    direction: OrderDirection? = null,
+): OrderBy<T> = CaseOrderBy(case, direction)
 
 enum class OrderDirection(val value: String) {
     ASC(value = "ASC"),
@@ -311,16 +484,7 @@ enum class OrderDirection(val value: String) {
 
 fun List<OrderBy<*>>.toSqlQueries(): List<SqlQuery> {
     if (isEmpty()) return emptyList()
-    return mapIndexed { index, orderBy ->
-        val treeName = "order_$index"
-        SqlQuery(
-            from = "json_tree(entity.value, '$') as $treeName",
-            where = "$treeName.fullkey LIKE ?",
-            parameters = 1,
-            bindArgs = { bindString(orderBy.path) },
-            orderBy = "$treeName.value ${orderBy.direction?.value ?: ""}",
-        )
-    }
+    return mapIndexed { index, orderBy -> orderBy.toSqlQuery(index) }
 }
 
 data class SqlQuery(
@@ -366,6 +530,92 @@ internal fun List<SqlQuery>.sumParameters(): Int = sumOf { it.parameters }
 internal fun List<SqlQuery>.identifier(): Int = fold(0) { acc, sqlQuery ->
     31 * acc + sqlQuery.identifier()
 }
+
+private enum class CaseOp(val sql: String) { EQ("="), NEQ("!="), GT(">"), LT("<") }
+private enum class CaseNullOp(val sql: String) { IS_NULL("IS NULL"), IS_NOT_NULL("IS NOT NULL") }
+
+private fun <T : Any, V> caseCompare(
+    case: CaseWhen<T>,
+    op: CaseOp,
+    value: V?,
+): Where<T> {
+    // SQLite `<expr> = NULL` / `<expr> != NULL` are always NULL (never true). For
+    // `case eq null` / `case neq null` fall through to the unary IS NULL / IS NOT NULL
+    // form so the predicate matches expected null semantics. Other ops (gt/lt) keep
+    // binding the RHS — comparing to a null bound there is a caller bug, not ours to mask.
+    if (value == null) {
+        when (op) {
+            CaseOp.EQ -> return caseUnary(case, CaseNullOp.IS_NULL)
+            CaseOp.NEQ -> return caseUnary(case, CaseNullOp.IS_NOT_NULL)
+            CaseOp.GT, CaseOp.LT -> { /* fall through to bound form */ }
+        }
+    }
+    return caseCompareBound(case, op, value)
+}
+
+private fun <T : Any, V> caseCompareBound(
+    case: CaseWhen<T>,
+    op: CaseOp,
+    value: V?,
+): Where<T> = object : Where<T>() {
+    private fun fragment(): SqlValueFragment {
+        val frag = case.toSqlValue()
+        return SqlValueFragment(
+            sql = "(${frag.sql} ${op.sql} ?)",
+            parameters = frag.parameters + 1,
+            bindArgs = {
+                frag.bindArgs(this)
+                bindValue(value)
+            },
+        )
+    }
+
+    override fun toSqlQuery(increment: Int): SqlQuery {
+        val frag = fragment()
+        return SqlQuery(
+            from = null,
+            where = frag.sql,
+            parameters = frag.parameters,
+            bindArgs = frag.bindArgs,
+        )
+    }
+
+    override fun toScalarSqlValue(): SqlValueFragment = fragment()
+}
+
+private fun <T : Any> caseUnary(
+    case: CaseWhen<T>,
+    op: CaseNullOp,
+): Where<T> = object : Where<T>() {
+    private fun fragment(): SqlValueFragment {
+        val frag = case.toSqlValue()
+        return SqlValueFragment(
+            sql = "(${frag.sql} ${op.sql})",
+            parameters = frag.parameters,
+            bindArgs = { frag.bindArgs(this) },
+        )
+    }
+
+    override fun toSqlQuery(increment: Int): SqlQuery {
+        val frag = fragment()
+        return SqlQuery(
+            from = null,
+            where = frag.sql,
+            parameters = frag.parameters,
+            bindArgs = frag.bindArgs,
+        )
+    }
+
+    override fun toScalarSqlValue(): SqlValueFragment = fragment()
+}
+
+infix fun <T : Any, V> CaseWhen<T>.eq(value: V?): Where<T> = caseCompare(this, CaseOp.EQ, value)
+infix fun <T : Any, V> CaseWhen<T>.neq(value: V?): Where<T> = caseCompare(this, CaseOp.NEQ, value)
+infix fun <T : Any, V> CaseWhen<T>.gt(value: V?): Where<T> = caseCompare(this, CaseOp.GT, value)
+infix fun <T : Any, V> CaseWhen<T>.lt(value: V?): Where<T> = caseCompare(this, CaseOp.LT, value)
+
+fun <T : Any> CaseWhen<T>.isNull(): Where<T> = caseUnary(this, CaseNullOp.IS_NULL)
+fun <T : Any> CaseWhen<T>.isNotNull(): Where<T> = caseUnary(this, CaseNullOp.IS_NOT_NULL)
 
 class AutoIncrementSqlPreparedStatement(
     private var index: Int = 0,

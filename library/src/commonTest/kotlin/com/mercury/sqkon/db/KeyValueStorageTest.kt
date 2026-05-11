@@ -284,6 +284,34 @@ class KeyValueStorageTest {
     }
 
     @Test
+    fun select_byNullableField_eqNull_returnsRowsWithNull() = runTest {
+        val withNull = TestObject(nullable = null)
+        val withValue = TestObject(nullable = "present")
+        testObjectStorage.insertAll(mapOf(withNull.id to withNull, withValue.id to withValue))
+
+        val actual = testObjectStorage.select(
+            where = TestObject::nullable eq null
+        ).first()
+
+        assertEquals(1, actual.size)
+        assertEquals(withNull, actual.first())
+    }
+
+    @Test
+    fun select_byNullableField_neqNull_returnsRowsWithValue() = runTest {
+        val withNull = TestObject(nullable = null)
+        val withValue = TestObject(nullable = "present")
+        testObjectStorage.insertAll(mapOf(withNull.id to withNull, withValue.id to withValue))
+
+        val actual = testObjectStorage.select(
+            where = TestObject::nullable neq null
+        ).first()
+
+        assertEquals(1, actual.size)
+        assertEquals(withValue, actual.first())
+    }
+
+    @Test
     fun select_byEntityAttributeList() = runTest {
         val expected = (1..10).map { num ->
             TestObject(attributes = listOf("${num}1", "${num}2"))
