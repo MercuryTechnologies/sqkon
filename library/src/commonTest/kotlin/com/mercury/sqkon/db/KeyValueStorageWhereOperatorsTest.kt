@@ -64,20 +64,23 @@ class KeyValueStorageWhereOperatorsTest {
     }
 
     @Test
-    fun not_select_isBrokenForJsonTreeJoin() = runTest {
-        // KNOWN BUG (MOB-3287): Not.toSqlQuery() wraps the json_tree WHERE with NOT (...),
-        // but a single entity has many json_tree rows (id, name, value, …). The NOT condition
-        // is satisfied by any non-matching row, so every entity is returned regardless.
-        // not(eq 30) should return 4 items but actually returns all 5.
-        // neq 30 is the correct way to exclude a value (returns 4 as expected).
+    fun not_invertsPredicate_viaScalarLowering() = runTest {
+        // PR #48 (Mercury/sqkon) fixed Not.toSqlQuery() to delegate to the inner Where's
+        // scalar form (json_extract-based, no json_tree LATERAL join), so NOT now evaluates
+        // exactly once per entity row. not(eq X) and neq X must agree.
         seedTestObjects()
         val viaNeq = store.select(where = TestObject::value neq 30).first()
-        assertEquals(4, viaNeq.size)
-        assertTrue(viaNeq.none { it.value == 30 })
-
-        // Document broken not() behaviour — returns ALL items rather than inverted set
         val viaNot = store.select(where = not(TestObject::value eq 30)).first()
-        assertEquals(5, viaNot.size) // all 5 returned — bug
+
+        assertEquals(4, viaNeq.size)
+        assertEquals(4, viaNot.size)
+        assertTrue(viaNeq.none { it.value == 30 })
+        assertTrue(viaNot.none { it.value == 30 })
+        assertEquals(
+            viaNeq.map { it.id }.toSet(),
+            viaNot.map { it.id }.toSet(),
+            "not(eq X) and neq X must return the same entities post-fix",
+        )
     }
 
     @Test
