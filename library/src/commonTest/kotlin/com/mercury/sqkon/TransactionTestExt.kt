@@ -7,6 +7,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
@@ -37,9 +38,9 @@ suspend fun <T> assertVisibilityOrder(
         assertEquals(initial, midRead.await())
         // post-commit emission
         val post = awaitItem()
-        check(matchPost(post)) { "post-commit flow emission did not match: $post" }
+        assertTrue(matchPost(post), "post-commit flow emission did not match: $post")
         // post-commit reader sees the new value
-        check(matchPost(reader())) { "post-commit reader did not match" }
+        assertTrue(matchPost(reader()), "post-commit reader did not match")
         cancelAndIgnoreRemainingEvents()
     }
 }
