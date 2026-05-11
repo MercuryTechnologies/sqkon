@@ -1,14 +1,20 @@
 package com.mercury.sqkon.db
 
 import com.mercury.sqkon.TestObject
+import com.mercury.sqkon.until
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 import org.junit.After
 import org.junit.Test
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.assertEquals
+import kotlin.time.Duration.Companion.milliseconds
 
 class KeyValueStorageTransactionTest {
 
@@ -52,15 +58,14 @@ class KeyValueStorageTransactionTest {
         storage.transaction {
             storage.insert("k", TestObject())
             afterCommit {
-                // by the time this fires, the write must be visible
-                val visible = kotlinx.coroutines.runBlocking { storage.count().first() }
+                // runBlocking is intentional — afterCommit runs on the real commit thread,
+                // not the runTest scheduler. By the time this fires, the write must be visible.
+                val visible = runBlocking { storage.count().first() }
                 check(visible == 1) { "afterCommit ran before commit visible: $visible" }
                 seen.incrementAndGet()
             }
         }
-        // give afterCommit microtask time to land
-        kotlinx.coroutines.delay(50)
-        assertEquals(1, seen.get())
+        until { seen.get() == 1 }
     }
 
     @Test
@@ -73,7 +78,8 @@ class KeyValueStorageTransactionTest {
                 rollback()
             }
         }
-        kotlinx.coroutines.delay(50)
+        // Give any spurious afterCommit microtask a real-wall window to land, then assert silence.
+        withContext(Dispatchers.Default) { delay(AFTER_COMMIT_SETTLE) }
         assertEquals(0, fired.get())
         assertEquals(0, storage.count().first())
     }
@@ -91,9 +97,13 @@ class KeyValueStorageTransactionTest {
             // at this point neither afterCommit should have run yet
             assertEquals(0, fired.get())
         }
-        kotlinx.coroutines.delay(50)
         // Both callbacks registered; both must fire after the OUTERMOST commit.
-        assertEquals(2, fired.get())
+        until { fired.get() == 2 }
+    }
+
+    private companion object {
+        /** Wall-clock window for the metadata-write afterCommit microtask to settle. */
+        val AFTER_COMMIT_SETTLE = 50.milliseconds
     }
 
 }

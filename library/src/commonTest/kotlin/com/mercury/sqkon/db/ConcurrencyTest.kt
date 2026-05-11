@@ -48,9 +48,11 @@ class ConcurrencyTest {
             }
             val results = readers.awaitAll()
             writer.await()
-            results.forEach { assertTrue(it >= 1) }
+            results.forEachIndexed { i, count ->
+                assertTrue(count >= 1, "reader $i returned $count, expected >= 1")
+            }
         }
-        entityQueries.slowWrite = false
+        // slowWrite reset happens in @After; no need to reset twice.
         assertEquals(2, store.count().first())
     }
 
