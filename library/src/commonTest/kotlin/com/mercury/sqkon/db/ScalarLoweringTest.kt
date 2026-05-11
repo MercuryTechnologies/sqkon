@@ -93,7 +93,7 @@ class ScalarLoweringTest {
         val w = not(TestObject::name eq "Hidden")
         val frag = w.toScalarSqlValue()
         assertEquals(
-            "(NOT (json_extract(entity.value, ?) = ?))",
+            "NOT ((json_extract(entity.value, ?) = ?))",
             frag.sql,
         )
     }

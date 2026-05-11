@@ -44,4 +44,23 @@ class KeyValueStorageNotPredicateTest {
         val result = store.select(where = not(TestObject::name eq null)).first()
         assertEquals(5, result.size)
     }
+
+    // List-path regression: `attributes` builds `$.attributes[%]`, which is a
+    // `json_tree.fullkey LIKE` pattern (not a valid `json_extract` path). The pure
+    // scalar lowering of NOT would silently produce wrong results for this case;
+    // the correlated `NOT EXISTS` lowering keeps it correct.
+    @Test
+    fun not_overListPath_excludesMatchingEntities() = runTest {
+        val items = listOf(
+            TestObject(id = "a", attributes = listOf("11", "12")),
+            TestObject(id = "b", attributes = listOf("21", "22")),
+            TestObject(id = "c", attributes = listOf("31", "32")),
+        )
+        store.insertAll(items.associateBy { it.id })
+
+        val result = store.select(where = not(TestObject::attributes eq "22")).first()
+        assertEquals(2, result.size)
+        assertTrue(result.none { it.attributes?.contains("22") == true })
+        assertEquals(setOf("a", "c"), result.map { it.id }.toSet())
+    }
 }
