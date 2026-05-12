@@ -5,6 +5,7 @@ import kotlinx.serialization.descriptors.PolymorphicKind
 import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.descriptors.StructureKind
 import kotlinx.serialization.serializer
+import kotlin.jvm.JvmName
 import kotlin.reflect.KClass
 import kotlin.reflect.KProperty1
 import kotlin.reflect.KType
@@ -80,7 +81,7 @@ class JsonPathBuilder<R : Any>
 
     // Handles collection property type and extracts the element type vs the list type
     @PublishedApi
-    @kotlin.jvm.JvmName("withList")
+    @JvmName("withList")
     internal inline fun <reified R1 : R, reified V : Any?> with(
         property: KProperty1<R, Collection<V>>,
         serialName: String? = null,
@@ -161,7 +162,7 @@ inline fun <reified R : Any, reified V : Any?, reified V1 : V, reified V2> KProp
         }
 }
 
-@kotlin.jvm.JvmName("thenFromList")
+@JvmName("thenFromList")
 inline fun <reified R : Any, reified V, reified V1 : V, reified V2> KProperty1<R, Collection<V>>.then(
     property: KProperty1<V1, V2>,
     fromSerialName: String? = null,
@@ -175,7 +176,7 @@ inline fun <reified R : Any, reified V, reified V1 : V, reified V2> KProperty1<R
 }
 
 
-@kotlin.jvm.JvmName("thenList")
+@JvmName("thenList")
 inline fun <reified R : Any, reified V, reified V2> KProperty1<R, V>.then(
     property: KProperty1<out V, Collection<V2>>,
     block: JsonPathNode<out V, V2>.() -> Unit = {}
@@ -247,7 +248,7 @@ internal constructor(
      *
      * This returns the Collection element type, so you can chain into the next property.
      */
-    @kotlin.jvm.JvmName("thenList")
+    @JvmName("thenList")
     inline fun <reified V2 : Any?> then(
         property: KProperty1<out V, Collection<V2>>,
         serialName: String? = null,
