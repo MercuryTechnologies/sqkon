@@ -25,6 +25,7 @@ fun Sqkon(
  *
  * @param dbFileName name of the db file on disk, if null we create an in-memory db
  */
+@JvmOverloads
 fun Sqkon(
     context: Context,
     scope: CoroutineScope,

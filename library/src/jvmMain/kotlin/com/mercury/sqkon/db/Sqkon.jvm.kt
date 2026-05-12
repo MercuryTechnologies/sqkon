@@ -5,6 +5,7 @@ import com.mercury.sqkon.db.serialization.SqkonJson
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.serialization.json.Json
 
+@JvmOverloads
 fun Sqkon(
     scope: CoroutineScope,
     json: Json = SqkonJson { },

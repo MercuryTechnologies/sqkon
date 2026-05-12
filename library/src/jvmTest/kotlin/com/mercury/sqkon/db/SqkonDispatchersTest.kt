@@ -3,7 +3,6 @@ package com.mercury.sqkon.db
 import com.mercury.sqkon.TestObject
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.StandardTestDispatcher
-import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -17,7 +16,7 @@ class SqkonDispatchersTest {
         val dispatchers = SqkonDispatchers(read = testRead, write = testWrite)
 
         val sqkon = Sqkon(
-            scope = TestScope(testScheduler),
+            scope = backgroundScope,
             dispatchers = dispatchers,
         )
 

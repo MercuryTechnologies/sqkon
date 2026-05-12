@@ -1,10 +1,12 @@
-# Sqkon Phase 1 — KMP Source-Set Scaffold (iOS + WasmJs) + `SqkonDispatchers`
+# Sqkon Phase 1 — KMP Source-Set Scaffold (iOS) + `SqkonDispatchers`
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Linear ticket:** [MOB-3288](https://linear.app/mercury/issue/MOB-3288/sqkon-migration-phase-1-kmp-source-set-scaffold-ios-wasmjs)
 **Blocked by:** MOB-3287 (Phase 0 — merged in PR #49)
 **Blocks:** MOB-3289 (Phase 2 — internal `SqkonDriver` abstraction)
+
+> **Scope note (post-implementation):** WasmJs was originally part of this plan, but was deferred during implementation. `androidx.sqlite-bundled`, `androidx.sqlite`, and `com.eygraber:sqldelight-androidx-driver` don't publish wasmJs klibs, so the target's dependency resolution fails before compile. Supporting wasmJs requires moving those deps out of `commonMain` into a shared `androidJvmIosMain` source set — a larger restructure that belongs in its own ticket. **This PR ships iOS-only.** All references below to "iOS + WasmJs", `wasmJs { browser(); nodejs() }`, `wasmJsMain`, the wasmJs matrix entry in CI, etc. were planned but not delivered.
 
 ---
 
