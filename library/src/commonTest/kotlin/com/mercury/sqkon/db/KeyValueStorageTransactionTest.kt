@@ -38,7 +38,7 @@ class KeyValueStorageTransactionTest {
     }
 
     @Test
-    fun nestedRollback_rollsBackInnerOnly_perSqlDelightSemantics() = runTest {
+    fun nestedRollback_rollsBackEnclosingTransaction_noSavepointSemantics() = runTest {
         storage.transaction {
             storage.insert("outer", TestObject())
             storage.transaction {

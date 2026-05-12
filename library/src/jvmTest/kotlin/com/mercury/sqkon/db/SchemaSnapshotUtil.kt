@@ -42,8 +42,15 @@ internal object SchemaSnapshotUtil {
         appendLine(pragmaUserVersion(driver))
     }
 
+    /**
+     * Strip SQL `-- ...` line comments (which run to EOL) before collapsing whitespace,
+     * otherwise newline removal would smash everything after `--` onto one comment line.
+     */
     private fun normalise(s: String?): String =
-        (s ?: "").replace(Regex("\\s+"), " ").trim()
+        (s ?: "")
+            .replace(Regex("--[^\n]*"), "")
+            .replace(Regex("\\s+"), " ")
+            .trim()
 
     private data class MasterRow(val type: String, val name: String, val tblName: String, val sql: String?)
     private data class TableInfoRow(val cid: Long, val name: String, val type: String, val notnull: Long, val dflt: String?, val pk: Long)

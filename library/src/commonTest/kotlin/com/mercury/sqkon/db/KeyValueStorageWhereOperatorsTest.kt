@@ -84,7 +84,7 @@ class KeyValueStorageWhereOperatorsTest {
     }
 
     @Test
-    fun andOrNesting_evaluatesLeftToRight() = runTest {
+    fun andOrNesting_withExplicitGrouping() = runTest {
         seedTestObjects()
         // (value > 19 AND value < 41) OR value == 50  →  {20, 30, 40, 50}
         val where = ((TestObject::value gt 19) and (TestObject::value lt 41)) or (TestObject::value eq 50)

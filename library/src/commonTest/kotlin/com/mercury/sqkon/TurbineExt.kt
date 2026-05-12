@@ -11,8 +11,12 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * Assert no item is emitted within [window]. Use to prove that a write to one store
- * does NOT trigger a Flow over a different store. Drains anything already queued first.
+ * Wait [window] of real wall-clock time, then assert that no item was emitted. Use
+ * to prove that a write to one store does NOT trigger a Flow over a different store.
+ *
+ * Does NOT pre-drain queued events: if the turbine already has buffered items when
+ * called, [expectNoEvents] will fail. Callers must consume any expected emissions
+ * (e.g. the initial `emptyList`) via `awaitItem()` before invoking this helper.
  *
  * The delay runs on [Dispatchers.Default] so virtual-time test schedulers cannot
  * short-circuit the wall-clock window.

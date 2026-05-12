@@ -6,7 +6,7 @@
 [index] name=idx_entity_write_at tbl=entity
   sql: CREATE INDEX idx_entity_write_at ON entity (write_at)
 [table] name=entity tbl=entity
-  sql: CREATE TABLE entity ( entity_name TEXT NOT NULL, entity_key TEXT NOT NULL, -- UTC timestamp in milliseconds added_at INTEGER NOT NULL DEFAULT CURRENT_TIMESTAMP, -- UTC timestamp in milliseconds updated_at INTEGER NOT NULL DEFAULT CURRENT_TIMESTAMP, -- UTC timestamp in milliseconds expires_at INTEGER, -- JSONB Blob use jsonb_ operators value BLOB NOT NULL, -- UTC timestamp in milliseconds read_at INTEGER, -- UTC timestamp in milliseconds write_at INTEGER, PRIMARY KEY (entity_name, entity_key) )
+  sql: CREATE TABLE entity ( entity_name TEXT NOT NULL, entity_key TEXT NOT NULL, added_at INTEGER NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at INTEGER NOT NULL DEFAULT CURRENT_TIMESTAMP, expires_at INTEGER, value BLOB NOT NULL, read_at INTEGER, write_at INTEGER, PRIMARY KEY (entity_name, entity_key) )
 [table] name=metadata tbl=metadata
   sql: CREATE TABLE metadata ( entity_name TEXT NOT NULL PRIMARY KEY, lastReadAt INTEGER, lastWriteAt INTEGER )
 
