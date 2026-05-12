@@ -228,6 +228,50 @@ class KeysetPagingTest {
     }
 
     @Test
+    fun keysetPaging_getRefreshKey_onFreshSource_returnsAnchorPageLoadKey() = runTest {
+        // Regression: Paging3 calls getRefreshKey on a new PagingSource before
+        // its first load(), so refresh key must derive from state. Asserts the
+        // EXACT load key for the anchor page — a naive prevKey/nextKey would
+        // return an adjacent key and silently shift position by a page.
+        val items = (1..50).map { TestObject() }.associateBy { it.id }
+        testObjectStorage.insertAll(items)
+
+        val config = PagingConfig(pageSize = 10, prefetchDistance = 0, initialLoadSize = 10)
+        val sourceA = testObjectStorage.selectKeysetPagingSource(pageSize = 10)
+        val pagerA = TestPager(config, sourceA)
+        with(pagerA) { refresh(); append(); append() }
+        // Anchor at index 25 → 3rd loaded page (items 20-29).
+        val state = pagerA.getPagingState(anchorPosition = 25)
+        // The anchor page's load key equals the prior page's nextKey.
+        val expectedKey = state.pages[1].nextKey
+        assertNotNull(expectedKey, "Fixture invariant: page[1].nextKey is non-null")
+
+        val sourceB = testObjectStorage.selectKeysetPagingSource(pageSize = 10)
+        assertEquals(
+            expectedKey, sourceB.getRefreshKey(state),
+            "Refresh key must equal the anchor page's load key, not an adjacent one"
+        )
+    }
+
+    @Test
+    fun keysetPaging_getRefreshKey_anchorInFirstLoadedPage() = runTest {
+        // When the anchor falls in the first loaded page, the anchor's load key
+        // equals pages[1].prevKey — still recoverable from state without shift.
+        val items = (1..50).map { TestObject() }.associateBy { it.id }
+        testObjectStorage.insertAll(items)
+
+        val config = PagingConfig(pageSize = 10, prefetchDistance = 0, initialLoadSize = 10)
+        val sourceA = testObjectStorage.selectKeysetPagingSource(pageSize = 10)
+        val pagerA = TestPager(config, sourceA)
+        with(pagerA) { refresh(); append() }
+        val state = pagerA.getPagingState(anchorPosition = 3)
+        val expectedKey = state.pages[1].prevKey
+
+        val sourceB = testObjectStorage.selectKeysetPagingSource(pageSize = 10)
+        assertEquals(expectedKey, sourceB.getRefreshKey(state))
+    }
+
+    @Test
     fun keysetPageEmptyDataset() = runTest {
         val config = PagingConfig(pageSize = 10, prefetchDistance = 0, initialLoadSize = 10)
         val pager = TestPager(config, testObjectStorage.selectKeysetPagingSource(pageSize = 10))
