@@ -80,7 +80,7 @@ class JsonPathBuilder<R : Any>
 
     // Handles collection property type and extracts the element type vs the list type
     @PublishedApi
-    @JvmName("withList")
+    @kotlin.jvm.JvmName("withList")
     internal inline fun <reified R1 : R, reified V : Any?> with(
         property: KProperty1<R, Collection<V>>,
         serialName: String? = null,
@@ -161,7 +161,7 @@ inline fun <reified R : Any, reified V : Any?, reified V1 : V, reified V2> KProp
         }
 }
 
-@JvmName("thenFromList")
+@kotlin.jvm.JvmName("thenFromList")
 inline fun <reified R : Any, reified V, reified V1 : V, reified V2> KProperty1<R, Collection<V>>.then(
     property: KProperty1<V1, V2>,
     fromSerialName: String? = null,
@@ -175,7 +175,7 @@ inline fun <reified R : Any, reified V, reified V1 : V, reified V2> KProperty1<R
 }
 
 
-@JvmName("thenList")
+@kotlin.jvm.JvmName("thenList")
 inline fun <reified R : Any, reified V, reified V2> KProperty1<R, V>.then(
     property: KProperty1<out V, Collection<V2>>,
     block: JsonPathNode<out V, V2>.() -> Unit = {}
@@ -247,7 +247,7 @@ internal constructor(
      *
      * This returns the Collection element type, so you can chain into the next property.
      */
-    @JvmName("thenList")
+    @kotlin.jvm.JvmName("thenList")
     inline fun <reified V2 : Any?> then(
         property: KProperty1<out V, Collection<V2>>,
         serialName: String? = null,

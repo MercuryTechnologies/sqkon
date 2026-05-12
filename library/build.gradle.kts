@@ -46,6 +46,8 @@ kotlin {
     }
     jvmToolchain(21)
     jvm()
+    iosArm64()
+    iosSimulatorArm64()
     sourceSets {
         commonMain.dependencies {
             implementation(libs.androidx.sqlite.core)
