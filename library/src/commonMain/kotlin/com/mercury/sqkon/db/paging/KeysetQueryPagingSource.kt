@@ -94,12 +94,11 @@ internal class KeysetQueryPagingSource<T : Any>(
     }
 
     override fun getRefreshKey(state: PagingState<String, T>): String? {
-        val boundaries = pageBoundaries ?: return null
+        // Must derive from state, not the instance's pageBoundaries — Paging3
+        // calls this on a fresh source before its first load(). prevKey/nextKey
+        // land on an adjacent page, keeping the user near their scroll position.
         val anchorPosition = state.anchorPosition ?: return null
         val anchorPage = state.closestPageToPosition(anchorPosition) ?: return null
-        val keyIndexFromPrev = anchorPage.prevKey?.let { boundaries.indexOf(it) + 1 }
-        val keyIndexFromNext = anchorPage.nextKey?.let { boundaries.indexOf(it) - 1 }
-        val keyIndex = keyIndexFromPrev ?: keyIndexFromNext ?: return null
-        return boundaries.getOrNull(keyIndex)
+        return anchorPage.prevKey ?: anchorPage.nextKey
     }
 }

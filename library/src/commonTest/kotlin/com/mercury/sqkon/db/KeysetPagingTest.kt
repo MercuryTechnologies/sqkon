@@ -228,6 +228,34 @@ class KeysetPagingTest {
     }
 
     @Test
+    fun keysetPaging_getRefreshKey_onFreshSource_returnsKeyFromState() = runTest {
+        // Regression: Paging3 calls getRefreshKey on a NEW PagingSource instance
+        // BEFORE its first load() — pageBoundaries is null on the fresh instance.
+        // The refresh key must be derived from the prior PagingState, not from the
+        // instance's lazily-computed boundary list, otherwise refresh restarts from
+        // key=null and the user loses scroll position after invalidation.
+        val items = (1..50).map { TestObject() }.associateBy { it.id }
+        testObjectStorage.insertAll(items)
+
+        val config = PagingConfig(pageSize = 10, prefetchDistance = 0, initialLoadSize = 10)
+
+        val sourceA = testObjectStorage.selectKeysetPagingSource(pageSize = 10)
+        val pagerA = TestPager(config, sourceA)
+        with(pagerA) {
+            refresh()
+            append()
+            append()
+        }
+        val state = pagerA.getPagingState(anchorPosition = 25)
+
+        // Fresh source — load() has never run, pageBoundaries is null.
+        val sourceB = testObjectStorage.selectKeysetPagingSource(pageSize = 10)
+        val refreshKey = sourceB.getRefreshKey(state)
+
+        assertNotNull(refreshKey, "Fresh PagingSource must derive refresh key from state")
+    }
+
+    @Test
     fun keysetPageEmptyDataset() = runTest {
         val config = PagingConfig(pageSize = 10, prefetchDistance = 0, initialLoadSize = 10)
         val pager = TestPager(config, testObjectStorage.selectKeysetPagingSource(pageSize = 10))
