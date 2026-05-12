@@ -159,3 +159,24 @@ data class Shipment(
     val returnedAt: Long? = null,
     val flagged: Boolean = false,
 )
+
+/**
+ * Designed to serialize to a JSON payload > 1 MB so the 1MB-blob round-trip test
+ * exercises BLOB I/O end-to-end. Default `payload` is a 1 MiB ASCII string.
+ */
+@Serializable
+data class LargeTestObject(
+    val id: String,
+    val payload: String = "x".repeat(1 shl 20), // 1 MiB
+)
+
+/**
+ * All-nullable fields for IS NULL / IS NOT NULL operator coverage.
+ */
+@Serializable
+data class NullableTestObject(
+    val id: String,
+    val name: String? = null,
+    val count: Int? = null,
+    val flag: Boolean? = null,
+)
