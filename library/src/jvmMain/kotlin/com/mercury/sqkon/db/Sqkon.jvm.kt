@@ -10,6 +10,7 @@ fun Sqkon(
     json: Json = SqkonJson { },
     type: AndroidxSqliteDatabaseType = AndroidxSqliteDatabaseType.Memory,
     config: KeyValueStorage.Config = KeyValueStorage.Config(),
+    dispatchers: SqkonDispatchers = defaultSqkonDispatchers,
 ): Sqkon {
     val factory = DriverFactory(type)
     val driver = factory.createDriver()
@@ -17,7 +18,6 @@ fun Sqkon(
     val entityQueries = EntityQueries(driver)
     return Sqkon(
         entityQueries, metadataQueries, scope, json, config,
-        readDispatcher = dbReadDispatcher,
-        writeDispatcher = dbWriteDispatcher,
+        dispatchers = dispatchers,
     )
 }

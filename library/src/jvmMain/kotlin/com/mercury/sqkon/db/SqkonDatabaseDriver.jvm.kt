@@ -13,11 +13,11 @@ import kotlinx.coroutines.Dispatchers
 internal actual const val connectionPoolSize = 4 // Default is 4 as per AndroidxSqliteConfiguration
 
 @PublishedApi
-internal actual val dbWriteDispatcher by lazy { Dispatchers.IO.limitedParallelism(1) }
-
-@PublishedApi
-internal actual val dbReadDispatcher by lazy {
-    Dispatchers.IO.limitedParallelism(connectionPoolSize)
+internal actual val defaultSqkonDispatchers: SqkonDispatchers by lazy {
+    SqkonDispatchers(
+        read = Dispatchers.IO.limitedParallelism(connectionPoolSize),
+        write = Dispatchers.IO.limitedParallelism(1),
+    )
 }
 
 internal actual class DriverFactory(

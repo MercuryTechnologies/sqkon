@@ -603,8 +603,8 @@ inline fun <reified T : Any> keyValueStorage(
     scope: CoroutineScope,
     serializer: SqkonSerializer = KotlinSqkonSerializer(),
     config: KeyValueStorage.Config = KeyValueStorage.Config(),
-    readDispatcher: CoroutineDispatcher = dbReadDispatcher,
-    writeDispatcher: CoroutineDispatcher = dbWriteDispatcher,
+    readDispatcher: CoroutineDispatcher = defaultSqkonDispatchers.read,
+    writeDispatcher: CoroutineDispatcher = defaultSqkonDispatchers.write,
     transactor: SqkonTransacter = SqkonTransacter(entityQueries.sqlDriver),
 ): KeyValueStorage<T> {
     return KeyValueStorage(
