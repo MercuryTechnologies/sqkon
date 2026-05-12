@@ -6,6 +6,7 @@ import kotlinx.coroutines.Dispatchers
 internal actual val connectionPoolSize: Int = 1
 
 @PublishedApi
+// TODO(MOB-3293): single-thread write dispatcher
 internal actual val defaultSqkonDispatchers: SqkonDispatchers = SqkonDispatchers(
     read = Dispatchers.Default,
     write = Dispatchers.Default,

@@ -56,7 +56,7 @@ class ConcurrencyTest {
         assertEquals(2, store.count().first())
     }
 
-    // DISCOVERY (MOB-3287): The slowWrite Thread.sleep(100) fires after driver.execute() completes
+    // DISCOVERY (MOB-3287): The slowWrite 100ms blocking delay fires after driver.execute() completes
     // within the transaction block. SQLDelight's driver.execute() inside transaction{} commits the
     // SQL before returning, so any concurrent reader observes the new value immediately — even
     // during the sleep. WAL MultipleReadersSingleWriter is active but the write lock is released
