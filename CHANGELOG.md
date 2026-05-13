@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.1.0](https://github.com/MercuryTechnologies/sqkon/compare/2.0.0...2.1.0) (2026-05-13)
+
+
+### Features
+
+* ios scaffold + SqkonDispatchers refactor (MOB-3288) ([#50](https://github.com/MercuryTechnologies/sqkon/issues/50)) ([5f7ce58](https://github.com/MercuryTechnologies/sqkon/commit/5f7ce581e789fcdf64a9c09c1c6114619bb74a3a))
+
+
+### Bug Fixes
+
+* keyset paging survives mediator writes mid-load ([#53](https://github.com/MercuryTechnologies/sqkon/issues/53)) ([b2dae78](https://github.com/MercuryTechnologies/sqkon/commit/b2dae78b306381fc5b0c23700830ee0e844356b0))
+
 ## [2.0.0](https://github.com/MercuryTechnologies/sqkon/compare/1.3.2...2.0.0) (2026-05-12)
 
 
