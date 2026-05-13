@@ -362,6 +362,12 @@ open class KeyValueStorage<T : Any>(
             orderBy = orderBy,
             expiresAt = expiresAfter,
         )
+        val boundaryForKeyProvider = entityQueries.selectBoundaryForKey(
+            entityName = entityName,
+            where = where,
+            orderBy = orderBy,
+            expiresAt = expiresAfter,
+        )
         return KeysetQueryPagingSource(
             queryProvider = { begin, end ->
                 queryProvider(begin, end).also { query ->
@@ -369,6 +375,7 @@ open class KeyValueStorage<T : Any>(
                 }
             },
             pageBoundariesProvider = pageBoundariesProvider,
+            boundaryForKeyProvider = boundaryForKeyProvider,
             transacter = entityQueries,
             context = readDispatcher,
             deserialize = { it.deserialize() },

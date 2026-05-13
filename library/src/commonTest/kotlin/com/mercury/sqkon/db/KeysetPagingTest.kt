@@ -3,6 +3,7 @@ package com.mercury.sqkon.db
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.PagingData
+import androidx.paging.PagingSource
 import androidx.paging.PagingSource.LoadResult
 import androidx.paging.testing.TestPager
 import androidx.paging.testing.asSnapshot
@@ -269,6 +270,105 @@ class KeysetPagingTest {
 
         val sourceB = testObjectStorage.selectKeysetPagingSource(pageSize = 10)
         assertEquals(expectedKey, sourceB.getRefreshKey(state))
+    }
+
+    @Test
+    fun keysetPaging_refresh_withStaleBoundaryKey_snapsToContainingPage() = runTest {
+        // Simulates the RemoteMediator-writes-mid-load scenario:
+        //   1. Old source had boundaries at "key-001", "key-011", "key-021".
+        //   2. getRefreshKey on a fresh source yields "key-011" (anchor page's load key).
+        //   3. Mediator-style insert adds keys "key-005-injected-1..5" — sorts lex
+        //      between "key-005" and "key-006", shifting "key-011" from rn=11 to rn=16.
+        //      New boundaries (pageSize=10 against 35 rows): "key-001", "key-006",
+        //      "key-016", "key-026". "key-011" is no longer a boundary.
+        //   4. load(params.key = "key-011") MUST snap to "key-006" (page containing it),
+        //      NOT throw `Key key-011 not found in page boundaries`.
+        val initial = (1..30).associate { i ->
+            val id = "key-${i.toString().padStart(3, '0')}"
+            id to TestObject(id = id, value = i)
+        }
+        testObjectStorage.insertAll(initial)
+
+        val config = PagingConfig(pageSize = 10, prefetchDistance = 0, initialLoadSize = 10)
+        val sourceA = testObjectStorage.selectKeysetPagingSource(pageSize = 10)
+        val pagerA = TestPager(config, sourceA)
+        with(pagerA) { refresh(); append() } // 2 pages loaded
+        val state = pagerA.getPagingState(anchorPosition = 15)
+
+        val injected = (1..5).associate { i ->
+            val id = "key-005-injected-$i"
+            id to TestObject(id = id, value = 100 + i)
+        }
+        testObjectStorage.insertAll(injected)
+
+        val sourceB = testObjectStorage.selectKeysetPagingSource(pageSize = 10)
+        val staleRefreshKey = sourceB.getRefreshKey(state)
+        assertEquals("key-011", staleRefreshKey, "Fixture invariant: refresh key is the old page-2 load key")
+
+        val result = sourceB.load(
+            PagingSource.LoadParams.Refresh(
+                key = staleRefreshKey,
+                loadSize = 10,
+                placeholdersEnabled = false,
+            )
+        )
+        val page = result as? LoadResult.Page<String, TestObject>
+            ?: error("Expected a Page (snap must not crash); got $result")
+        assertEquals("key-006", page.data.first().id, "Snap returns the containing page's start")
+        assertTrue(
+            page.data.any { it.id == "key-011" },
+            "Snapped page must contain the originally-requested stale boundary key"
+        )
+        assertEquals(10, page.data.size, "Snapped page is a full page")
+    }
+
+    @Test
+    fun keysetPaging_mediatorWriteDuringLoad_preservesAnchorPage() = runTest {
+        // End-to-end regression: user scrolls to the 3rd page, mediator-style write
+        // shifts boundaries, fresh source resumes near the anchor (not page 0).
+        val initial = (1..50).associate { i ->
+            val id = "key-${i.toString().padStart(3, '0')}"
+            id to TestObject(id = id, value = i)
+        }
+        testObjectStorage.insertAll(initial)
+
+        val config = PagingConfig(pageSize = 10, prefetchDistance = 0, initialLoadSize = 10)
+        val sourceA = testObjectStorage.selectKeysetPagingSource(pageSize = 10)
+        val pagerA = TestPager(config, sourceA)
+        with(pagerA) { refresh(); append(); append() } // 3 pages: key-001..key-030
+        val state = pagerA.getPagingState(anchorPosition = 25)
+
+        val injected = (1..5).associate { i ->
+            val id = "key-005-injected-$i"
+            id to TestObject(id = id, value = 100 + i)
+        }
+        testObjectStorage.insertAll(injected)
+
+        val sourceB = testObjectStorage.selectKeysetPagingSource(pageSize = 10)
+        val refreshKey = sourceB.getRefreshKey(state)
+        assertNotNull(refreshKey, "getRefreshKey must produce a non-null key from non-empty state")
+        // Anchor at position 25 maps to pagerA's 3rd page (load key "key-021"):
+        assertEquals("key-021", refreshKey, "Fixture invariant: anchor maps to page-3 load key")
+
+        val refreshLoad = sourceB.load(
+            PagingSource.LoadParams.Refresh(
+                key = refreshKey, loadSize = 10, placeholdersEnabled = false,
+            )
+        )
+        val page = refreshLoad as? LoadResult.Page<String, TestObject>
+            ?: error("Refresh must succeed; got $refreshLoad")
+
+        // 55 items after injection. Boundaries at rn=1,11,21,31,41,51 = "key-001",
+        // "key-006", "key-016", "key-026", "key-036", "key-046". "key-021" is now
+        // at rn=26 -> snaps back to boundary at rn=21 = "key-016".
+        assertEquals(
+            "key-016", page.data.first().id,
+            "Refreshed page starts at the snapped page-start, NOT reset to page 0 (key-001)"
+        )
+        assertTrue(
+            page.data.any { it.id == "key-021" },
+            "Refreshed page must contain the original anchor key"
+        )
     }
 
     @Test

@@ -21,6 +21,10 @@ import kotlin.coroutines.CoroutineContext
  *   When endExclusive is null, returns all remaining entities from beginInclusive.
  * @param pageBoundariesProvider Returns the entity_key at each page boundary, given an optional
  *   anchor key and the page size as limit.
+ * @param boundaryForKeyProvider Given an entity_key and the page size, returns the boundary key
+ *   for the page that contains it. Used to snap a refresh key that came from stale boundaries
+ *   (e.g. a RemoteMediator wrote rows between the previous source's load and the new source's
+ *   boundary recomputation) back onto a real boundary in the new set.
  * @param transacter Used to run queries within a transaction for consistency.
  * @param context Coroutine context for query execution.
  * @param deserialize Converts an [Entity] to the target type, returning null to skip.
@@ -28,6 +32,7 @@ import kotlin.coroutines.CoroutineContext
 internal class KeysetQueryPagingSource<T : Any>(
     private val queryProvider: (beginInclusive: String, endExclusive: String?) -> Query<Entity>,
     private val pageBoundariesProvider: (anchor: String?, limit: Long) -> Query<String>,
+    private val boundaryForKeyProvider: (lookupKey: String, limit: Long) -> Query<String>,
     private val transacter: Transacter,
     private val context: CoroutineContext,
     private val deserialize: (Entity) -> T?,
@@ -65,10 +70,25 @@ internal class KeysetQueryPagingSource<T : Any>(
                             nextKey = null,
                         )
                     } else {
-                        val key = params.key ?: boundaries.first()
-                        val keyIndex = boundaries.indexOf(key)
-                        require(keyIndex != -1) { "Key $key not found in page boundaries" }
-
+                        // Snap params.key to a boundary in the freshly computed set. The key may
+                        // be (a) null on first load, (b) already a boundary, or (c) a stale
+                        // boundary key from the previous source that no longer aligns with the
+                        // new boundaries because a mediator wrote between the two boundary
+                        // computations. Case (c) is what would otherwise throw
+                        // `Key X not found in page boundaries`.
+                        val requestedKey = params.key
+                        val keyIndex = when {
+                            requestedKey == null -> 0
+                            else -> {
+                                val idx = boundaries.indexOf(requestedKey)
+                                if (idx >= 0) idx else {
+                                    val snapped = boundaryForKeyProvider(requestedKey, pageSize.toLong())
+                                        .executeAsOneOrNull()
+                                    snapped?.let { boundaries.indexOf(it) }?.takeIf { it >= 0 } ?: 0
+                                }
+                            }
+                        }
+                        val key = boundaries[keyIndex]
                         val previousKey = boundaries.getOrNull(keyIndex - 1)
                         val nextKey = boundaries.getOrNull(keyIndex + 1)
 
@@ -104,6 +124,11 @@ internal class KeysetQueryPagingSource<T : Any>(
         val anchorIndex = state.pages.indexOf(anchorPage)
         state.pages.getOrNull(anchorIndex + 1)?.let { return it.prevKey }
         state.pages.getOrNull(anchorIndex - 1)?.let { return it.nextKey }
+        // Single loaded page: prevKey is the boundary *before* this page (the closest
+        // hint to the anchor's location); null means the anchor is in the first page,
+        // and our load(null) resolves to boundaries.first() — preserving the anchor.
+        // Do not fall back to nextKey: that points to the *next* page's start, which
+        // would load past the anchor row and shift it off-screen.
         return anchorPage.prevKey
     }
 }

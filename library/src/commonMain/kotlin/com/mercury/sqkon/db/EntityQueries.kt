@@ -283,6 +283,72 @@ class EntityQueries(
     }
 
     /**
+     * Returns a factory that, given any entity_key and the page size, returns
+     * the boundary key of the page that contains that entity. Used by
+     * [com.mercury.sqkon.db.paging.KeysetQueryPagingSource] to snap a stale
+     * refresh key onto a real boundary after a mediator write shifts the
+     * boundary set.
+     *
+     * If [lookupKey] is no longer in the dataset (deleted), the query falls back
+     * to the largest entity_key whose value is `<= lookupKey` (lexicographic on
+     * entity_key, regardless of the configured ORDER BY). Exact for the default
+     * order-by-entity_key case; best-effort for custom orderBy. Returns null
+     * only when the dataset is empty.
+     */
+    fun selectBoundaryForKey(
+        entityName: String,
+        where: Where<*>? = null,
+        orderBy: List<OrderBy<*>> = emptyList(),
+        expiresAt: Instant? = null,
+    ): (lookupKey: String, limit: Long) -> Query<String> = { lookupKey, limit ->
+        val queries = buildBaseQueries(entityName, where, orderBy, expiresAt)
+        val orderBySql = queries.buildOrderByWithTiebreaker()
+        val queryIdentifier = identifier("boundaryForKey", queries.identifier().toString())
+        val sql = """
+            WITH ordered AS (
+                SELECT entity.entity_key, ROW_NUMBER() OVER ($orderBySql) as rn
+                FROM entity${queries.buildFrom()} ${queries.buildWhere()}
+            ),
+            target AS (
+                SELECT COALESCE(
+                    (SELECT rn FROM ordered WHERE entity_key = ?),
+                    (SELECT MAX(rn) FROM ordered WHERE entity_key <= ?)
+                ) AS rn
+            )
+            SELECT entity_key FROM ordered
+            WHERE rn = ((COALESCE((SELECT rn FROM target), 1) - 1) / ?) * ? + 1
+        """.trimIndent().replace('\n', ' ')
+        object : Query<String>({ cursor -> cursor.getString(0)!! }) {
+            override fun addListener(listener: Listener) =
+                driver.addListener("entity_$entityName", listener = listener)
+
+            override fun removeListener(listener: Listener) =
+                driver.removeListener("entity_$entityName", listener = listener)
+
+            override fun <R> execute(mapper: (SqlCursor) -> QueryResult<R>): QueryResult<R> {
+                return try {
+                    driver.executeQuery(
+                        identifier = queryIdentifier, sql = sql, mapper = mapper,
+                        parameters = queries.sumParameters() + 4,
+                    ) {
+                        val binder = AutoIncrementSqlPreparedStatement(preparedStatement = this)
+                        queries.forEach { it.bindArgs(binder) }
+                        binder.bindString(lookupKey)
+                        binder.bindString(lookupKey)
+                        binder.bindLong(limit)
+                        binder.bindLong(limit)
+                    }
+                } catch (ex: SqlException) {
+                    println("SQL Error: $sql")
+                    throw ex
+                }
+            }
+
+            override fun toString(): String = "boundaryForKey"
+        }
+    }
+
+    /**
      * Returns a factory that produces keyed range queries for keyset paging.
      * Selects entities within a key range using ROW_NUMBER() for consistent ordering.
      */
