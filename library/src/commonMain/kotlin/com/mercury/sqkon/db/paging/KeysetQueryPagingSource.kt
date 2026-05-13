@@ -122,6 +122,11 @@ internal class KeysetQueryPagingSource<T : Any>(
         val anchorIndex = state.pages.indexOf(anchorPage)
         state.pages.getOrNull(anchorIndex + 1)?.let { return it.prevKey }
         state.pages.getOrNull(anchorIndex - 1)?.let { return it.nextKey }
-        return anchorPage.prevKey
+        // Single loaded page: prevKey is the boundary *before* this page, nextKey is
+        // the boundary *after*. Either is a usable hint — load() will snap it to a
+        // real boundary if the set has since shifted. Prefer prevKey so the user
+        // lands on or before their current view; fall back to nextKey when prevKey
+        // is null (anchor in the first loaded page).
+        return anchorPage.prevKey ?: anchorPage.nextKey
     }
 }
