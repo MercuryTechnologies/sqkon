@@ -80,11 +80,8 @@ internal class KeysetQueryPagingSource<T : Any>(
                         val key = when {
                             requestedKey == null -> boundaries.first()
                             requestedKey in boundaries -> requestedKey
-                            else -> {
-                                val snapped = boundaryForKeyProvider(requestedKey, pageSize.toLong())
-                                    .executeAsOneOrNull()
-                                if (snapped != null && snapped in boundaries) snapped else boundaries.first()
-                            }
+                            else -> boundaryForKeyProvider(requestedKey, pageSize.toLong())
+                                .executeAsOneOrNull() ?: boundaries.first()
                         }
                         val keyIndex = boundaries.indexOf(key)
                         val previousKey = boundaries.getOrNull(keyIndex - 1)
