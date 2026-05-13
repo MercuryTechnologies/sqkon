@@ -3,6 +3,7 @@ package com.mercury.sqkon.db
 import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.PagingData
+import androidx.paging.PagingSource
 import androidx.paging.PagingSource.LoadResult
 import androidx.paging.testing.TestPager
 import androidx.paging.testing.asSnapshot
@@ -269,6 +270,56 @@ class KeysetPagingTest {
 
         val sourceB = testObjectStorage.selectKeysetPagingSource(pageSize = 10)
         assertEquals(expectedKey, sourceB.getRefreshKey(state))
+    }
+
+    @Test
+    fun keysetPaging_refresh_withStaleBoundaryKey_snapsToContainingPage() = runTest {
+        // Simulates the RemoteMediator-writes-mid-load scenario:
+        //   1. Old source had boundaries at "key-001", "key-011", "key-021".
+        //   2. getRefreshKey on a fresh source yields "key-011" (anchor page's load key).
+        //   3. Mediator-style insert adds keys "key-005-injected-1..5" — sorts lex
+        //      between "key-005" and "key-006", shifting "key-011" from rn=11 to rn=16.
+        //      New boundaries (pageSize=10 against 35 rows): "key-001", "key-006",
+        //      "key-016", "key-026". "key-011" is no longer a boundary.
+        //   4. load(params.key = "key-011") MUST snap to "key-006" (page containing it),
+        //      NOT throw `Key key-011 not found in page boundaries`.
+        val initial = (1..30).associate { i ->
+            val id = "key-${i.toString().padStart(3, '0')}"
+            id to TestObject(id = id, value = i)
+        }
+        testObjectStorage.insertAll(initial)
+
+        val config = PagingConfig(pageSize = 10, prefetchDistance = 0, initialLoadSize = 10)
+        val sourceA = testObjectStorage.selectKeysetPagingSource(pageSize = 10)
+        val pagerA = TestPager(config, sourceA)
+        with(pagerA) { refresh(); append() } // 2 pages loaded
+        val state = pagerA.getPagingState(anchorPosition = 15)
+
+        val injected = (1..5).associate { i ->
+            val id = "key-005-injected-$i"
+            id to TestObject(id = id, value = 100 + i)
+        }
+        testObjectStorage.insertAll(injected)
+
+        val sourceB = testObjectStorage.selectKeysetPagingSource(pageSize = 10)
+        val staleRefreshKey = sourceB.getRefreshKey(state)
+        assertEquals("key-011", staleRefreshKey, "Fixture invariant: refresh key is the old page-2 load key")
+
+        val result = sourceB.load(
+            PagingSource.LoadParams.Refresh(
+                key = staleRefreshKey,
+                loadSize = 10,
+                placeholdersEnabled = false,
+            )
+        )
+        val page = result as? LoadResult.Page<String, TestObject>
+            ?: error("Expected a Page (snap must not crash); got $result")
+        assertEquals("key-006", page.data.first().id, "Snap returns the containing page's start")
+        assertTrue(
+            page.data.any { it.id == "key-011" },
+            "Snapped page must contain the originally-requested stale boundary key"
+        )
+        assertEquals(10, page.data.size, "Snapped page is a full page")
     }
 
     @Test
