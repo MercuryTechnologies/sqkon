@@ -323,34 +323,6 @@ class KeysetPagingTest {
     }
 
     @Test
-    fun keysetPaging_getRefreshKey_singlePageWithAnchorInFirstPage_returnsNextKey() = runTest {
-        // When only the first page is loaded (e.g. mid-load mediator invalidation
-        // dropped pending pages) and the anchor sits inside it, anchorPage.prevKey
-        // is null because the anchor IS the first page. The fallback must use
-        // anchorPage.nextKey instead of returning null (which Paging3 treats as
-        // "restart from page 0" and resets scroll position).
-        val items = (1..50).map { TestObject() }.associateBy { it.id }
-        testObjectStorage.insertAll(items)
-
-        val config = PagingConfig(pageSize = 10, prefetchDistance = 0, initialLoadSize = 10)
-        val sourceA = testObjectStorage.selectKeysetPagingSource(pageSize = 10)
-        val pagerA = TestPager(config, sourceA)
-        pagerA.refresh() // exactly one page loaded
-        val state = pagerA.getPagingState(anchorPosition = 5)
-        assertEquals(1, state.pages.size, "Fixture invariant: exactly one page loaded")
-        assertNull(state.pages[0].prevKey, "Fixture invariant: first page prevKey is null")
-        val expectedFallback = state.pages[0].nextKey
-        assertNotNull(expectedFallback, "Fixture invariant: first page nextKey exists (dataset > 10)")
-
-        val sourceB = testObjectStorage.selectKeysetPagingSource(pageSize = 10)
-        val refreshKey = sourceB.getRefreshKey(state)
-        assertEquals(
-            expectedFallback, refreshKey,
-            "With only one page loaded and anchor in it, fallback must be the page's nextKey, not null"
-        )
-    }
-
-    @Test
     fun keysetPaging_mediatorWriteDuringLoad_preservesAnchorPage() = runTest {
         // End-to-end regression: user scrolls to the 3rd page, mediator-style write
         // shifts boundaries, fresh source resumes near the anchor (not page 0).

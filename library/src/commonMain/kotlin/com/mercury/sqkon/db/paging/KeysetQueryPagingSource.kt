@@ -77,13 +77,18 @@ internal class KeysetQueryPagingSource<T : Any>(
                         // computations. Case (c) is what would otherwise throw
                         // `Key X not found in page boundaries`.
                         val requestedKey = params.key
-                        val key = when {
-                            requestedKey == null -> boundaries.first()
-                            requestedKey in boundaries -> requestedKey
-                            else -> boundaryForKeyProvider(requestedKey, pageSize.toLong())
-                                .executeAsOneOrNull() ?: boundaries.first()
+                        val keyIndex = when {
+                            requestedKey == null -> 0
+                            else -> {
+                                val idx = boundaries.indexOf(requestedKey)
+                                if (idx >= 0) idx else {
+                                    val snapped = boundaryForKeyProvider(requestedKey, pageSize.toLong())
+                                        .executeAsOneOrNull()
+                                    snapped?.let { boundaries.indexOf(it) }?.takeIf { it >= 0 } ?: 0
+                                }
+                            }
                         }
-                        val keyIndex = boundaries.indexOf(key)
+                        val key = boundaries[keyIndex]
                         val previousKey = boundaries.getOrNull(keyIndex - 1)
                         val nextKey = boundaries.getOrNull(keyIndex + 1)
 
@@ -119,11 +124,11 @@ internal class KeysetQueryPagingSource<T : Any>(
         val anchorIndex = state.pages.indexOf(anchorPage)
         state.pages.getOrNull(anchorIndex + 1)?.let { return it.prevKey }
         state.pages.getOrNull(anchorIndex - 1)?.let { return it.nextKey }
-        // Single loaded page: prevKey is the boundary *before* this page, nextKey is
-        // the boundary *after*. Either is a usable hint — load() will snap it to a
-        // real boundary if the set has since shifted. Prefer prevKey so the user
-        // lands on or before their current view; fall back to nextKey when prevKey
-        // is null (anchor in the first loaded page).
-        return anchorPage.prevKey ?: anchorPage.nextKey
+        // Single loaded page: prevKey is the boundary *before* this page (the closest
+        // hint to the anchor's location); null means the anchor is in the first page,
+        // and our load(null) resolves to boundaries.first() — preserving the anchor.
+        // Do not fall back to nextKey: that points to the *next* page's start, which
+        // would load past the anchor row and shift it off-screen.
+        return anchorPage.prevKey
     }
 }

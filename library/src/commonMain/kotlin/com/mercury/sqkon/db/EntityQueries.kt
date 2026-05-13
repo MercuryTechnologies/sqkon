@@ -290,10 +290,10 @@ class EntityQueries(
      * boundary set.
      *
      * If [lookupKey] is no longer in the dataset (deleted), the query falls back
-     * to the largest entity_key whose value sorts <= [lookupKey] under the
-     * configured ORDER BY. For the default order-by-entity_key case this is
-     * exact; for custom orderBy it is best-effort. Returns null only when the
-     * dataset is empty.
+     * to the largest entity_key whose value is `<= lookupKey` (lexicographic on
+     * entity_key, regardless of the configured ORDER BY). Exact for the default
+     * order-by-entity_key case; best-effort for custom orderBy. Returns null
+     * only when the dataset is empty.
      */
     fun selectBoundaryForKey(
         entityName: String,
