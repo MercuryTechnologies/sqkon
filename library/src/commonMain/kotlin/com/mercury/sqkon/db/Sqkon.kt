@@ -3,9 +3,7 @@ package com.mercury.sqkon.db
 import com.mercury.sqkon.db.serialization.KotlinSqkonSerializer
 import com.mercury.sqkon.db.serialization.SqkonJson
 import com.mercury.sqkon.db.utils.SqkonTransacter
-import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.serialization.json.Json
 
 /**
@@ -32,10 +30,7 @@ class Sqkon internal constructor(
     json: Json = SqkonJson {},
     @PublishedApi
     internal val config: KeyValueStorage.Config = KeyValueStorage.Config(),
-    @PublishedApi internal val readDispatcher: CoroutineDispatcher =
-        Dispatchers.Default.limitedParallelism(4),
-    @PublishedApi internal val writeDispatcher: CoroutineDispatcher =
-        Dispatchers.Default.limitedParallelism(1),
+    @PublishedApi internal val dispatchers: SqkonDispatchers = defaultSqkonDispatchers,
 ) {
 
     /**
@@ -62,8 +57,8 @@ class Sqkon internal constructor(
     ): KeyValueStorage<T> {
         return keyValueStorage<T>(
             name, entityQueries, metadataQueries, scope, serializer, config,
-            readDispatcher = readDispatcher,
-            writeDispatcher = writeDispatcher,
+            readDispatcher = dispatchers.read,
+            writeDispatcher = dispatchers.write,
             transactor = transactor,
         )
     }

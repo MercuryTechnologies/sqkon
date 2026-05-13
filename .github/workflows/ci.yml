@@ -75,3 +75,20 @@ jobs:
           report_paths: '**/build/outputs/androidTest-results/**/*.xml'
           require_tests: true
 
+  compile-kmp-targets:
+    name: Compile iOS targets
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Setup Java JDK
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
+        with:
+          distribution: 'zulu'
+          java-version: '21'
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@50e97c2cd7a37755bbfafc9c5b7cafaece252f6e # v6.1.0
+      - name: Compile iOS targets
+        run: ./gradlew :library:compileKotlinIosArm64 :library:compileKotlinIosSimulatorArm64
+

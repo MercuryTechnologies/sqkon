@@ -7,8 +7,9 @@ import app.cash.sqldelight.db.SqlCursor
 import app.cash.sqldelight.db.SqlDriver
 import com.mercury.sqkon.db.utils.nowMillis
 import kotlin.time.Clock
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.runBlocking
 import kotlinx.datetime.Instant
-import org.jetbrains.annotations.VisibleForTesting
 
 class EntityQueries(
     @PublishedApi
@@ -16,7 +17,6 @@ class EntityQueries(
 ) : TransacterImpl(sqlDriver) {
 
     // Used to slow down insert/updates for testing
-    @VisibleForTesting
     internal var slowWrite: Boolean = false
 
     fun insertEntity(entity: Entity, ignoreIfExists: Boolean) {
@@ -46,7 +46,7 @@ class EntityQueries(
             emit("entity_${entity.entity_name}")
         }
         if (slowWrite) {
-            Thread.sleep(100)
+            runBlocking { delay(100) }
         }
     }
 
@@ -77,7 +77,7 @@ class EntityQueries(
             emit("entity_${entityName}")
         }
         if (slowWrite) {
-            Thread.sleep(100)
+            runBlocking { delay(100) }
         }
     }
 

@@ -25,12 +25,14 @@ fun Sqkon(
  *
  * @param dbFileName name of the db file on disk, if null we create an in-memory db
  */
+@JvmOverloads
 fun Sqkon(
     context: Context,
     scope: CoroutineScope,
     json: Json = SqkonJson { },
     dbFileName: String? = "sqkon.db",
     config: KeyValueStorage.Config = KeyValueStorage.Config(),
+    dispatchers: SqkonDispatchers = defaultSqkonDispatchers,
 ): Sqkon {
     val factory = DriverFactory(context = context, name = dbFileName)
     val driver = factory.createDriver()
@@ -38,8 +40,7 @@ fun Sqkon(
     val entityQueries = EntityQueries(driver)
     return Sqkon(
         entityQueries, metadataQueries, scope, json, config,
-        readDispatcher = dbReadDispatcher,
-        writeDispatcher = dbWriteDispatcher,
+        dispatchers = dispatchers,
     )
 }
 

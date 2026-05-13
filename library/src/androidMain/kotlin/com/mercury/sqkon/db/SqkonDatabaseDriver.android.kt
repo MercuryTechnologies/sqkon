@@ -17,7 +17,6 @@ import com.eygraber.sqldelight.androidx.driver.AndroidxSqliteDriver
 import com.eygraber.sqldelight.androidx.driver.FileProvider
 import com.eygraber.sqldelight.androidx.driver.SqliteJournalMode
 import com.eygraber.sqldelight.androidx.driver.SqliteSync
-import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.newFixedThreadPoolContext
@@ -26,13 +25,11 @@ internal actual val connectionPoolSize: Int by lazy { getWALConnectionPoolSize()
 
 @OptIn(DelicateCoroutinesApi::class)
 @PublishedApi
-internal actual val dbWriteDispatcher: CoroutineDispatcher by lazy {
-    newFixedThreadPoolContext(nThreads = 1, "SqkonReadDispatcher")
-}
-
-@PublishedApi
-internal actual val dbReadDispatcher: CoroutineDispatcher by lazy {
-    Dispatchers.IO.limitedParallelism(connectionPoolSize)
+internal actual val defaultSqkonDispatchers: SqkonDispatchers by lazy {
+    SqkonDispatchers(
+        read = Dispatchers.IO.limitedParallelism(connectionPoolSize),
+        write = newFixedThreadPoolContext(nThreads = 1, "SqkonWriteDispatcher"),
+    )
 }
 
 /**

@@ -5,11 +5,13 @@ import com.mercury.sqkon.db.serialization.SqkonJson
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.serialization.json.Json
 
+@JvmOverloads
 fun Sqkon(
     scope: CoroutineScope,
     json: Json = SqkonJson { },
     type: AndroidxSqliteDatabaseType = AndroidxSqliteDatabaseType.Memory,
     config: KeyValueStorage.Config = KeyValueStorage.Config(),
+    dispatchers: SqkonDispatchers = defaultSqkonDispatchers,
 ): Sqkon {
     val factory = DriverFactory(type)
     val driver = factory.createDriver()
@@ -17,7 +19,6 @@ fun Sqkon(
     val entityQueries = EntityQueries(driver)
     return Sqkon(
         entityQueries, metadataQueries, scope, json, config,
-        readDispatcher = dbReadDispatcher,
-        writeDispatcher = dbWriteDispatcher,
+        dispatchers = dispatchers,
     )
 }

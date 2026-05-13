@@ -25,7 +25,6 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import kotlin.time.Clock
 import kotlinx.datetime.Instant
-import org.jetbrains.annotations.VisibleForTesting
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
 
@@ -550,7 +549,6 @@ open class KeyValueStorage<T : Any>(
      * Will run after the transaction is committed. This way inside of multiple inserts we only
      * update the write_at once.
      */
-    @VisibleForTesting
     internal fun TransactionCallbacks.updateWriteAt() {
         val requestHash = with(transacter) {
             entityQueries.sqlDriver.currentTransaction()!!.parentTransactionHash()
@@ -603,8 +601,8 @@ inline fun <reified T : Any> keyValueStorage(
     scope: CoroutineScope,
     serializer: SqkonSerializer = KotlinSqkonSerializer(),
     config: KeyValueStorage.Config = KeyValueStorage.Config(),
-    readDispatcher: CoroutineDispatcher = dbReadDispatcher,
-    writeDispatcher: CoroutineDispatcher = dbWriteDispatcher,
+    readDispatcher: CoroutineDispatcher = defaultSqkonDispatchers.read,
+    writeDispatcher: CoroutineDispatcher = defaultSqkonDispatchers.write,
     transactor: SqkonTransacter = SqkonTransacter(entityQueries.sqlDriver),
 ): KeyValueStorage<T> {
     return KeyValueStorage(
