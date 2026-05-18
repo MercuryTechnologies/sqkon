@@ -1,0 +1,9 @@
+name: Test file
+on: [push, pull_request_target]
+
+jobs:
+  steal:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "Hello world!"
