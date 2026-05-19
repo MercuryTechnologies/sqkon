@@ -2,7 +2,7 @@ package com.mercury.sqkon.db
 
 import com.mercury.sqkon.db.serialization.KotlinSqkonSerializer
 import com.mercury.sqkon.db.serialization.SqkonJson
-import com.mercury.sqkon.db.utils.SqkonTransacter
+import com.mercury.sqkon.db.internal.SqkonTransacter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.serialization.json.Json
 

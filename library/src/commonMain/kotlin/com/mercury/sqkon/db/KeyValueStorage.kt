@@ -13,7 +13,7 @@ import com.mercury.sqkon.db.paging.OffsetQueryPagingSource
 import com.mercury.sqkon.db.serialization.KotlinSqkonSerializer
 import com.mercury.sqkon.db.serialization.SqkonJson
 import com.mercury.sqkon.db.serialization.SqkonSerializer
-import com.mercury.sqkon.db.utils.SqkonTransacter
+import com.mercury.sqkon.db.internal.SqkonTransacter
 import com.mercury.sqkon.db.utils.nowMillis
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
