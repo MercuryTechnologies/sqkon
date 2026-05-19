@@ -60,4 +60,14 @@ class SqkonFlowQueryTest {
             cancelAndIgnoreRemainingEvents()
         }
     }
+
+    @Test
+    fun asFlow_mapToOneNotNull_skips_empty_results() = runTest {
+        val q = StaticQuery(emptyList())
+        q.asFlow().mapToOneNotNull(Dispatchers.Unconfined).test {
+            // mapToOneNotNull filters empty results, never emits
+            expectNoEvents()
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
 }

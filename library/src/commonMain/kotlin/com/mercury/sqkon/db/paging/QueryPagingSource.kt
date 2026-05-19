@@ -1,13 +1,13 @@
 package com.mercury.sqkon.db.paging
 
 import androidx.paging.PagingSource
-import app.cash.sqldelight.Query
+import com.mercury.sqkon.db.internal.SqkonQuery
 import kotlin.properties.Delegates
 
 internal abstract class QueryPagingSource<Key : Any, Value : Any> : PagingSource<Key, Value>(),
-    Query.Listener {
+    SqkonQuery.Listener {
 
-    protected var currentQuery: Query<*>? by Delegates.observable(null) { _, old, new ->
+    protected var currentQuery: SqkonQuery<*>? by Delegates.observable(null) { _, old, new ->
         old?.removeListener(this)
         new?.addListener(this)
     }

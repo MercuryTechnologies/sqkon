@@ -1,6 +1,6 @@
 package com.mercury.sqkon.db.internal
 
-internal interface SqkonStatement {
+interface SqkonStatement {
     fun bindBytes(index: Int, value: ByteArray?)
     fun bindBoolean(index: Int, value: Boolean?)
     fun bindDouble(index: Int, value: Double?)

@@ -27,4 +27,11 @@ internal class SqlDelightSqkonQuery<T : Any>(
 
     override fun <R> execute(mapper: (SqkonCursor) -> R): R =
         delegate.execute(mapWithSqkonCursor(mapper)).value
+
+    // Skip the SqkonQuery mapper field when we have a fully-formed delegate Query<T>
+    // (the delegate already carries its own row mapper). Bridge users go through
+    // toSqkonQuery() which passes a sentinel mapper.
+    override fun executeAsList(): List<T> = delegate.executeAsList()
+    override fun executeAsOne(): T = delegate.executeAsOne()
+    override fun executeAsOneOrNull(): T? = delegate.executeAsOneOrNull()
 }

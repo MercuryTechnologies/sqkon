@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.mapNotNull
 
 /**
  * Sqkon-owned port of SQLDelight's `coroutines-extensions/FlowQuery.kt`,
@@ -26,7 +27,7 @@ internal fun <T : Any> Flow<SqkonQuery<T>>.mapToOne(context: CoroutineDispatcher
     map { it.executeAsOne() }.flowOn(context)
 
 internal fun <T : Any> Flow<SqkonQuery<T>>.mapToOneNotNull(context: CoroutineDispatcher): Flow<T> =
-    map { it.executeAsOneOrNull() ?: error("ResultSet returned null") }.flowOn(context)
+    mapNotNull { it.executeAsOneOrNull() }.flowOn(context)
 
 internal fun <T : Any> Flow<SqkonQuery<T>>.mapToOneOrNull(context: CoroutineDispatcher): Flow<T?> =
     map { it.executeAsOneOrNull() }.flowOn(context)
