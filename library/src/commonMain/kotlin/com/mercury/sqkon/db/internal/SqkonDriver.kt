@@ -5,7 +5,7 @@ package com.mercury.sqkon.db.internal
  * `app.cash.sqldelight.db.SqlDriver` that Sqkon actually uses. The
  * SQLDelight runtime sits behind `SqlDelightSqkonDriver` until Phase 6.
  */
-interface SqkonDriver {
+internal interface SqkonDriver {
 
     fun executeUpdate(
         identifier: Int?,

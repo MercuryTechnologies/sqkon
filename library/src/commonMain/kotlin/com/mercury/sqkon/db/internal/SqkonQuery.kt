@@ -7,7 +7,7 @@ package com.mercury.sqkon.db.internal
  * mode. Sqkon never uses async codegen (`generateAsync = false`), so we model
  * execution synchronously.
  */
-abstract class SqkonQuery<out T : Any>(
+internal abstract class SqkonQuery<out T : Any>(
     private val mapper: (SqkonCursor) -> T,
 ) {
     abstract fun addListener(listener: Listener)

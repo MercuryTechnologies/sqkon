@@ -3,7 +3,7 @@ package com.mercury.sqkon.db.internal
 import app.cash.sqldelight.Query
 import com.mercury.sqkon.db.driverFactory
 import com.mercury.sqkon.db.internal.sqldelight.SqlDelightSqkonDriver
-import com.mercury.sqkon.db.internal.sqldelight.SqlDelightSqkonQuery
+import com.mercury.sqkon.db.internal.sqldelight.toSqkonQuery
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -32,7 +32,7 @@ class SqkonQueryRoundtripTest {
             query = "SELECT x FROM q ORDER BY x",
             mapper = { cursor -> cursor.getLong(0)!! },
         )
-        return SqlDelightSqkonQuery(sqlQuery) { cursor -> cursor.getLong(0)!! }
+        return sqlQuery.toSqkonQuery()
     }
 
     @Test

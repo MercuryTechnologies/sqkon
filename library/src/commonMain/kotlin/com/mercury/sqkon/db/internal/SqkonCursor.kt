@@ -1,6 +1,6 @@
 package com.mercury.sqkon.db.internal
 
-interface SqkonCursor {
+internal interface SqkonCursor {
     fun next(): Boolean
     fun getString(index: Int): String?
     fun getLong(index: Int): Long?

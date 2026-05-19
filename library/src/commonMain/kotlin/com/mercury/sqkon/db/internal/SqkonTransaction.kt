@@ -7,7 +7,7 @@ package com.mercury.sqkon.db.internal
  * SQLDelight-internal and managed inside `SqkonTransacter.transaction { }`.
  * Phase 5 fills in the gaps when we stop riding `TransacterImpl`.
  */
-abstract class SqkonTransaction {
+internal abstract class SqkonTransaction {
     abstract fun afterCommit(block: () -> Unit)
     abstract fun afterRollback(block: () -> Unit)
 }

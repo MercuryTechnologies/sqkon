@@ -2,6 +2,7 @@ package com.mercury.sqkon.db.internal.sqldelight
 
 import app.cash.sqldelight.Query
 import app.cash.sqldelight.db.SqlDriver
+import com.mercury.sqkon.db.internal.ListenerIdentityMap
 import com.mercury.sqkon.db.internal.SqkonCursor
 import com.mercury.sqkon.db.internal.SqkonDriver
 import com.mercury.sqkon.db.internal.SqkonStatement
@@ -11,9 +12,9 @@ internal class SqlDelightSqkonDriver(
     internal val delegate: SqlDriver,
 ) : SqkonDriver {
 
-    // Same SqkonDriver.Listener must map to the same Query.Listener so
-    // removeListener can find the exact instance the eygraber driver registered.
-    private val listeners = mutableMapOf<SqkonDriver.Listener, Query.Listener>()
+    private val listeners = ListenerIdentityMap<SqkonDriver.Listener, Query.Listener>(
+        factory = { listener -> Query.Listener { listener.queryResultsChanged() } },
+    )
 
     override fun executeUpdate(
         identifier: Int?,
@@ -42,19 +43,15 @@ internal class SqlDelightSqkonDriver(
     ).value
 
     override fun addListener(vararg queryKeys: String, listener: SqkonDriver.Listener) {
-        val delegateListener = listeners.getOrPut(listener) {
-            Query.Listener { listener.queryResultsChanged() }
-        }
-        delegate.addListener(*queryKeys, listener = delegateListener)
+        listeners.add(listener) { delegate.addListener(queryKeys = queryKeys, listener = it) }
     }
 
     override fun removeListener(vararg queryKeys: String, listener: SqkonDriver.Listener) {
-        val delegateListener = listeners.remove(listener) ?: return
-        delegate.removeListener(*queryKeys, listener = delegateListener)
+        listeners.remove(listener) { delegate.removeListener(queryKeys = queryKeys, listener = it) }
     }
 
     override fun notifyListeners(vararg queryKeys: String) {
-        delegate.notifyListeners(*queryKeys)
+        delegate.notifyListeners(queryKeys = queryKeys)
     }
 
     override fun newTransaction(): SqkonTransaction =
