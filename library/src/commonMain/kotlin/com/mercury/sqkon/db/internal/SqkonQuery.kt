@@ -23,7 +23,10 @@ internal abstract class SqkonQuery<out T : Any>(
         ?: throw NullPointerException("ResultSet returned null for $this")
 
     open fun executeAsOneOrNull(): T? = execute { cursor ->
-        if (cursor.next()) mapper(cursor) else null
+        if (!cursor.next()) return@execute null
+        val value = mapper(cursor)
+        check(!cursor.next()) { "ResultSet returned more than 1 row for $this" }
+        value
     }
 
     fun interface Listener {

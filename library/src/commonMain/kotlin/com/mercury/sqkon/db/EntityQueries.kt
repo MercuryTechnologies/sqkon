@@ -73,7 +73,7 @@ class EntityQueries(
                 UPDATE entity SET updated_at = ?, expires_at = ?, write_at = ?, value = jsonb(?)
                 WHERE entity_name = ? AND entity_key = ?
             """.trimMargin(),
-            parameters = 5,
+            parameters = 6,
         ) {
             bindLong(0, now.toEpochMilliseconds())
             bindLong(1, expiresAt?.toEpochMilliseconds())
