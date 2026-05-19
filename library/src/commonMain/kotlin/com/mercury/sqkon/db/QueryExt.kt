@@ -1,6 +1,6 @@
 package com.mercury.sqkon.db
 
-import app.cash.sqldelight.db.SqlPreparedStatement
+import com.mercury.sqkon.db.internal.SqkonStatement
 import kotlin.reflect.KProperty1
 
 /**
@@ -635,9 +635,9 @@ infix fun <T : Any, V> CaseWhen<T>.lt(value: V?): Where<T> = caseCompare(this, C
 fun <T : Any> CaseWhen<T>.isNull(): Where<T> = caseUnary(this, CaseNullOp.IS_NULL)
 fun <T : Any> CaseWhen<T>.isNotNull(): Where<T> = caseUnary(this, CaseNullOp.IS_NOT_NULL)
 
-class AutoIncrementSqlPreparedStatement(
+class AutoIncrementSqlPreparedStatement internal constructor(
     private var index: Int = 0,
-    private val preparedStatement: SqlPreparedStatement,
+    private val preparedStatement: SqkonStatement,
 ) {
     fun bindBoolean(boolean: Boolean?) {
         preparedStatement.bindBoolean(index, boolean)

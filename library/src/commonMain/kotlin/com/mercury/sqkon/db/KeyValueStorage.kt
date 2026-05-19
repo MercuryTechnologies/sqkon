@@ -3,17 +3,18 @@ package com.mercury.sqkon.db
 import androidx.paging.PagingSource
 import app.cash.sqldelight.Transacter
 import app.cash.sqldelight.TransactionCallbacks
-import app.cash.sqldelight.coroutines.asFlow
-import app.cash.sqldelight.coroutines.mapToList
-import app.cash.sqldelight.coroutines.mapToOne
-import app.cash.sqldelight.coroutines.mapToOneNotNull
+import com.mercury.sqkon.db.internal.asFlow
+import com.mercury.sqkon.db.internal.mapToList
+import com.mercury.sqkon.db.internal.mapToOne
+import com.mercury.sqkon.db.internal.mapToOneNotNull
+import com.mercury.sqkon.db.internal.sqldelight.toSqkonQuery
 import com.mercury.sqkon.db.KeyValueStorage.Config.DeserializePolicy
 import com.mercury.sqkon.db.paging.KeysetQueryPagingSource
 import com.mercury.sqkon.db.paging.OffsetQueryPagingSource
 import com.mercury.sqkon.db.serialization.KotlinSqkonSerializer
 import com.mercury.sqkon.db.serialization.SqkonJson
 import com.mercury.sqkon.db.serialization.SqkonSerializer
-import com.mercury.sqkon.db.utils.SqkonTransacter
+import com.mercury.sqkon.db.internal.SqkonTransacter
 import com.mercury.sqkon.db.utils.nowMillis
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -520,6 +521,7 @@ open class KeyValueStorage<T : Any>(
      */
     fun metadata(): Flow<Metadata> = metadataQueries
         .selectByEntityName(entityName)
+        .toSqkonQuery()
         .asFlow()
         .mapToOneNotNull(readDispatcher)
         .distinctUntilChanged()

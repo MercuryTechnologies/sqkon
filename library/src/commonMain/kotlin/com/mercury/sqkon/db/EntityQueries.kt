@@ -1,10 +1,12 @@
 package com.mercury.sqkon.db
 
-import app.cash.sqldelight.Query
 import app.cash.sqldelight.TransacterImpl
-import app.cash.sqldelight.db.QueryResult
-import app.cash.sqldelight.db.SqlCursor
 import app.cash.sqldelight.db.SqlDriver
+import com.mercury.sqkon.db.internal.ListenerIdentityMap
+import com.mercury.sqkon.db.internal.SqkonCursor
+import com.mercury.sqkon.db.internal.SqkonDriver
+import com.mercury.sqkon.db.internal.SqkonQuery
+import com.mercury.sqkon.db.internal.sqldelight.SqlDelightSqkonDriver
 import com.mercury.sqkon.db.utils.nowMillis
 import kotlin.time.Clock
 import kotlinx.coroutines.delay
@@ -16,21 +18,31 @@ class EntityQueries(
     internal val sqlDriver: SqlDriver,
 ) : TransacterImpl(sqlDriver) {
 
+    @PublishedApi
+    internal val sqkonDriver: SqkonDriver = SqlDelightSqkonDriver(sqlDriver)
+
     // Used to slow down insert/updates for testing
     internal var slowWrite: Boolean = false
+
+    private fun notifyEntityChanged(identifier: Int, entityName: String) {
+        notifyQueries(identifier) { emit ->
+            emit(ALL_ENTITIES_KEY)
+            emit(entityKey(entityName))
+        }
+    }
 
     fun insertEntity(entity: Entity, ignoreIfExists: Boolean) {
         val identifier = identifier("insert", ignoreIfExists.toString())
         val orIgnore = if (ignoreIfExists) "OR IGNORE" else ""
-        driver.execute(
+        sqkonDriver.executeUpdate(
             identifier = identifier,
             sql = """
             INSERT $orIgnore INTO entity (
                 entity_name, entity_key, added_at, updated_at, expires_at, write_at, value
-            ) 
+            )
             VALUES (?, ?, ?, ?, ?, ?, jsonb(?))
             """.trimIndent(),
-            parameters = 7
+            parameters = 7,
         ) {
             bindString(0, entity.entity_name)
             bindString(1, entity.entity_key)
@@ -41,10 +53,7 @@ class EntityQueries(
             bindLong(5, entity.write_at ?: nowMillis())
             bindString(6, entity.value_)
         }
-        notifyQueries(identifier) { emit ->
-            emit("entity")
-            emit("entity_${entity.entity_name}")
-        }
+        notifyEntityChanged(identifier, entity.entity_name)
         if (slowWrite) {
             runBlocking { delay(100) }
         }
@@ -58,12 +67,13 @@ class EntityQueries(
     ) {
         val now = Clock.System.now()
         val identifier = identifier("update")
-        driver.execute(
+        sqkonDriver.executeUpdate(
             identifier = identifier,
             sql = """
                 UPDATE entity SET updated_at = ?, expires_at = ?, write_at = ?, value = jsonb(?)
                 WHERE entity_name = ? AND entity_key = ?
-            """.trimMargin(), 5
+            """.trimMargin(),
+            parameters = 6,
         ) {
             bindLong(0, now.toEpochMilliseconds())
             bindLong(1, expiresAt?.toEpochMilliseconds())
@@ -72,16 +82,13 @@ class EntityQueries(
             bindString(4, entityName)
             bindString(5, entityKey)
         }
-        notifyQueries(identifier) { emit ->
-            emit("entity")
-            emit("entity_${entityName}")
-        }
+        notifyEntityChanged(identifier, entityName)
         if (slowWrite) {
             runBlocking { delay(100) }
         }
     }
 
-    fun select(
+    internal fun select(
         entityName: String,
         entityKeys: Collection<String>? = null,
         where: Where<*>? = null,
@@ -89,7 +96,7 @@ class EntityQueries(
         limit: Long? = null,
         offset: Long? = null,
         expiresAt: Instant? = null,
-    ): Query<Entity> = SelectQuery(
+    ): SqkonQuery<Entity> = SelectQuery(
         entityName = entityName,
         entityKeys = entityKeys,
         where = where,
@@ -118,18 +125,10 @@ class EntityQueries(
         private val limit: Long? = null,
         private val offset: Long? = null,
         private val expiresAt: Instant? = null,
-        mapper: (SqlCursor) -> Entity,
-    ) : Query<Entity>(mapper) {
+        mapper: (SqkonCursor) -> Entity,
+    ) : DriverBackedSqkonQuery<Entity>(sqkonDriver, arrayOf(entityKey(entityName)), mapper) {
 
-        override fun addListener(listener: Listener) {
-            driver.addListener("entity_$entityName", listener = listener)
-        }
-
-        override fun removeListener(listener: Listener) {
-            driver.removeListener("entity_$entityName", listener = listener)
-        }
-
-        override fun <R> execute(mapper: (SqlCursor) -> QueryResult<R>): QueryResult<R> {
+        override fun <R> execute(mapper: (SqkonCursor) -> R): R {
             val queries = buildList {
                 add(
                     SqlQuery(
@@ -174,24 +173,25 @@ class EntityQueries(
                 offset?.let { "offset" },
             )
             val sql = """
-                SELECT DISTINCT entity.entity_name, entity.entity_key, entity.added_at, 
-                entity.updated_at, entity.expires_at, entity.read_at, entity.write_at, 
+                SELECT DISTINCT entity.entity_name, entity.entity_key, entity.added_at,
+                entity.updated_at, entity.expires_at, entity.read_at, entity.write_at,
                 json_extract(entity.value, '$') value
                 FROM entity${queries.buildFrom()} ${queries.buildWhere()} ${queries.buildOrderBy()}
                 ${limit?.let { "LIMIT ?" } ?: ""} ${offset?.let { "OFFSET ?" } ?: ""}
             """.trimIndent().replace('\n', ' ')
             return try {
-                driver.executeQuery(
+                sqkonDriver.executeQuery(
                     identifier = identifier,
-                    sql = sql.replace('\n', ' '),
-                    mapper = mapper,
+                    sql = sql,
                     parameters = queries.sumParameters() + (if (limit != null) 1 else 0) + (if (offset != null) 1 else 0),
-                ) {
-                    val binder = AutoIncrementSqlPreparedStatement(preparedStatement = this)
-                    queries.forEach { it.bindArgs(binder) }
-                    if (limit != null) binder.bindLong(limit)
-                    if (offset != null) binder.bindLong(offset)
-                }
+                    binders = {
+                        val binder = AutoIncrementSqlPreparedStatement(preparedStatement = this)
+                        queries.forEach { it.bindArgs(binder) }
+                        if (limit != null) binder.bindLong(limit)
+                        if (offset != null) binder.bindLong(offset)
+                    },
+                    mapper = mapper,
+                )
             } catch (ex: SqlException) {
                 println("SQL Error: $sql")
                 throw ex
@@ -239,12 +239,12 @@ class EntityQueries(
      * Returns a factory that produces page boundary queries for keyset paging.
      * Uses ROW_NUMBER() to pick every Nth key from the ordered result set.
      */
-    fun selectPageBoundaries(
+    internal fun selectPageBoundaries(
         entityName: String,
         where: Where<*>? = null,
         orderBy: List<OrderBy<*>> = emptyList(),
         expiresAt: Instant? = null,
-    ): (anchor: String?, limit: Long) -> Query<String> = { _, limit ->
+    ): (anchor: String?, limit: Long) -> SqkonQuery<String> = { _, limit ->
         val queries = buildBaseQueries(entityName, where, orderBy, expiresAt)
         val orderBySql = queries.buildOrderByWithTiebreaker()
         val queryIdentifier = identifier("pageBoundaries", queries.identifier().toString())
@@ -255,23 +255,21 @@ class EntityQueries(
             ) WHERE (rn - 1) % ? = 0
             ORDER BY rn ASC
         """.trimIndent().replace('\n', ' ')
-        object : Query<String>({ cursor -> cursor.getString(0)!! }) {
-            override fun addListener(listener: Listener) =
-                driver.addListener("entity_$entityName", listener = listener)
-
-            override fun removeListener(listener: Listener) =
-                driver.removeListener("entity_$entityName", listener = listener)
-
-            override fun <R> execute(mapper: (SqlCursor) -> QueryResult<R>): QueryResult<R> {
+        object : DriverBackedSqkonQuery<String>(
+            sqkonDriver, arrayOf(entityKey(entityName)), { cursor -> cursor.getString(0)!! },
+        ) {
+            override fun <R> execute(mapper: (SqkonCursor) -> R): R {
                 return try {
-                    driver.executeQuery(
-                        identifier = queryIdentifier, sql = sql, mapper = mapper,
+                    sqkonDriver.executeQuery(
+                        identifier = queryIdentifier, sql = sql,
                         parameters = queries.sumParameters() + 1,
-                    ) {
-                        val binder = AutoIncrementSqlPreparedStatement(preparedStatement = this)
-                        queries.forEach { it.bindArgs(binder) }
-                        binder.bindLong(limit)
-                    }
+                        binders = {
+                            val binder = AutoIncrementSqlPreparedStatement(preparedStatement = this)
+                            queries.forEach { it.bindArgs(binder) }
+                            binder.bindLong(limit)
+                        },
+                        mapper = mapper,
+                    )
                 } catch (ex: SqlException) {
                     println("SQL Error: $sql")
                     throw ex
@@ -295,12 +293,12 @@ class EntityQueries(
      * order-by-entity_key case; best-effort for custom orderBy. Returns null
      * only when the dataset is empty.
      */
-    fun selectBoundaryForKey(
+    internal fun selectBoundaryForKey(
         entityName: String,
         where: Where<*>? = null,
         orderBy: List<OrderBy<*>> = emptyList(),
         expiresAt: Instant? = null,
-    ): (lookupKey: String, limit: Long) -> Query<String> = { lookupKey, limit ->
+    ): (lookupKey: String, limit: Long) -> SqkonQuery<String> = { lookupKey, limit ->
         val queries = buildBaseQueries(entityName, where, orderBy, expiresAt)
         val orderBySql = queries.buildOrderByWithTiebreaker()
         val queryIdentifier = identifier("boundaryForKey", queries.identifier().toString())
@@ -318,26 +316,24 @@ class EntityQueries(
             SELECT entity_key FROM ordered
             WHERE rn = ((COALESCE((SELECT rn FROM target), 1) - 1) / ?) * ? + 1
         """.trimIndent().replace('\n', ' ')
-        object : Query<String>({ cursor -> cursor.getString(0)!! }) {
-            override fun addListener(listener: Listener) =
-                driver.addListener("entity_$entityName", listener = listener)
-
-            override fun removeListener(listener: Listener) =
-                driver.removeListener("entity_$entityName", listener = listener)
-
-            override fun <R> execute(mapper: (SqlCursor) -> QueryResult<R>): QueryResult<R> {
+        object : DriverBackedSqkonQuery<String>(
+            sqkonDriver, arrayOf(entityKey(entityName)), { cursor -> cursor.getString(0)!! },
+        ) {
+            override fun <R> execute(mapper: (SqkonCursor) -> R): R {
                 return try {
-                    driver.executeQuery(
-                        identifier = queryIdentifier, sql = sql, mapper = mapper,
+                    sqkonDriver.executeQuery(
+                        identifier = queryIdentifier, sql = sql,
                         parameters = queries.sumParameters() + 4,
-                    ) {
-                        val binder = AutoIncrementSqlPreparedStatement(preparedStatement = this)
-                        queries.forEach { it.bindArgs(binder) }
-                        binder.bindString(lookupKey)
-                        binder.bindString(lookupKey)
-                        binder.bindLong(limit)
-                        binder.bindLong(limit)
-                    }
+                        binders = {
+                            val binder = AutoIncrementSqlPreparedStatement(preparedStatement = this)
+                            queries.forEach { it.bindArgs(binder) }
+                            binder.bindString(lookupKey)
+                            binder.bindString(lookupKey)
+                            binder.bindLong(limit)
+                            binder.bindLong(limit)
+                        },
+                        mapper = mapper,
+                    )
                 } catch (ex: SqlException) {
                     println("SQL Error: $sql")
                     throw ex
@@ -352,12 +348,12 @@ class EntityQueries(
      * Returns a factory that produces keyed range queries for keyset paging.
      * Selects entities within a key range using ROW_NUMBER() for consistent ordering.
      */
-    fun selectKeyed(
+    internal fun selectKeyed(
         entityName: String,
         where: Where<*>? = null,
         orderBy: List<OrderBy<*>> = emptyList(),
         expiresAt: Instant? = null,
-    ): (beginInclusive: String, endExclusive: String?) -> Query<Entity> =
+    ): (beginInclusive: String, endExclusive: String?) -> SqkonQuery<Entity> =
         { beginInclusive, endExclusive ->
             val queries = buildBaseQueries(entityName, where, orderBy, expiresAt)
             val orderBySql = queries.buildOrderByWithTiebreaker()
@@ -381,35 +377,34 @@ class EntityQueries(
                 ORDER BY rn ASC
             """.trimIndent().replace('\n', ' ')
             val extraParams = if (hasEndExclusive) 2 else 1
-            object : Query<Entity>({ cursor ->
-                Entity(
-                    entity_name = cursor.getString(0)!!,
-                    entity_key = cursor.getString(1)!!,
-                    added_at = cursor.getLong(2)!!,
-                    updated_at = cursor.getLong(3)!!,
-                    expires_at = cursor.getLong(4),
-                    read_at = cursor.getLong(5),
-                    write_at = cursor.getLong(6),
-                    value_ = cursor.getString(7)!!,
-                )
-            }) {
-                override fun addListener(listener: Listener) =
-                    driver.addListener("entity_$entityName", listener = listener)
-
-                override fun removeListener(listener: Listener) =
-                    driver.removeListener("entity_$entityName", listener = listener)
-
-                override fun <R> execute(mapper: (SqlCursor) -> QueryResult<R>): QueryResult<R> {
+            object : DriverBackedSqkonQuery<Entity>(
+                sqkonDriver, arrayOf(entityKey(entityName)),
+                { cursor ->
+                    Entity(
+                        entity_name = cursor.getString(0)!!,
+                        entity_key = cursor.getString(1)!!,
+                        added_at = cursor.getLong(2)!!,
+                        updated_at = cursor.getLong(3)!!,
+                        expires_at = cursor.getLong(4),
+                        read_at = cursor.getLong(5),
+                        write_at = cursor.getLong(6),
+                        value_ = cursor.getString(7)!!,
+                    )
+                },
+            ) {
+                override fun <R> execute(mapper: (SqkonCursor) -> R): R {
                     return try {
-                        driver.executeQuery(
-                            identifier = queryIdentifier, sql = sql, mapper = mapper,
+                        sqkonDriver.executeQuery(
+                            identifier = queryIdentifier, sql = sql,
                             parameters = queries.sumParameters() + extraParams,
-                        ) {
-                            val binder = AutoIncrementSqlPreparedStatement(preparedStatement = this)
-                            queries.forEach { it.bindArgs(binder) }
-                            binder.bindString(beginInclusive)
-                            if (hasEndExclusive) binder.bindString(endExclusive)
-                        }
+                            binders = {
+                                val binder = AutoIncrementSqlPreparedStatement(preparedStatement = this)
+                                queries.forEach { it.bindArgs(binder) }
+                                binder.bindString(beginInclusive)
+                                if (hasEndExclusive) binder.bindString(endExclusive)
+                            },
+                            mapper = mapper,
+                        )
                     } catch (ex: SqlException) {
                         println("SQL Error: $sql")
                         throw ex
@@ -459,7 +454,7 @@ class EntityQueries(
             """.trimIndent()
         val sql = "DELETE FROM entity WHERE entity_name = ? $whereSubQuerySql"
         try {
-            driver.execute(
+            sqkonDriver.executeUpdate(
                 identifier = identifier,
                 sql = sql.replace('\n', ' '),
                 parameters = 1 + if (queries.size > 1) queries.sumParameters() else 0,
@@ -476,17 +471,14 @@ class EntityQueries(
             println("SQL Error: $sql")
             throw ex
         }
-        notifyQueries(identifier) { emit ->
-            emit("entity")
-            emit("entity_$entityName")
-        }
+        notifyEntityChanged(identifier, entityName)
     }
 
-    fun count(
+    internal fun count(
         entityName: String,
         where: Where<*>? = null,
-        expiresAfter: Instant? = null
-    ): Query<Int> = CountQuery(entityName, where, expiresAfter) { cursor ->
+        expiresAfter: Instant? = null,
+    ): SqkonQuery<Int> = CountQuery(entityName, where, expiresAfter) { cursor ->
         cursor.getLong(0)!!.toInt()
     }
 
@@ -494,18 +486,10 @@ class EntityQueries(
         private val entityName: String,
         private val where: Where<*>? = null,
         private val expiresAfter: Instant? = null,
-        mapper: (SqlCursor) -> T,
-    ) : Query<T>(mapper) {
+        mapper: (SqkonCursor) -> T,
+    ) : DriverBackedSqkonQuery<T>(sqkonDriver, arrayOf(entityKey(entityName)), mapper) {
 
-        override fun addListener(listener: Listener) {
-            driver.addListener("entity_$entityName", listener = listener)
-        }
-
-        override fun removeListener(listener: Listener) {
-            driver.removeListener("entity_$entityName", listener = listener)
-        }
-
-        override fun <R> execute(mapper: (SqlCursor) -> QueryResult<R>): QueryResult<R> {
+        override fun <R> execute(mapper: (SqkonCursor) -> R): R {
             val queries = buildList {
                 add(
                     SqlQuery(
@@ -527,15 +511,16 @@ class EntityQueries(
                 SELECT COUNT(*) FROM entity${queries.buildFrom()} ${queries.buildWhere()}
             """.trimIndent().replace('\n', ' ')
             return try {
-                driver.executeQuery(
+                sqkonDriver.executeQuery(
                     identifier = identifier,
                     sql = sql,
-                    mapper = mapper,
                     parameters = queries.sumParameters(),
-                ) {
-                    val binder = AutoIncrementSqlPreparedStatement(preparedStatement = this)
-                    queries.forEach { it.bindArgs(binder) }
-                }
+                    binders = {
+                        val binder = AutoIncrementSqlPreparedStatement(preparedStatement = this)
+                        queries.forEach { it.bindArgs(binder) }
+                    },
+                    mapper = mapper,
+                )
             } catch (ex: SqlException) {
                 println("SQL Error: $sql")
                 throw ex
@@ -544,7 +529,31 @@ class EntityQueries(
 
         override fun toString(): String = "count"
     }
+}
 
+/**
+ * Base class for `SqkonQuery`s whose listeners must be registered against a
+ * `SqkonDriver` keyed by query key. Maintains a `SqkonQuery.Listener ->
+ * SqkonDriver.Listener` identity map so `removeListener` finds the same delegate
+ * the eygraber driver registered.
+ */
+private abstract class DriverBackedSqkonQuery<out T : Any>(
+    private val sqkonDriver: SqkonDriver,
+    private val queryKeys: Array<out String>,
+    mapper: (SqkonCursor) -> T,
+) : SqkonQuery<T>(mapper) {
+
+    private val listeners = ListenerIdentityMap<Listener, SqkonDriver.Listener>(
+        factory = { listener -> SqkonDriver.Listener { listener.queryResultsChanged() } },
+    )
+
+    final override fun addListener(listener: Listener) {
+        listeners.add(listener) { sqkonDriver.addListener(queryKeys = queryKeys, listener = it) }
+    }
+
+    final override fun removeListener(listener: Listener) {
+        listeners.remove(listener) { sqkonDriver.removeListener(queryKeys = queryKeys, listener = it) }
+    }
 }
 
 /**
@@ -554,6 +563,11 @@ class EntityQueries(
 private fun identifier(vararg values: String?): Int {
     return values.filterNotNull().joinToString("_").hashCode()
 }
+
+// Listener key conventions. Listeners under [ALL_ENTITIES_KEY] fire on writes to
+// any entity table; listeners under entityKey(name) fire only for that entity.
+internal const val ALL_ENTITIES_KEY = "entity"
+internal fun entityKey(entityName: String): String = "entity_$entityName"
 
 
 expect class SqlException : Exception

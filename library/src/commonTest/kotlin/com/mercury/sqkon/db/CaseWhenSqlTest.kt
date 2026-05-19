@@ -1,6 +1,5 @@
 package com.mercury.sqkon.db
 
-import app.cash.sqldelight.db.SqlPreparedStatement
 import com.mercury.sqkon.BaseSealed
 import com.mercury.sqkon.TestObject
 import com.mercury.sqkon.TestSealed
@@ -231,12 +230,12 @@ internal fun captureBoundArgs(
     bindArgs: AutoIncrementSqlPreparedStatement.() -> Unit,
 ): List<Any?> {
     val captured = arrayOfNulls<Any?>(parameters)
-    val recorder = object : SqlPreparedStatement {
-        override fun bindBoolean(index: Int, boolean: Boolean?) { captured[index] = boolean }
-        override fun bindBytes(index: Int, bytes: ByteArray?) { captured[index] = bytes }
-        override fun bindDouble(index: Int, double: Double?) { captured[index] = double }
-        override fun bindLong(index: Int, long: Long?) { captured[index] = long }
-        override fun bindString(index: Int, string: String?) { captured[index] = string }
+    val recorder = object : com.mercury.sqkon.db.internal.SqkonStatement {
+        override fun bindBoolean(index: Int, value: Boolean?) { captured[index] = value }
+        override fun bindBytes(index: Int, value: ByteArray?) { captured[index] = value }
+        override fun bindDouble(index: Int, value: Double?) { captured[index] = value }
+        override fun bindLong(index: Int, value: Long?) { captured[index] = value }
+        override fun bindString(index: Int, value: String?) { captured[index] = value }
     }
     val binder = AutoIncrementSqlPreparedStatement(preparedStatement = recorder)
     bindArgs(binder)

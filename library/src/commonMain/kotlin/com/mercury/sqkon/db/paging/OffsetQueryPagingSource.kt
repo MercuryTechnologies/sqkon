@@ -2,16 +2,16 @@ package com.mercury.sqkon.db.paging
 
 import androidx.paging.PagingSource
 import androidx.paging.PagingState
-import app.cash.sqldelight.Query
 import app.cash.sqldelight.Transacter
 import app.cash.sqldelight.TransactionCallbacks
 import com.mercury.sqkon.db.Entity
+import com.mercury.sqkon.db.internal.SqkonQuery
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.CoroutineContext
 
 internal class OffsetQueryPagingSource<T : Any>(
-    private val queryProvider: (limit: Int, offset: Int) -> Query<Entity>,
-    private val countQuery: Query<Int>,
+    private val queryProvider: (limit: Int, offset: Int) -> SqkonQuery<Entity>,
+    private val countQuery: SqkonQuery<Int>,
     private val transacter: Transacter,
     private val context: CoroutineContext,
     private val deserialize: (Entity) -> T?,

@@ -2,10 +2,10 @@ package com.mercury.sqkon.db.paging
 
 import androidx.paging.PagingSource
 import androidx.paging.PagingState
-import app.cash.sqldelight.Query
 import app.cash.sqldelight.Transacter
 import app.cash.sqldelight.TransactionCallbacks
 import com.mercury.sqkon.db.Entity
+import com.mercury.sqkon.db.internal.SqkonQuery
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.CoroutineContext
 
@@ -30,9 +30,9 @@ import kotlin.coroutines.CoroutineContext
  * @param deserialize Converts an [Entity] to the target type, returning null to skip.
  */
 internal class KeysetQueryPagingSource<T : Any>(
-    private val queryProvider: (beginInclusive: String, endExclusive: String?) -> Query<Entity>,
-    private val pageBoundariesProvider: (anchor: String?, limit: Long) -> Query<String>,
-    private val boundaryForKeyProvider: (lookupKey: String, limit: Long) -> Query<String>,
+    private val queryProvider: (beginInclusive: String, endExclusive: String?) -> SqkonQuery<Entity>,
+    private val pageBoundariesProvider: (anchor: String?, limit: Long) -> SqkonQuery<String>,
+    private val boundaryForKeyProvider: (lookupKey: String, limit: Long) -> SqkonQuery<String>,
     private val transacter: Transacter,
     private val context: CoroutineContext,
     private val deserialize: (Entity) -> T?,
