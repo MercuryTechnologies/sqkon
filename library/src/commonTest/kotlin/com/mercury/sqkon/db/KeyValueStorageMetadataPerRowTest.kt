@@ -1,6 +1,7 @@
 package com.mercury.sqkon.db
 
 import app.cash.sqldelight.db.QueryResult
+import app.cash.turbine.test
 import com.mercury.sqkon.TestObject
 import com.mercury.sqkon.until
 import kotlinx.coroutines.Dispatchers
@@ -68,6 +69,30 @@ class KeyValueStorageMetadataPerRowTest {
         until { rowMeta(obj.id).first != null }
         // updateReadAt is async; once until {} sees non-null read_at, the meta-write has landed.
         assertNotNull(rowMeta(obj.id).first)
+    }
+
+    @Test
+    fun selectAllFlow_updateReadAtSideEffectDoesNotReEmit() = runTest {
+        val expected = (0..2).map { TestObject() }.associateBy { it.id }
+        store.insertAll(expected)
+
+        store.selectAll().test {
+            // Initial emission carries all rows. Right after this, the Flow chain's
+            // .onEach { updateReadAt(...) } fires asynchronously and writes
+            // entity.read_at via MetadataQueries.updateReadForEntities. That write
+            // must NOT wake this same Flow — otherwise onEach re-fires, writes
+            // again, and the subscription loops forever. Regression guard for
+            // MetadataQueries.notifyEntityReadAtChanged staying single-key.
+            assertEquals(expected.size, awaitItem().size)
+            // Wait for the async updateReadAt to commit (read_at becomes non-null).
+            until { rowMeta(expected.keys.first()).first != null }
+            // updateReadAt has landed — no spurious emission must follow.
+            cancelAndConsumeRemainingEvents().also { remaining ->
+                assertTrue("Flow looped on updateReadAt; got extra events: $remaining") {
+                    remaining.isEmpty()
+                }
+            }
+        }
     }
 
     @Test
