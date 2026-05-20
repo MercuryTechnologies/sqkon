@@ -3,9 +3,8 @@ package com.mercury.sqkon.db
 import kotlinx.datetime.Instant
 
 /**
- * Row in the `metadata` table. The `Long ↔ Instant` conversion that used to live in
- * `Metadata.Adapter` is now folded into the cursor mappers and the upsert bind paths
- * in [MetadataQueries].
+ * Row in the `metadata` table. [MetadataQueries] handles the `Long ↔ Instant`
+ * conversion in its cursor mapper and upsert bind paths.
  */
 data class Metadata(
     val entity_name: String,
