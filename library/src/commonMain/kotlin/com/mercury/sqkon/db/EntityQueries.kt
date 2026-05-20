@@ -537,7 +537,7 @@ class EntityQueries(
  * SqkonDriver.Listener` identity map so `removeListener` finds the same delegate
  * the eygraber driver registered.
  */
-private abstract class DriverBackedSqkonQuery<out T : Any>(
+internal abstract class DriverBackedSqkonQuery<out T : Any>(
     private val sqkonDriver: SqkonDriver,
     private val queryKeys: Array<out String>,
     mapper: (SqkonCursor) -> T,
@@ -560,7 +560,7 @@ private abstract class DriverBackedSqkonQuery<out T : Any>(
  * Generate an identifier for a query based on changing query sqlstring
  * (binding parameters don't change the structure of the string)
  */
-private fun identifier(vararg values: String?): Int {
+internal fun identifier(vararg values: String?): Int {
     return values.filterNotNull().joinToString("_").hashCode()
 }
 
