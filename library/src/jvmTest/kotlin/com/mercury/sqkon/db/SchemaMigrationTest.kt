@@ -12,6 +12,7 @@ import com.eygraber.sqldelight.androidx.driver.AndroidxSqliteDriver
 import com.eygraber.sqldelight.androidx.driver.SqliteJournalMode
 import com.eygraber.sqldelight.androidx.driver.SqliteSync
 import com.mercury.sqkon.db.SchemaSnapshotUtil.dumpSchemaSnapshot
+import com.mercury.sqkon.db.sqldelight.SqkonDatabase
 import org.junit.Test
 import java.io.File
 import kotlin.test.assertEquals

@@ -1,7 +1,7 @@
 package com.mercury.sqkon.db
 
+import app.cash.turbine.test
 import com.mercury.sqkon.TestObject
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
@@ -90,6 +90,24 @@ class KeyValueStorageExpiresTest {
         )
         val actualAfterDelete = testObjectStorage.selectAll().first()
         assertEquals(expected.size - 1, actualAfterDelete.size)
+    }
+
+    @Test
+    fun deleteExpired_wakesActiveSelectAllSubscriber() = runTest {
+        val now = Clock.System.now()
+        val expected = (0..4).map { TestObject() }.associateBy { it.id }
+        testObjectStorage.insertAll(expected, expiresAt = now.minus(1.milliseconds))
+
+        testObjectStorage.selectAll().test {
+            // Initial emission carries every row (no expires filter on this read).
+            assertEquals(expected.size, awaitItem().size)
+            // deleteExpired removes every row; the live subscriber must be woken
+            // with the post-purge result. Regression guard for the contract that
+            // MetadataQueries.purgeExpires fires entityKey(name), not only the
+            // broad table key.
+            testObjectStorage.deleteExpired(expiresAfter = now)
+            assertEquals(0, awaitItem().size)
+        }
     }
 
     @Test

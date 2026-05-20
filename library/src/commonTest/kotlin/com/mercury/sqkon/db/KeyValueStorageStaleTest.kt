@@ -7,6 +7,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.days
 import java.lang.Thread.sleep
 import kotlin.test.AfterTest
 import kotlin.test.Test
@@ -26,6 +27,23 @@ class KeyValueStorageStaleTest {
     @AfterTest
     fun tearDown() {
         mainScope.cancel()
+    }
+
+    @Test
+    fun deleteStale_wakesActiveSelectAllSubscriber() = runTest {
+        val expected = (0..4).map { TestObject() }.associateBy { it.id }
+        testObjectStorage.insertAll(expected)
+
+        testObjectStorage.selectAll().test {
+            assertEquals(expected.size, awaitItem().size)
+            // Pick a cutoff well in the future so every row's `write_at` and
+            // `read_at` qualifies for purge. Regression guard for the contract
+            // that MetadataQueries.purgeStale/purgeStaleWrite/purgeStaleRead fire
+            // entityKey(name), not only the broad table key.
+            val far = Clock.System.now().plus(1.days)
+            testObjectStorage.deleteStale(writeInstant = far, readInstant = far)
+            assertEquals(0, awaitItem().size)
+        }
     }
 
     @Test

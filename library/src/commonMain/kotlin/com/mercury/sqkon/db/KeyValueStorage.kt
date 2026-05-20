@@ -7,7 +7,6 @@ import com.mercury.sqkon.db.internal.asFlow
 import com.mercury.sqkon.db.internal.mapToList
 import com.mercury.sqkon.db.internal.mapToOne
 import com.mercury.sqkon.db.internal.mapToOneNotNull
-import com.mercury.sqkon.db.internal.sqldelight.toSqkonQuery
 import com.mercury.sqkon.db.KeyValueStorage.Config.DeserializePolicy
 import com.mercury.sqkon.db.paging.KeysetQueryPagingSource
 import com.mercury.sqkon.db.paging.OffsetQueryPagingSource
@@ -521,7 +520,6 @@ open class KeyValueStorage<T : Any>(
      */
     fun metadata(): Flow<Metadata> = metadataQueries
         .selectByEntityName(entityName)
-        .toSqkonQuery()
         .asFlow()
         .mapToOneNotNull(readDispatcher)
         .distinctUntilChanged()

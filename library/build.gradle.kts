@@ -125,7 +125,7 @@ sqldelight {
             // We disable async as it's effectively broken on multithreaded platforms with
             // coroutines (more of a driver issue)
             generateAsync = false
-            packageName.set("com.mercury.sqkon.db")
+            packageName.set("com.mercury.sqkon.db.sqldelight")
             schemaOutputDirectory.set(file("src/commonMain/sqldelight/databases"))
             // We're technically using 3.45.0, but 3.38 is the latest supported version
             dialect("app.cash.sqldelight:sqlite-3-38-dialect:$VERSION")
