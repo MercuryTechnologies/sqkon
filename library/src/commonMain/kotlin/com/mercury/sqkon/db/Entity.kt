@@ -2,8 +2,9 @@ package com.mercury.sqkon.db
 
 /**
  * Row in the `entity` table. Field names match the SQL columns verbatim, including
- * the trailing underscore on [value_] — SQLDelight escapes the reserved word `value`,
- * and the rest of the codebase references it as `value_`.
+ * the trailing underscore on [value_] — SQLDelight appended `_` to dodge Kotlin's
+ * `value` contextual keyword (the implicit setter parameter), and the rest of the
+ * codebase already references the property as `value_`.
  */
 data class Entity(
     val entity_name: String,
