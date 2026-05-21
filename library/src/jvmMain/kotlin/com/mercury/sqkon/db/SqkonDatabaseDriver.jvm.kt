@@ -8,7 +8,8 @@ import com.eygraber.sqldelight.androidx.driver.AndroidxSqliteDatabaseType
 import com.eygraber.sqldelight.androidx.driver.AndroidxSqliteDriver
 import com.eygraber.sqldelight.androidx.driver.SqliteJournalMode
 import com.eygraber.sqldelight.androidx.driver.SqliteSync
-import com.mercury.sqkon.db.sqldelight.SqkonDatabase
+import com.mercury.sqkon.db.internal.schema.SqkonDatabaseSchema
+import com.mercury.sqkon.db.internal.sqldelight.toSqlDelightSchema
 import kotlinx.coroutines.Dispatchers
 
 internal actual const val connectionPoolSize = 4 // Default is 4 as per AndroidxSqliteConfiguration
@@ -29,7 +30,7 @@ internal actual class DriverFactory(
         return AndroidxSqliteDriver(
             driver = BundledSQLiteDriver(),
             databaseType = databaseType,
-            schema = SqkonDatabase.Schema,
+            schema = SqkonDatabaseSchema.toSqlDelightSchema(),
             configuration = AndroidxSqliteConfiguration(
                 journalMode = SqliteJournalMode.WAL,
                 sync = SqliteSync.Normal,
