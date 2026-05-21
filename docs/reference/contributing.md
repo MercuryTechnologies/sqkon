@@ -24,8 +24,8 @@ Sqkon uses Gradle and the [Just the Docs](https://just-the-docs.com) Jekyll them
 # Run a single test class
 ./gradlew jvmTest --tests "*.KeyValueStorageTest"
 
-# Verify SQLDelight schema migrations
-./gradlew verifySqlDelightMigration
+# Schema parity / migration gate (runs as part of jvmTest)
+./gradlew jvmTest --tests "*.SchemaParityTest" --tests "*.SchemaMigrationTest"
 
 # Publish a snapshot to your local Maven for downstream testing
 ./gradlew publishToMavenLocal

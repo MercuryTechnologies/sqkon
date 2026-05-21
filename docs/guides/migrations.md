@@ -27,32 +27,36 @@ data class Merchant(val id: String, val name: String, val category: String)
 Sqkon owns its SQLite schema. The tables, indexes, and any future schema
 changes live in the library, not in your project:
 
-- Schema definitions: `library/src/commonMain/sqldelight/com/mercury/sqkon/db/`
-- Migrations: `library/src/commonMain/sqldelight/migrations/`
+- Schema + migrations: `library/src/commonMain/kotlin/com/mercury/sqkon/db/internal/schema/SqkonDatabaseSchema.kt`
 
 When you bump the Sqkon version and the version brings a new schema
-revision, SQLDelight applies the migration the first time the database is
-opened. You don't write SQL, you don't run migrations, and you don't need
-to worry about coordinating versions across modules — the library does it.
+revision, the bundled SQLite driver applies the migration the first time
+the database is opened. You don't write SQL, you don't run migrations, and
+you don't need to worry about coordinating versions across modules — the
+library does it.
 
 The shipped migration today:
 
-- `1.sqm` — adds the `metadata` table, adds `read_at` / `write_at` columns
+- v1 → v2 — adds the `metadata` table, adds `read_at` / `write_at` columns
   to `entity`, and creates the supporting indexes.
 
 ## Verifying schema migrations
 
-When the library itself adds a migration, SQLDelight provides a
-verification task that ensures the migration plus the new schema produce
-the same result as a clean install. CI runs this on every change:
+`SchemaParityTest` and `SchemaMigrationTest` (under
+`library/src/jvmTest/kotlin/com/mercury/sqkon/db/`) are the schema gate.
+They run as part of `jvmTest`:
 
 ```bash
-./gradlew verifySqlDelightMigration
+./gradlew jvmTest --tests "*.SchemaParityTest" --tests "*.SchemaMigrationTest"
 ```
 
-If you're contributing to Sqkon and you change `entity.sq` or add a `.sqm`
-file, run this locally before you push. It's also part of the project's CI
-flow (`.github/workflows/ci.yml`).
+- `SchemaParityTest` snapshots a fresh v2 schema and diffs it against the
+  checked-in fixture (`library/src/jvmTest/resources/sqkon-schema-v2.snapshot`).
+- `SchemaMigrationTest` seeds a v1 database, runs the v1→v2 migration, and
+  asserts both the resulting schema and the preserved row.
+
+If you change `SqkonDatabaseSchema.kt`, run these locally before you push.
+They also run in CI (`.github/workflows/ci.yml`).
 
 ## Data shape migrations
 
@@ -148,7 +152,6 @@ stores where the data isn't easy to regenerate.
 
 ## Reference
 
-- Schema: `library/src/commonMain/sqldelight/com/mercury/sqkon/db/entity.sq`
-- Migrations directory: `library/src/commonMain/sqldelight/migrations/`
-  - `1.sqm` — adds `metadata` table, `read_at`/`write_at` columns, indexes
-- CI verify task: `./gradlew verifySqlDelightMigration`
+- Schema + migrations: `library/src/commonMain/kotlin/com/mercury/sqkon/db/internal/schema/SqkonDatabaseSchema.kt`
+  - v1 → v2 — adds `metadata` table, `read_at`/`write_at` columns, indexes
+- CI gate: `SchemaParityTest` + `SchemaMigrationTest`, run as part of `./gradlew jvmTest`

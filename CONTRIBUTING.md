@@ -42,8 +42,8 @@ Java 21 is required — do not downgrade the toolchain.
 # Run a single test class
 ./gradlew jvmTest --tests "*.KeyValueStorageTest"
 
-# Verify SQLDelight schema migrations
-./gradlew verifySqlDelightMigration
+# Schema parity / migration gate (runs as part of jvmTest)
+./gradlew jvmTest --tests "*.SchemaParityTest" --tests "*.SchemaMigrationTest"
 
 # Run Android instrumented tests on a managed emulator (CI only, slow)
 ./gradlew allDevicesDebugAndroidTest
@@ -65,7 +65,7 @@ bundle exec jekyll serve --livereload
 
 GitHub Actions (`.github/workflows/ci.yml`) runs on every push and PR to `main`:
 
-- **`jvm-tests`** — runs `./gradlew verifySqlDelightMigration` then `./gradlew jvmTest`.
+- **`jvm-tests`** — runs `./gradlew jvmTest`. `SchemaParityTest` + `SchemaMigrationTest` are the schema regression gate.
 - **`run-android-tests`** — runs `./gradlew allDevicesDebugAndroidTest` on a managed emulator.
 
 Both jobs must pass before a PR can merge. JUnit reports are surfaced as GitHub check annotations.
