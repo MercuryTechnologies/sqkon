@@ -12,7 +12,8 @@ import com.eygraber.sqldelight.androidx.driver.AndroidxSqliteDriver
 import com.eygraber.sqldelight.androidx.driver.SqliteJournalMode
 import com.eygraber.sqldelight.androidx.driver.SqliteSync
 import com.mercury.sqkon.db.SchemaSnapshotUtil.dumpSchemaSnapshot
-import com.mercury.sqkon.db.sqldelight.SqkonDatabase
+import com.mercury.sqkon.db.internal.schema.SqkonDatabaseSchema
+import com.mercury.sqkon.db.internal.sqldelight.SqlDelightSqkonDriver
 import org.junit.Test
 import java.io.File
 import kotlin.test.assertEquals
@@ -21,7 +22,7 @@ import kotlin.test.assertTrue
 /**
  * Manually creates the v1 schema (entity table without read_at/write_at,
  * no metadata table, no indices) seeded with a row, then runs
- * SqkonDatabase.Schema.migrate(driver, 1L, 2L) and asserts:
+ * SqkonDatabaseSchema.migrate(driver, 1L, 2L) and asserts:
  *   1. Resulting schema matches the v2 snapshot.
  *   2. The seeded row survives intact.
  *   3. write_at is populated post-migration (set to CURRENT_TIMESTAMP per 1.sqm).
@@ -58,10 +59,10 @@ class SchemaMigrationTest {
         // Pin user_version = 1 so SQLDelight migration starts at the right version.
         driver.execute(null, "PRAGMA user_version = 1", 0) {}
 
-        // Run real migration.
-        SqkonDatabase.Schema.migrate(driver, 1L, 2L).value
+        // Run real migration through hand-rolled schema.
+        SqkonDatabaseSchema.migrate(SqlDelightSqkonDriver(driver), 1L, 2L)
 
-        // SQLDelight migrate() may or may not update PRAGMA user_version itself.
+        // Hand-rolled migrate() does not touch PRAGMA user_version itself.
         // Bump defensively so the snapshot fixture matches.
         driver.execute(null, "PRAGMA user_version = 2", 0) {}
 
