@@ -1,4 +1,3 @@
-import app.cash.sqldelight.VERSION
 import com.android.build.api.variant.HasUnitTestBuilder
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSetTree
@@ -115,22 +114,6 @@ android {
 dependencies {
     androidTestImplementation(libs.androidx.test.monitor)
     androidTestImplementation(libs.androidx.test.runner)
-}
-
-sqldelight {
-    databases {
-        create("SqkonDatabase") {
-            // Database configuration here.
-            // https://cashapp.github.io/sqldelight
-            // We disable async as it's effectively broken on multithreaded platforms with
-            // coroutines (more of a driver issue)
-            generateAsync = false
-            packageName.set("com.mercury.sqkon.db.sqldelight")
-            schemaOutputDirectory.set(file("src/commonMain/sqldelight/databases"))
-            // We're technically using 3.45.0, but 3.38 is the latest supported version
-            dialect("app.cash.sqldelight:sqlite-3-38-dialect:$VERSION")
-        }
-    }
 }
 
 androidComponents {
