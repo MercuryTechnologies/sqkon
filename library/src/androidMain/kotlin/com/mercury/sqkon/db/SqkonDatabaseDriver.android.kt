@@ -13,11 +13,12 @@ import com.eygraber.sqldelight.androidx.driver.AndroidxSqliteConcurrencyModel
 import com.eygraber.sqldelight.androidx.driver.AndroidxSqliteConfiguration
 import com.eygraber.sqldelight.androidx.driver.AndroidxSqliteConnectionFactory
 import com.eygraber.sqldelight.androidx.driver.AndroidxSqliteDatabaseType
-import com.mercury.sqkon.db.sqldelight.SqkonDatabase
 import com.eygraber.sqldelight.androidx.driver.AndroidxSqliteDriver
 import com.eygraber.sqldelight.androidx.driver.FileProvider
 import com.eygraber.sqldelight.androidx.driver.SqliteJournalMode
 import com.eygraber.sqldelight.androidx.driver.SqliteSync
+import com.mercury.sqkon.db.internal.schema.SqkonDatabaseSchema
+import com.mercury.sqkon.db.internal.sqldelight.toSqlDelightSchema
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.newFixedThreadPoolContext
@@ -49,7 +50,7 @@ internal actual class DriverFactory(
                 null -> AndroidxSqliteDatabaseType.Memory
                 else -> AndroidxSqliteDatabaseType.FileProvider(context = context, name = name)
             },
-            schema = SqkonDatabase.Schema,
+            schema = SqkonDatabaseSchema.toSqlDelightSchema(),
             configuration = AndroidxSqliteConfiguration(
                 journalMode = SqliteJournalMode.WAL,
                 sync = SqliteSync.Normal,
