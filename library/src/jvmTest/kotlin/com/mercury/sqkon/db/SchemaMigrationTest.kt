@@ -12,7 +12,8 @@ import com.eygraber.sqldelight.androidx.driver.AndroidxSqliteDriver
 import com.eygraber.sqldelight.androidx.driver.SqliteJournalMode
 import com.eygraber.sqldelight.androidx.driver.SqliteSync
 import com.mercury.sqkon.db.SchemaSnapshotUtil.dumpSchemaSnapshot
-import com.mercury.sqkon.db.sqldelight.SqkonDatabase
+import com.mercury.sqkon.db.internal.schema.SqkonDatabaseSchema
+import com.mercury.sqkon.db.internal.sqldelight.SqlDelightSqkonDriver
 import org.junit.Test
 import java.io.File
 import kotlin.test.assertEquals
@@ -21,10 +22,11 @@ import kotlin.test.assertTrue
 /**
  * Manually creates the v1 schema (entity table without read_at/write_at,
  * no metadata table, no indices) seeded with a row, then runs
- * SqkonDatabase.Schema.migrate(driver, 1L, 2L) and asserts:
+ * SqkonDatabaseSchema.migrate(driver, 1L, 2L) and asserts:
  *   1. Resulting schema matches the v2 snapshot.
  *   2. The seeded row survives intact.
- *   3. write_at is populated post-migration (set to CURRENT_TIMESTAMP per 1.sqm).
+ *   3. write_at is backfilled with real epoch-millis (not a CURRENT_TIMESTAMP text datetime,
+ *      which would coerce to a bogus small integer on the INTEGER column).
  */
 class SchemaMigrationTest {
 
@@ -58,10 +60,10 @@ class SchemaMigrationTest {
         // Pin user_version = 1 so SQLDelight migration starts at the right version.
         driver.execute(null, "PRAGMA user_version = 1", 0) {}
 
-        // Run real migration.
-        SqkonDatabase.Schema.migrate(driver, 1L, 2L).value
+        // Run real migration through hand-rolled schema.
+        SqkonDatabaseSchema.migrate(SqlDelightSqkonDriver(driver), 1L, 2L)
 
-        // SQLDelight migrate() may or may not update PRAGMA user_version itself.
+        // Hand-rolled migrate() does not touch PRAGMA user_version itself.
         // Bump defensively so the snapshot fixture matches.
         driver.execute(null, "PRAGMA user_version = 2", 0) {}
 
@@ -73,25 +75,21 @@ class SchemaMigrationTest {
         val actual = dumpSchemaSnapshot(driver)
         val expected = File("src/jvmTest/resources/sqkon-schema-v2.snapshot").readText()
 
-        // Extract and compare the structural sections (table_info + index_list + user_version).
-        fun extractSection(text: String, header: String): String {
-            val start = text.indexOf("=== $header ===")
-            if (start == -1) return ""
-            val end = text.indexOf("\n===", start + 1).let { if (it == -1) text.length else it }
-            return text.substring(start, end).trim()
-        }
-
+        // Compare the structural sections (table_info + index_list + user_version) rather than the
+        // full snapshot byte-for-byte: sqlite_master.sql for the entity table differs between a
+        // fresh create() and a migration path (ALTER TABLE adds columns without rewriting the
+        // stored DDL), so the sqlite_master section is intentionally excluded here.
         val sections = listOf(
             "PRAGMA table_info(entity)",
             "PRAGMA index_list(entity)",
             "PRAGMA table_info(metadata)",
             "PRAGMA user_version",
         )
-        for (section in sections) {
+        for (header in sections) {
             assertEquals(
-                extractSection(expected, section),
-                extractSection(actual, section),
-                "Section '$section' does not match v2 snapshot after migration",
+                SchemaSnapshotUtil.section(expected, header),
+                SchemaSnapshotUtil.section(actual, header),
+                "Section '$header' does not match v2 snapshot after migration",
             )
         }
 
@@ -110,7 +108,12 @@ class SchemaMigrationTest {
             parameters = 0,
         ) {}
         assertEquals("row1", rowEntityKey)
-        assertTrue(rowWriteAt != null && rowWriteAt!! > 0, "write_at must be backfilled by migration")
+        // Must be real epoch-millis, not a CURRENT_TIMESTAMP year-coercion (~2026) or whole
+        // seconds (~1.7e9). Anything past this threshold (2001-09-09 in ms) proves millis.
+        assertTrue(
+            rowWriteAt != null && rowWriteAt!! > 1_000_000_000_000L,
+            "write_at must be backfilled with epoch-millis, was $rowWriteAt",
+        )
     }
 
     /**

@@ -9,7 +9,7 @@ Run `./gradlew jvmTest` for the primary development loop. Always run this before
 ```bash
 ./gradlew jvmTest                          # Run all JVM tests
 ./gradlew jvmTest --tests "*.KeyValueStorageTest"  # Single test class
-./gradlew verifySqlDelightMigration        # Verify SQLDelight migrations
+./gradlew jvmTest --tests "*.SchemaParityTest" --tests "*.SchemaMigrationTest"  # Schema gate (replaces verifySqlDelightMigration)
 ./gradlew allDevicesDebugAndroidTest       # Android instrumented tests (CI only)
 ./gradlew publishToMavenLocal              # Local Maven for integration testing
 ```
@@ -72,7 +72,7 @@ Use [Conventional Commits](https://www.conventionalcommits.org/). Release-please
 ## CI & Releases
 
 **CI** (`.github/workflows/ci.yml`) runs on every push/PR to `main`:
-1. `jvm-tests` — `verifySqlDelightMigration` then `jvmTest`
+1. `jvm-tests` — `jvmTest` (which runs `SchemaParityTest` + `SchemaMigrationTest` as the schema gate)
 2. `run-android-tests` — `allDevicesDebugAndroidTest` on managed emulator
 
 **Releases** are automated via [release-please](https://github.com/googleapis/release-please):

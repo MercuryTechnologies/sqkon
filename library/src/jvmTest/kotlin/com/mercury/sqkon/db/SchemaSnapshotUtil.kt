@@ -43,6 +43,18 @@ internal object SchemaSnapshotUtil {
     }
 
     /**
+     * Extract a single `=== header ===` section (header line through the next section or EOF)
+     * from a [dumpSchemaSnapshot] string. Inverse of the section markers written above; lives
+     * here so the snapshot format has one owner. Returns "" if the section is absent.
+     */
+    fun section(snapshot: String, header: String): String {
+        val start = snapshot.indexOf("=== $header ===")
+        if (start == -1) return ""
+        val end = snapshot.indexOf("\n===", start + 1).let { if (it == -1) snapshot.length else it }
+        return snapshot.substring(start, end).trim()
+    }
+
+    /**
      * Strip SQL `-- ...` line comments (which run to EOL) before collapsing whitespace,
      * otherwise newline removal would smash everything after `--` onto one comment line.
      */
