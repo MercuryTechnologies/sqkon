@@ -82,6 +82,9 @@ internal fun SqkonSchema.toSqlDelightSchema(): SqlSchema<QueryResult.Value<Unit>
             newVersion: Long,
             vararg callbacks: AfterVersion,
         ): QueryResult.Value<Unit> {
+            check(callbacks.isEmpty()) {
+                "AfterVersion callbacks are not supported by the SqkonSchema bridge"
+            }
             this@toSqlDelightSchema.migrate(SqlDelightSqkonDriver(driver), oldVersion, newVersion)
             return QueryResult.Unit
         }
