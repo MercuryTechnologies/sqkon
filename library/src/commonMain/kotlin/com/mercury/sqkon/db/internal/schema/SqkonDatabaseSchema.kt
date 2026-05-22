@@ -17,7 +17,11 @@ internal object SqkonDatabaseSchema : SqkonSchema {
             driver.exec(CREATE_METADATA_TABLE)
             driver.exec("ALTER TABLE entity ADD COLUMN read_at INTEGER")
             driver.exec("ALTER TABLE entity ADD COLUMN write_at INTEGER")
-            driver.exec("UPDATE entity SET write_at = CURRENT_TIMESTAMP")
+            // write_at is read as epoch-millis (ResultRow uses Instant.fromEpochMilliseconds).
+            // 1.sqm used CURRENT_TIMESTAMP, which writes a text datetime that coerces to a bogus
+            // small integer (~the year) on an INTEGER column and breaks purge comparisons. Backfill
+            // real epoch-millis instead. strftime('%s') is whole seconds, so multiply to millis.
+            driver.exec("UPDATE entity SET write_at = CAST(strftime('%s', 'now') AS INTEGER) * 1000")
             CREATE_ENTITY_INDEXES.forEach(driver::exec)
         }
     }

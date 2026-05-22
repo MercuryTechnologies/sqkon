@@ -9,7 +9,7 @@ Run `./gradlew jvmTest` for the primary development loop. Always run this before
 ```bash
 ./gradlew jvmTest                          # Run all JVM tests
 ./gradlew jvmTest --tests "*.KeyValueStorageTest"  # Single test class
-./gradlew jvmTest --tests "*.SchemaParityTest"     # Schema parity gate (replaces verifySqlDelightMigration)
+./gradlew jvmTest --tests "*.SchemaParityTest" --tests "*.SchemaMigrationTest"  # Schema gate (replaces verifySqlDelightMigration)
 ./gradlew allDevicesDebugAndroidTest       # Android instrumented tests (CI only)
 ./gradlew publishToMavenLocal              # Local Maven for integration testing
 ```

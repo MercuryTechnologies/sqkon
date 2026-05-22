@@ -25,7 +25,8 @@ import kotlin.test.assertTrue
  * SqkonDatabaseSchema.migrate(driver, 1L, 2L) and asserts:
  *   1. Resulting schema matches the v2 snapshot.
  *   2. The seeded row survives intact.
- *   3. write_at is populated post-migration (set to CURRENT_TIMESTAMP per 1.sqm).
+ *   3. write_at is backfilled with real epoch-millis (not a CURRENT_TIMESTAMP text datetime,
+ *      which would coerce to a bogus small integer on the INTEGER column).
  */
 class SchemaMigrationTest {
 
@@ -107,7 +108,12 @@ class SchemaMigrationTest {
             parameters = 0,
         ) {}
         assertEquals("row1", rowEntityKey)
-        assertTrue(rowWriteAt != null && rowWriteAt!! > 0, "write_at must be backfilled by migration")
+        // Must be real epoch-millis, not a CURRENT_TIMESTAMP year-coercion (~2026) or whole
+        // seconds (~1.7e9). Anything past this threshold (2001-09-09 in ms) proves millis.
+        assertTrue(
+            rowWriteAt != null && rowWriteAt!! > 1_000_000_000_000L,
+            "write_at must be backfilled with epoch-millis, was $rowWriteAt",
+        )
     }
 
     /**
