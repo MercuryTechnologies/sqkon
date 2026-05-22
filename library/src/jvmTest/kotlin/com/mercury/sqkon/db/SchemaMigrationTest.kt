@@ -74,25 +74,21 @@ class SchemaMigrationTest {
         val actual = dumpSchemaSnapshot(driver)
         val expected = File("src/jvmTest/resources/sqkon-schema-v2.snapshot").readText()
 
-        // Extract and compare the structural sections (table_info + index_list + user_version).
-        fun extractSection(text: String, header: String): String {
-            val start = text.indexOf("=== $header ===")
-            if (start == -1) return ""
-            val end = text.indexOf("\n===", start + 1).let { if (it == -1) text.length else it }
-            return text.substring(start, end).trim()
-        }
-
+        // Compare the structural sections (table_info + index_list + user_version) rather than the
+        // full snapshot byte-for-byte: sqlite_master.sql for the entity table differs between a
+        // fresh create() and a migration path (ALTER TABLE adds columns without rewriting the
+        // stored DDL), so the sqlite_master section is intentionally excluded here.
         val sections = listOf(
             "PRAGMA table_info(entity)",
             "PRAGMA index_list(entity)",
             "PRAGMA table_info(metadata)",
             "PRAGMA user_version",
         )
-        for (section in sections) {
+        for (header in sections) {
             assertEquals(
-                extractSection(expected, section),
-                extractSection(actual, section),
-                "Section '$section' does not match v2 snapshot after migration",
+                SchemaSnapshotUtil.section(expected, header),
+                SchemaSnapshotUtil.section(actual, header),
+                "Section '$header' does not match v2 snapshot after migration",
             )
         }
 

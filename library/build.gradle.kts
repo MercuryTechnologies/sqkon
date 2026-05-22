@@ -8,6 +8,9 @@ plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.multiplatform)
     alias(libs.plugins.kotlinx.serialization)
+    // Codegen is no longer used (schema is hand-rolled in internal/schema); the plugin is kept
+    // only so Phase 7 can remove it in one isolated step. It logs a harmless "no databases set
+    // up" warning until then. Runtime SQLDelight artifacts are separate deps and still required.
     alias(libs.plugins.sqlDelight)
     alias(libs.plugins.maven.publish)
     alias(libs.plugins.dokka)

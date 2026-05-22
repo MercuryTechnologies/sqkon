@@ -1,16 +1,12 @@
 package com.mercury.sqkon.db.internal.sqldelight
 
 import app.cash.sqldelight.Query
-import app.cash.sqldelight.db.AfterVersion
-import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.db.SqlDriver
-import app.cash.sqldelight.db.SqlSchema
 import com.mercury.sqkon.db.internal.ListenerIdentityMap
 import com.mercury.sqkon.db.internal.SqkonCursor
 import com.mercury.sqkon.db.internal.SqkonDriver
 import com.mercury.sqkon.db.internal.SqkonStatement
 import com.mercury.sqkon.db.internal.SqkonTransaction
-import com.mercury.sqkon.db.internal.schema.SqkonSchema
 
 internal class SqlDelightSqkonDriver(
     internal val delegate: SqlDriver,
@@ -66,26 +62,3 @@ internal class SqlDelightSqkonDriver(
 
     override fun close() = delegate.close()
 }
-
-internal fun SqkonSchema.toSqlDelightSchema(): SqlSchema<QueryResult.Value<Unit>> =
-    object : SqlSchema<QueryResult.Value<Unit>> {
-        override val version: Long = this@toSqlDelightSchema.version
-
-        override fun create(driver: SqlDriver): QueryResult.Value<Unit> {
-            this@toSqlDelightSchema.create(SqlDelightSqkonDriver(driver))
-            return QueryResult.Unit
-        }
-
-        override fun migrate(
-            driver: SqlDriver,
-            oldVersion: Long,
-            newVersion: Long,
-            vararg callbacks: AfterVersion,
-        ): QueryResult.Value<Unit> {
-            check(callbacks.isEmpty()) {
-                "AfterVersion callbacks are not supported by the SqkonSchema bridge"
-            }
-            this@toSqlDelightSchema.migrate(SqlDelightSqkonDriver(driver), oldVersion, newVersion)
-            return QueryResult.Unit
-        }
-    }
