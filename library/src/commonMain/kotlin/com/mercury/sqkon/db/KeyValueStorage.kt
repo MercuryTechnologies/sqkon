@@ -250,6 +250,52 @@ open class KeyValueStorage<T : Any>(
     }
 
     /**
+     * Select result row by key.
+     *
+     * Key selection will always be more performant than using where clause. Keys are indexed.
+     *
+     * The result row is useful if you need metadata on the row level specific to Sqkon instead of
+     * your entity.
+     */
+    fun selectResultByKey(key: String): Flow<ResultRow<T>?> {
+        return selectResultByKeys(listOf(key)).map { it.firstOrNull() }
+    }
+
+    /**
+     * Select result rows by keys, with optional ordering.
+     *
+     * Key selection will always be more performant than using where clause. Keys are indexed.
+     *
+     * The result row is useful if you need metadata on the row level specific to Sqkon instead of
+     * your entity.
+     */
+    fun selectResultByKeys(
+        keys: Collection<String>,
+        orderBy: List<OrderBy<T>> = emptyList(),
+        expiresAfter: Instant? = null,
+    ): Flow<List<ResultRow<T>>> {
+        return entityQueries
+            .select(
+                entityName = entityName,
+                entityKeys = keys,
+                orderBy = orderBy,
+                expiresAt = expiresAfter,
+            )
+            .asFlow()
+            .mapToList(readDispatcher)
+            .onEach { list ->
+                updateReadAt(list.map { it.entity_key })
+            }
+            .map { list ->
+                if (list.isEmpty()) return@map emptyList<ResultRow<T>>()
+                list.mapNotNull { entity ->
+                    entity.deserialize<T>()?.let { v -> ResultRow(entity, v) }
+                }
+            }
+    }
+
+
+    /**
      * Select using where clause. If where is null, all rows will be selected.
      *
      * Simple example with where and orderBy:
