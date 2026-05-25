@@ -1,8 +1,6 @@
 package com.mercury.sqkon.db
 
 import androidx.paging.PagingSource
-import app.cash.sqldelight.Transacter
-import app.cash.sqldelight.TransactionCallbacks
 import com.mercury.sqkon.db.internal.asFlow
 import com.mercury.sqkon.db.internal.mapToList
 import com.mercury.sqkon.db.internal.mapToOne
@@ -45,7 +43,23 @@ open class KeyValueStorage<T : Any>(
     protected val readDispatcher: CoroutineDispatcher,
     protected val writeDispatcher: CoroutineDispatcher,
     private val transacter: SqkonTransacter,
-) : Transacter by transacter {
+) {
+
+    /**
+     * Internal transaction seam. The public surface is the [transaction] extension function;
+     * this `open` member exists so internal subclasses can wrap transaction behavior (extensions
+     * can't be overridden) and so in-class callers resolve here.
+     */
+    internal open fun transaction(body: SqkonTransactionScope.() -> Unit) {
+        transacter.transaction(noEnclosing = false) {
+            SqlDelightTransactionScope(this, transacter).body()
+        }
+    }
+
+    internal open fun <R> transactionWithResult(body: SqkonTransactionScope.() -> R): R =
+        transacter.transactionWithResult(noEnclosing = false) {
+            SqlDelightResultTransactionScope(this, transacter).body()
+        }
 
     /**
      * Insert a row.
@@ -556,10 +570,8 @@ open class KeyValueStorage<T : Any>(
      * Will run after the transaction is committed. This way inside of multiple inserts we only
      * update the write_at once.
      */
-    internal fun TransactionCallbacks.updateWriteAt() {
-        val requestHash = with(transacter) {
-            entityQueries.sqlDriver.currentTransaction()!!.parentTransactionHash()
-        }
+    internal fun SqkonTransactionScope.updateWriteAt() {
+        val requestHash = transacter.currentParentTransactionHash()
         if (requestHash in updateWriteHashes) return
         updateWriteHashes.add(requestHash)
         afterCommit {
