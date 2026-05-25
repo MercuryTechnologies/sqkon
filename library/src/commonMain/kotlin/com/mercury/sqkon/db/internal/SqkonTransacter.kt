@@ -17,10 +17,19 @@ open class SqkonTransacter(driver: SqlDriver) : TransacterImpl(driver) {
     // Child -> Parent
     protected val trxMap = mutableMapOf<Transacter.Transaction, Transacter.Transaction?>()
 
-    fun Transacter.Transaction.parentTransactionHash(): Int {
-        // Walk up the chain. Top level: hash of self.
-        return trxMap[this]?.parentTransactionHash() ?: this.hashCode()
+    /**
+     * Stable identity hash of the *outermost* transaction enclosing the one currently running on
+     * [driver]. Used to dedup per-transaction side effects (e.g. the metadata write_at touch) so a
+     * batch of nested writes only schedules one afterCommit. Must be called inside a transaction.
+     */
+    internal fun currentParentTransactionHash(): Int {
+        val current = driver.currentTransaction()
+            ?: error("currentParentTransactionHash() called outside a transaction")
+        return current.outermostHash()
     }
+
+    private fun Transacter.Transaction.outermostHash(): Int =
+        trxMap[this]?.outermostHash() ?: this.hashCode()
 
     override fun transaction(
         noEnclosing: Boolean,
