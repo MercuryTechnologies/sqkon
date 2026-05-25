@@ -14,6 +14,7 @@ import org.junit.After
 import org.junit.Test
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.time.Duration.Companion.milliseconds
 
 class KeyValueStorageTransactionTest {
@@ -99,6 +100,28 @@ class KeyValueStorageTransactionTest {
         }
         // Both callbacks registered; both must fire after the OUTERMOST commit.
         until { fired.get() == 2 }
+    }
+
+    @Test
+    fun transactionWithResult_commitReturnsValue() = runTest {
+        val inserted = storage.transactionWithResult {
+            storage.insert("twr", TestObject())
+            42
+        }
+        assertEquals(42, inserted)
+        assertEquals(1, storage.count().first())
+    }
+
+    @Test
+    fun transactionWithResult_rollbackThrowsAndAborts() = runTest {
+        assertFailsWith<SqkonRollbackException> {
+            storage.transactionWithResult<TestObject, Int> {
+                storage.insert("twr", TestObject())
+                rollback()
+            }
+        }
+        // DB rolled back: the insert is gone.
+        assertEquals(0, storage.count().first())
     }
 
     private companion object {
