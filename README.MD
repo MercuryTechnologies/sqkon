@@ -161,6 +161,39 @@ shipments.select(where = caseWhere(Shipment::status) {
 `caseWhere` is WHERE-only. Use the value-selection `case` if you need a
 single value to feed into `ORDER BY`.
 
+### Transactions
+
+Group multiple writes into one atomic transaction with the `transaction { }` extension. Inserts,
+updates and deletes inside the block commit together (or roll back together):
+
+```kotlin
+store.transaction {
+    store.deleteAll()
+    store.insertAll(newItems)
+}
+```
+
+`rollback()` aborts the transaction and discards the work:
+
+```kotlin
+store.transaction {
+    store.insert(key, value)
+    if (shouldAbort) rollback() // nothing is written; returns silently
+}
+```
+
+Use `afterCommit { }` / `afterRollback { }` to react once the outermost transaction settles, and
+`transactionWithResult { }` when you need a return value (here `rollback()` throws
+`SqkonRollbackException`, since there is no value to return):
+
+```kotlin
+val count: Int = store.transactionWithResult {
+    store.insertAll(items)
+    afterCommit { log("committed") }
+    items.size
+}
+```
+
 ## Paging
 
 Sqkon provides two `PagingSource` factories on `KeyValueStorage` that plug into AndroidX Paging 3:
