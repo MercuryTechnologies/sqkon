@@ -124,6 +124,23 @@ class KeyValueStorageTransactionTest {
         assertEquals(0, storage.count().first())
     }
 
+    @Test
+    fun transactionWithResult_nestedRollbackThrowsSqkonRollback() = runTest {
+        // A rollback in a nested block surfaces as SqkonRollbackException (not SQLDelight's internal
+        // type) and aborts the whole enclosing result transaction.
+        assertFailsWith<SqkonRollbackException> {
+            storage.transactionWithResult<TestObject, Int> {
+                storage.insert("outer", TestObject())
+                transaction {
+                    storage.insert("inner", TestObject())
+                    rollback()
+                }
+                99
+            }
+        }
+        assertEquals(0, storage.count().first())
+    }
+
     private companion object {
         /** Wall-clock window for the metadata-write afterCommit microtask to settle. */
         val AFTER_COMMIT_SETTLE = 50.milliseconds

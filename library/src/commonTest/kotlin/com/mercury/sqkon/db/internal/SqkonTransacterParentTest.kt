@@ -20,9 +20,9 @@ class SqkonTransacterParentTest {
         var outerHash = 0
         var innerParentHash = 0
         transacter.transaction {
-            outerHash = transacter.currentParentTransactionHash()
+            outerHash = transacter.currentOutermostTransactionHash()
             transacter.transaction {
-                innerParentHash = transacter.currentParentTransactionHash()
+                innerParentHash = transacter.currentOutermostTransactionHash()
             }
         }
         assertEquals(outerHash, innerParentHash)
@@ -34,7 +34,7 @@ class SqkonTransacterParentTest {
         var parentHash = 0
         transacter.transaction {
             selfHash = sqlDriver.currentTransaction()!!.hashCode()
-            parentHash = transacter.currentParentTransactionHash()
+            parentHash = transacter.currentOutermostTransactionHash()
         }
         assertEquals(selfHash, parentHash)
     }

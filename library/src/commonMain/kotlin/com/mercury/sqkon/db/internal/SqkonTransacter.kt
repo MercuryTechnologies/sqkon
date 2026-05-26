@@ -7,10 +7,11 @@ import app.cash.sqldelight.TransactionWithoutReturn
 import app.cash.sqldelight.db.SqlDriver
 
 /**
- * Sqkon-owned transacter. Phase 2 still rides `TransacterImpl(SqlDriver)` so
- * `KeyValueStorage : Transacter by transacter` keeps working publicly.
- * Phase 5 flips the constructor to take `SqkonDriver` and drops the
- * `TransacterImpl` extension behind a `feat!:` 2.0 bump.
+ * Sqkon-owned transacter. Rides `TransacterImpl(SqlDriver)` and tracks each transaction's
+ * child -> parent link ([trxMap]) so [currentOutermostTransactionHash] can identify the outermost
+ * enclosing transaction — used to dedup per-transaction side effects across nested writes.
+ *
+ * Still SQLDelight-backed; Phase 6 swaps the constructor to `SqkonDriver` and drops `TransacterImpl`.
  */
 open class SqkonTransacter(driver: SqlDriver) : TransacterImpl(driver) {
 
@@ -22,9 +23,9 @@ open class SqkonTransacter(driver: SqlDriver) : TransacterImpl(driver) {
      * [driver]. Used to dedup per-transaction side effects (e.g. the metadata write_at touch) so a
      * batch of nested writes only schedules one afterCommit. Must be called inside a transaction.
      */
-    internal fun currentParentTransactionHash(): Int {
+    internal fun currentOutermostTransactionHash(): Int {
         val current = driver.currentTransaction()
-            ?: error("currentParentTransactionHash() called outside a transaction")
+            ?: error("currentOutermostTransactionHash() called outside a transaction")
         return current.outermostHash()
     }
 

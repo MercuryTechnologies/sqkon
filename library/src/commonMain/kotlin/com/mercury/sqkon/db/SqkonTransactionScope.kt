@@ -15,12 +15,11 @@ sealed interface SqkonTransactionScope {
     fun afterRollback(action: () -> Unit)
 
     /**
-     * Abort the transaction.
+     * Abort the transaction by throwing [SqkonRollbackException], rolling back the database
+     * transaction (and any enclosing one — there are no savepoints).
      *
-     * In [transaction] this returns silently to the caller (the work is discarded). In
-     * [transactionWithResult] there is no value to return, so it throws [SqkonRollbackException].
-     * In either case the database transaction (and any enclosing one — there are no savepoints) is
-     * rolled back.
+     * [transaction] swallows the exception, so a rollback there returns silently to the caller.
+     * [transactionWithResult] lets it propagate, since there is no value to return on rollback.
      */
     fun rollback(): Nothing
 
