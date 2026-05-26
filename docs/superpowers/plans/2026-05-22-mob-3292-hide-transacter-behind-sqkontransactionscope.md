@@ -35,7 +35,7 @@ Sqkon is migrating off SQLDelight in seven phases. Phases 0–4 are merged. Phas
 **Modified files:**
 - `library/src/commonMain/kotlin/com/mercury/sqkon/db/internal/SqkonTransacter.kt` — replace the `Transacter.Transaction.parentTransactionHash()` extension with an `internal fun currentParentTransactionHash(): Int` that lives inside the transacter. Keep the `transaction`/`transactionWithResult` overrides + `trxMap`.
 - `library/src/commonMain/kotlin/com/mercury/sqkon/db/KeyValueStorage.kt` — drop `: Transacter by transacter`; drop the two sqldelight imports; add `internal open fun transaction(...)` / `internal open fun <R> transactionWithResult(...)` members; change `internal fun TransactionCallbacks.updateWriteAt()` → `internal fun SqkonTransactionScope.updateWriteAt()` (compute the dedup hash via `transacter.currentParentTransactionHash()`).
-- `library/src/commonTest/kotlin/com/mercury/sqkon/db/internal/SqkonTracerParentTest.kt` — retarget the two assertions onto `transacter.currentParentTransactionHash()`.
+- `library/src/commonTest/kotlin/com/mercury/sqkon/db/internal/SqkonTransacterParentTest.kt` — retarget the two assertions onto `transacter.currentParentTransactionHash()`.
 - `library/src/commonTest/kotlin/com/mercury/sqkon/db/KeyValueStorageTransactionTest.kt` — **add** two `transactionWithResult` tests (commit-returns-value, rollback-throws-and-aborts). Existing 5 tests are unchanged and are the gate.
 - `README.MD` — add a short "Transactions" usage section (none exists today).
 
@@ -188,7 +188,7 @@ Expected: BUILD SUCCESSFUL. (`KeyValueStorage.kt` still references the old exten
 
 - [ ] **Step 3: Update the internal parent-hash test**
 
-In `library/src/commonTest/kotlin/com/mercury/sqkon/db/internal/SqkonTracerParentTest.kt` replace each `with(transacter) { sqlDriver.currentTransaction()!!.parentTransactionHash() }` (and the `current.parentTransactionHash()` form) with `transacter.currentParentTransactionHash()`. Final form:
+In `library/src/commonTest/kotlin/com/mercury/sqkon/db/internal/SqkonTransacterParentTest.kt` replace each `with(transacter) { sqlDriver.currentTransaction()!!.parentTransactionHash() }` (and the `current.parentTransactionHash()` form) with `transacter.currentParentTransactionHash()`. Final form:
 
 ```kotlin
     @Test
@@ -222,7 +222,7 @@ In `library/src/commonTest/kotlin/com/mercury/sqkon/db/internal/SqkonTracerParen
 
 ```bash
 git add library/src/commonMain/kotlin/com/mercury/sqkon/db/internal/SqkonTransacter.kt \
-        library/src/commonTest/kotlin/com/mercury/sqkon/db/internal/SqkonTracerParentTest.kt
+        library/src/commonTest/kotlin/com/mercury/sqkon/db/internal/SqkonTransacterParentTest.kt
 git commit -m "refactor: move parent-transaction hash into SqkonTransacter (MOB-3292)"
 ```
 
@@ -411,7 +411,7 @@ Run:
 ```bash
 ./gradlew :library:jvmTest --tests "*.KeyValueStorageTransactionTest" \
   --tests "*.KeyValueStorageTest" \
-  --tests "*.SqkonTracerParentTest" \
+  --tests "*.SqkonTransacterParentTest" \
   --tests "*.SqkonTransactionForwardingTest"
 ```
 Expected: all PASS. The 5 pre-existing `KeyValueStorageTransactionTest` cases + `externalTransaction` + `updateWriteAtOnlyRunsOncePerTransaction` prove the refactor preserved behavior; the 2 new cases prove the result path.
