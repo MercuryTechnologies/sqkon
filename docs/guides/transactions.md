@@ -8,9 +8,16 @@ nav_order: 7
 # Transactions
 {: .no_toc }
 
-Sqkon exposes SQLDelight's transaction API directly: `KeyValueStorage<T>`
-implements `Transacter`, so you can wrap multiple writes — across one store or
-many — in a single atomic block.
+Sqkon gives every `KeyValueStorage<T>` a `transaction { … }` extension, so you
+can wrap multiple writes — across one store or many — in a single atomic block.
+The block runs against a Sqkon-owned `SqkonTransactionScope`; no SQLDelight types
+are exposed.
+
+{: .note }
+**Changed in 2.0.** Stores no longer implement SQLDelight's `Transacter`. The
+`transaction { }` / `transactionWithResult { }` calls below are unchanged, but if
+you held a store as a `Transacter` or imported `TransactionCallbacks`, see
+[Upgrading from 1.x](#upgrading-from-1x).
 
 1. TOC
 {:toc}
@@ -31,8 +38,8 @@ already transactional.
 
 ## API
 
-`KeyValueStorage<T>` is `Transacter by transacter`, which means the standard
-SQLDelight transaction API is available on every store:
+Two extension functions on `KeyValueStorage<T>` open a transaction; the lambda
+receiver is [`SqkonTransactionScope`](#the-scope):
 
 ```kotlin
 merchants.transaction {
@@ -58,6 +65,48 @@ merchants.transaction {
 }
 // Both writes commit as one unit; observers on either store see one emission.
 ```
+
+### The scope
+
+Inside the block you have a `SqkonTransactionScope`:
+
+```kotlin
+sealed interface SqkonTransactionScope {
+    fun afterCommit(action: () -> Unit)
+    fun afterRollback(action: () -> Unit)
+    fun rollback(): Nothing
+    fun transaction(body: SqkonTransactionScope.() -> Unit) // nested
+}
+```
+
+- `afterCommit { }` / `afterRollback { }` — run a side effect once the **outermost**
+  transaction settles (e.g. fire an analytics event only if the write stuck).
+- `rollback()` — abort and discard the work. In `transaction { }` it returns
+  silently; in `transactionWithResult { }` it throws `SqkonRollbackException`
+  (there is no value to return). Either way the database transaction — and any
+  enclosing one (there are no savepoints) — rolls back.
+- `transaction { }` — a nested block; an inner `rollback()` rolls back the whole
+  enclosing transaction.
+
+```kotlin
+merchants.transaction {
+    merchants.upsert(merchant.id, merchant)
+    if (!merchant.isValid) rollback() // nothing is written
+    afterCommit { analytics.track("merchant_saved") }
+}
+```
+
+## Upgrading from 1.x
+
+`transaction { }` and `transactionWithResult { }` calls are **source-compatible** —
+they resolve to the new extension functions unchanged. You only need to act if:
+
+| 1.x | 2.0 |
+|-----|-----|
+| `val t: Transacter = store` (treating a store as a SQLDelight `Transacter`) | removed — call `store.transaction { … }` directly |
+| `import app.cash.sqldelight.TransactionCallbacks` as the block receiver type | `SqkonTransactionScope` (usually implicit — just drop the import) |
+| SQLDelight `Transacter` members beyond `afterCommit` / `afterRollback` / `rollback` / nested `transaction` | rework against `SqkonTransactionScope` |
+| `transactionWithResult { rollback() }` returned the rollback value | now throws `SqkonRollbackException` — catch it if you relied on the return |
 
 ## What's already atomic
 
@@ -102,7 +151,6 @@ operation onto a background thread yourself.
 
 - [Reactive flows]({{ '/guides/flow/' | relative_url }}) — when emissions fire
   relative to commits.
-- Upstream API: SQLDelight
-  [Transacter](https://cashapp.github.io/sqldelight/2.0.0/jvm_sqlite/transactions/).
-- Source: `library/src/commonMain/kotlin/com/mercury/sqkon/db/utils/SqkonTransacter.kt`,
-  `library/src/commonMain/kotlin/com/mercury/sqkon/db/KeyValueStorage.kt`.
+- Source: `library/src/commonMain/kotlin/com/mercury/sqkon/db/SqkonTransactionScope.kt`,
+  `library/src/commonMain/kotlin/com/mercury/sqkon/db/Transactions.kt`,
+  `library/src/commonMain/kotlin/com/mercury/sqkon/db/internal/SqkonTransacter.kt`.

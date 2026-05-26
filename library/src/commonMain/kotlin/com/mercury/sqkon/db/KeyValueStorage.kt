@@ -1,8 +1,6 @@
 package com.mercury.sqkon.db
 
 import androidx.paging.PagingSource
-import app.cash.sqldelight.Transacter
-import app.cash.sqldelight.TransactionCallbacks
 import com.mercury.sqkon.db.internal.asFlow
 import com.mercury.sqkon.db.internal.mapToList
 import com.mercury.sqkon.db.internal.mapToOne
@@ -45,7 +43,28 @@ open class KeyValueStorage<T : Any>(
     protected val readDispatcher: CoroutineDispatcher,
     protected val writeDispatcher: CoroutineDispatcher,
     private val transacter: SqkonTransacter,
-) : Transacter by transacter {
+) {
+
+    /**
+     * Internal transaction seam. The public surface is the [transaction] / [transactionWithResult]
+     * extension functions; these `open` members exist so internal subclasses can wrap transaction
+     * behavior (extensions can't be overridden) and so in-class callers (`insert`, `delete`, …) have
+     * a target.
+     */
+    internal open fun runTransaction(body: SqkonTransactionScope.() -> Unit) {
+        try {
+            transacter.transaction(noEnclosing = false) {
+                SqlDelightTransactionScope(this, transacter).body()
+            }
+        } catch (_: SqkonRollbackException) {
+            // rollback() in a Unit transaction aborts silently; the DB transaction already rolled back.
+        }
+    }
+
+    internal open fun <R> runTransactionWithResult(body: SqkonTransactionScope.() -> R): R =
+        transacter.transactionWithResult(noEnclosing = false) {
+            SqlDelightTransactionScope(this, transacter).body()
+        }
 
     /**
      * Insert a row.
@@ -60,7 +79,7 @@ open class KeyValueStorage<T : Any>(
         key: String, value: T,
         ignoreIfExists: Boolean = false,
         expiresAt: Instant? = null,
-    ) = transaction {
+    ) = runTransaction {
         val now = nowMillis()
         val entity = Entity(
             entity_name = entityName,
@@ -90,7 +109,7 @@ open class KeyValueStorage<T : Any>(
         values: Map<String, T>,
         ignoreIfExists: Boolean = false,
         expiresAt: Instant? = null,
-    ) = transaction {
+    ) = runTransaction {
         values.forEach { (key, value) -> insert(key, value, ignoreIfExists, expiresAt) }
     }
 
@@ -105,7 +124,7 @@ open class KeyValueStorage<T : Any>(
      * @see insert
      * @see upsert
      */
-    fun update(key: String, value: T, expiresAt: Instant? = null) = transaction {
+    fun update(key: String, value: T, expiresAt: Instant? = null) = runTransaction {
         entityQueries.updateEntity(
             entityName = entityName,
             entityKey = key,
@@ -126,7 +145,7 @@ open class KeyValueStorage<T : Any>(
      */
     fun updateAll(
         values: Map<String, T>, expiresAt: Instant? = null,
-    ) = transaction {
+    ) = runTransaction {
         values.forEach { (key, value) -> update(key, value, expiresAt) }
     }
 
@@ -141,7 +160,7 @@ open class KeyValueStorage<T : Any>(
      */
     fun upsert(
         key: String, value: T, expiresAt: Instant? = null,
-    ) = transaction {
+    ) = runTransaction {
         update(key, value, expiresAt = expiresAt)
         insert(key, value, ignoreIfExists = true, expiresAt = expiresAt)
     }
@@ -159,7 +178,7 @@ open class KeyValueStorage<T : Any>(
     fun upsertAll(
         values: Map<String, T>,
         expiresAt: Instant? = null,
-    ) = transaction {
+    ) = runTransaction {
         values.forEach { (key, value) ->
             update(key, value, expiresAt = expiresAt)
             insert(key, value, ignoreIfExists = true, expiresAt = expiresAt)
@@ -412,7 +431,7 @@ open class KeyValueStorage<T : Any>(
      * @see delete
      * @see deleteAll
      */
-    fun deleteByKeys(vararg key: String) = transaction {
+    fun deleteByKeys(vararg key: String) = runTransaction {
         entityQueries.delete(entityName, entityKeys = key.toSet())
         updateWriteAt()
     }
@@ -426,7 +445,7 @@ open class KeyValueStorage<T : Any>(
      * @see deleteAll
      * @see deleteByKey
      */
-    fun delete(where: Where<T>? = null) = transaction {
+    fun delete(where: Where<T>? = null) = runTransaction {
         entityQueries.delete(entityName, where = where)
         updateWriteAt()
     }
@@ -441,7 +460,7 @@ open class KeyValueStorage<T : Any>(
      *
      * @see deleteStale
      */
-    fun deleteExpired(expiresAfter: Instant = Clock.System.now()) = transaction {
+    fun deleteExpired(expiresAfter: Instant = Clock.System.now()) = runTransaction {
         metadataQueries.purgeExpires(entityName, expiresAfter.toEpochMilliseconds())
         updateWriteAt()
     }
@@ -462,7 +481,7 @@ open class KeyValueStorage<T : Any>(
     fun deleteStale(
         writeInstant: Instant? = Clock.System.now(),
         readInstant: Instant? = Clock.System.now(),
-    ) = transaction {
+    ) = runTransaction {
         when {
             writeInstant != null && readInstant != null -> {
                 metadataQueries.purgeStale(
@@ -486,7 +505,7 @@ open class KeyValueStorage<T : Any>(
                 )
             }
 
-            else -> return@transaction
+            else -> return@runTransaction
         }
         updateWriteAt()
     }
@@ -556,12 +575,12 @@ open class KeyValueStorage<T : Any>(
      * Will run after the transaction is committed. This way inside of multiple inserts we only
      * update the write_at once.
      */
-    internal fun TransactionCallbacks.updateWriteAt() {
-        val requestHash = with(transacter) {
-            entityQueries.sqlDriver.currentTransaction()!!.parentTransactionHash()
-        }
+    internal fun SqkonTransactionScope.updateWriteAt() {
+        val requestHash = transacter.currentOutermostTransactionHash()
         if (requestHash in updateWriteHashes) return
         updateWriteHashes.add(requestHash)
+        // On rollback afterCommit never fires, so release the dedup entry here to avoid leaking it.
+        afterRollback { updateWriteHashes.remove(requestHash) }
         afterCommit {
             updateWriteHashes.remove(requestHash)
             scope.launch(writeDispatcher) {
