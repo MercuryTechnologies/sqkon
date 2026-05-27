@@ -16,6 +16,14 @@ internal abstract class SqkonTransaction {
     /** Reset to `false` by a child rollback so the enclosing commit is downgraded to rollback. */
     var childrenSuccessful: Boolean = true
 
+    /**
+     * Query-listener keys accumulated by [SqkonTransacter.notifyQueries] during this transaction.
+     * Flushed (deduplicated) once on outermost commit so each listener-key change fires its
+     * listeners exactly once per transaction. Matches SQLDelight `TransacterImpl.notifyQueries`
+     * behavior — without dedup, batched writes (e.g. `insertAll`) emit N redundant flow refreshes.
+     */
+    internal val pendingNotifyKeys: MutableSet<String> = mutableSetOf()
+
     abstract fun afterCommit(block: () -> Unit)
     abstract fun afterRollback(block: () -> Unit)
 

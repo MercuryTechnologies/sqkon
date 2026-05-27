@@ -39,16 +39,15 @@ internal class SqkonDriverTransaction(
             enclosing.onRollback.addAll(onRollback); onRollback.clear()
             return
         }
+        val didCommit = successful && childrenSuccessful
         try {
-            if (successful && childrenSuccessful) {
-                connection.execSQL("COMMIT")
-                onCommit.forEach { it() }
-            } else {
-                connection.execSQL("ROLLBACK")
-                onRollback.forEach { it() }
-            }
+            if (didCommit) connection.execSQL("COMMIT") else connection.execSQL("ROLLBACK")
         } finally {
+            // Release the writer BEFORE firing hooks. Hooks (e.g. afterCommit { ... reading the
+            // db }) may need to re-acquire reader/writer connections; holding the writer mutex
+            // here would deadlock the same coroutine.
             onTopLevelRelease()
         }
+        if (didCommit) onCommit.forEach { it() } else onRollback.forEach { it() }
     }
 }

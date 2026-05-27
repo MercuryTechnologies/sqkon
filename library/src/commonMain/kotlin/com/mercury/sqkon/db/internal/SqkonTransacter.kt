@@ -67,15 +67,36 @@ open class SqkonTransacter internal constructor(internal val driver: SqkonDriver
     }
 
     /**
-     * Fire all listeners registered on the keys emitted by [queryList]. Replaces SQLDelight's
-     * `TransacterImpl.notifyQueries(identifier, ...)`; [identifier] is unused here but kept on the
-     * signature for source compatibility with the existing EntityQueries/MetadataQueries callers.
+     * Fire all listeners registered on the keys emitted by [queryList]. Inside a transaction,
+     * notification is deferred to `afterCommit` so observers don't wake up to read uncommitted
+     * data on a different (reader) connection. Matches SQLDelight `TransacterImpl.notifyQueries`.
+     * [identifier] is unused here but kept on the signature for source compatibility with
+     * existing EntityQueries/MetadataQueries callers.
      */
     @Suppress("UNUSED_PARAMETER")
     protected fun notifyQueries(identifier: Int, queryList: (emit: (String) -> Unit) -> Unit) {
-        val keys = mutableListOf<String>()
-        queryList { keys.add(it) }
-        if (keys.isNotEmpty()) driver.notifyListeners(queryKeys = keys.toTypedArray())
+        val collected = mutableListOf<String>()
+        queryList { collected.add(it) }
+        if (collected.isEmpty()) return
+        val current = driver.currentTransaction()
+        if (current == null) {
+            driver.notifyListeners(queryKeys = collected.toTypedArray())
+            return
+        }
+        // Accumulate keys on the OUTERMOST transaction so nested writes (e.g. insertAll → insert
+        // each opens its own nested tx) share a single dedup bucket. Register the flush hook only
+        // on the first notifyQueries call for this transaction tree — subsequent calls just add
+        // to the set. Matches SQLDelight `TransacterImpl.notifyQueries` semantics.
+        var outermost: SqkonTransaction = current
+        var enc: SqkonTransaction? = outermost.enclosingTransaction
+        while (enc != null) { outermost = enc; enc = outermost.enclosingTransaction }
+        val firstAdd = outermost.pendingNotifyKeys.isEmpty()
+        outermost.pendingNotifyKeys.addAll(collected)
+        if (firstAdd) outermost.afterCommit {
+            val toFire = outermost.pendingNotifyKeys.toTypedArray()
+            outermost.pendingNotifyKeys.clear()
+            driver.notifyListeners(queryKeys = toFire)
+        }
     }
 }
 
