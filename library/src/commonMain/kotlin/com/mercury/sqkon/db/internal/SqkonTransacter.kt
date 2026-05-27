@@ -1,72 +1,81 @@
+// Adapted from app.cash.sqldelight:TransacterImpl 2.3.2 (Apache-2.0) for the transactionWithWrapper
+// pattern; backed by Sqkon's own SqkonDriver/SqkonTransaction.
 package com.mercury.sqkon.db.internal
 
-import app.cash.sqldelight.Transacter
-import app.cash.sqldelight.TransacterImpl
-import app.cash.sqldelight.TransactionWithReturn
-import app.cash.sqldelight.TransactionWithoutReturn
-import app.cash.sqldelight.db.SqlDriver
+import com.mercury.sqkon.db.SqkonTransactionScope
+import com.mercury.sqkon.db.newScopeReceiver
 
 /**
- * Sqkon-owned transacter. Rides `TransacterImpl(SqlDriver)` and tracks each transaction's
- * child -> parent link ([trxMap]) so [currentOutermostTransactionHash] can identify the outermost
- * enclosing transaction — used to dedup per-transaction side effects across nested writes.
+ * Drives transactions on a [SqkonDriver]. Provides:
+ *   - `transaction { }` / `transactionWithResult { }` over [SqkonTransactionScope].
+ *   - [currentOutermostTransactionHash] for dedup'ing per-transaction side effects across nesting.
+ *   - [notifyQueries] helper for query subclasses to fire listeners.
  *
- * Still SQLDelight-backed; Phase 6 swaps the constructor to `SqkonDriver` and drops `TransacterImpl`.
+ * Subclassed by [com.mercury.sqkon.db.EntityQueries] and [com.mercury.sqkon.db.MetadataQueries]
+ * so callers can do `entityQueries.transaction { … }` directly, matching the previous SQLDelight
+ * `TransacterImpl` ergonomics.
  */
-open class SqkonTransacter(driver: SqlDriver) : TransacterImpl(driver) {
+open class SqkonTransacter internal constructor(internal val driver: SqkonDriver) {
 
-    // Child -> Parent
-    protected val trxMap = mutableMapOf<Transacter.Transaction, Transacter.Transaction?>()
+    fun transaction(noEnclosing: Boolean = false, body: SqkonTransactionScope.() -> Unit) {
+        transactionWithWrapper<Unit>(noEnclosing) { body() }
+    }
+
+    fun <R> transactionWithResult(noEnclosing: Boolean = false, body: SqkonTransactionScope.() -> R): R =
+        transactionWithWrapper(noEnclosing, body)
+
+    private fun <R> transactionWithWrapper(
+        noEnclosing: Boolean,
+        body: SqkonTransactionScope.() -> R,
+    ): R {
+        val enclosing = driver.currentTransaction()
+        check(enclosing == null || !noEnclosing) { "Already in a transaction" }
+        val transaction = driver.newTransaction()
+        val scope = newScopeReceiver(transaction, this)
+        var returnValue: R? = null
+        var thrown: Throwable? = null
+        try {
+            returnValue = scope.body()
+            transaction.successful = true
+        } catch (t: Throwable) {
+            // Catches SqkonRollbackException AND any other failure. Successful stays false so the
+            // top-level transaction issues ROLLBACK (and nested transactions mark the enclosing
+            // childrenSuccessful=false). Then we re-throw — KeyValueStorage.runTransaction swallows
+            // SqkonRollbackException at the outermost Unit-transaction boundary;
+            // KeyValueStorage.runTransactionWithResult lets it propagate to the caller.
+            thrown = t
+        } finally {
+            transaction.endTransaction()
+        }
+        if (thrown != null) throw thrown
+        @Suppress("UNCHECKED_CAST")
+        return returnValue as R
+    }
 
     /**
      * Stable identity hash of the *outermost* transaction enclosing the one currently running on
-     * [driver]. Used to dedup per-transaction side effects (e.g. the metadata write_at touch) so a
-     * batch of nested writes only schedules one afterCommit. Must be called inside a transaction.
+     * [driver]. Used to dedup per-transaction side effects (e.g. metadata write_at) across nested
+     * writes. Must be called inside a transaction.
      */
     internal fun currentOutermostTransactionHash(): Int {
-        val current = driver.currentTransaction()
+        var t: SqkonTransaction = driver.currentTransaction()
             ?: error("currentOutermostTransactionHash() called outside a transaction")
-        return current.outermostHash()
+        while (true) {
+            val enclosing = t.enclosingTransaction ?: return t.hashCode()
+            t = enclosing
+        }
     }
 
-    private fun Transacter.Transaction.outermostHash(): Int =
-        trxMap[this]?.outermostHash() ?: this.hashCode()
-
-    override fun transaction(
-        noEnclosing: Boolean,
-        body: TransactionWithoutReturn.() -> Unit,
-    ) {
-        val parentTrx = driver.currentTransaction()
-        return super.transaction(
-            noEnclosing = noEnclosing,
-            body = {
-                val currentTrx = driver.currentTransaction()!!
-                trxMap[currentTrx] = parentTrx
-                try {
-                    body()
-                } finally {
-                    trxMap.remove(currentTrx)
-                }
-            },
-        )
-    }
-
-    override fun <R> transactionWithResult(
-        noEnclosing: Boolean,
-        bodyWithReturn: TransactionWithReturn<R>.() -> R,
-    ): R {
-        val parentTrx = driver.currentTransaction()
-        return super.transactionWithResult(
-            noEnclosing = noEnclosing,
-            bodyWithReturn = {
-                val currentTrx = driver.currentTransaction()!!
-                trxMap[currentTrx] = parentTrx
-                try {
-                    bodyWithReturn()
-                } finally {
-                    trxMap.remove(currentTrx)
-                }
-            },
-        )
+    /**
+     * Fire all listeners registered on the keys emitted by [queryList]. Replaces SQLDelight's
+     * `TransacterImpl.notifyQueries(identifier, ...)`; [identifier] is unused here but kept on the
+     * signature for source compatibility with the existing EntityQueries/MetadataQueries callers.
+     */
+    @Suppress("UNUSED_PARAMETER")
+    protected fun notifyQueries(identifier: Int, queryList: (emit: (String) -> Unit) -> Unit) {
+        val keys = mutableListOf<String>()
+        queryList { keys.add(it) }
+        if (keys.isNotEmpty()) driver.notifyListeners(queryKeys = keys.toTypedArray())
     }
 }
+

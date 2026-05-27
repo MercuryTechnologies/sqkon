@@ -1,17 +1,25 @@
 package com.mercury.sqkon.db.internal.androidx
 
+import androidx.sqlite.SQLiteConnection
+import androidx.sqlite.execSQL
 import com.mercury.sqkon.db.internal.SqkonTransaction
+import com.mercury.sqkon.db.internal.TransactionsThreadLocal
 
 /**
  * Concrete transaction handle bound to the writer connection of [AndroidxSqkonDriver].
- * Queues `afterCommit`/`afterRollback` hooks; on nested commit, hooks are propagated to the
- * enclosing transaction so they fire only at the outermost commit (or rollback).
  *
- * The driver owns the BEGIN/COMMIT/ROLLBACK SQL and writer-connection release — see
- * [AndroidxSqkonDriver.newTransaction] / [AndroidxSqkonDriver.endTransaction].
+ * - **Top-level:** BEGIN IMMEDIATE issued by the driver on construction; COMMIT or ROLLBACK +
+ *   writer release issued by [endTransaction].
+ * - **Nested:** no SQL issued; [endTransaction] only propagates `successful`/`childrenSuccessful`
+ *   and queued hooks to [enclosingTransaction]. A nested rollback (caught by the transacter) sets
+ *   the enclosing's `childrenSuccessful = false` so its eventual outermost COMMIT downgrades to
+ *   ROLLBACK (no savepoint semantics — matches SQLDelight `TransacterImpl`).
  */
 internal class SqkonDriverTransaction(
     override val enclosingTransaction: SqkonDriverTransaction?,
+    val connection: SQLiteConnection,
+    private val transactions: TransactionsThreadLocal,
+    private val onTopLevelRelease: () -> Unit,
 ) : SqkonTransaction() {
 
     private val onCommit = mutableListOf<() -> Unit>()
@@ -20,15 +28,27 @@ internal class SqkonDriverTransaction(
     override fun afterCommit(block: () -> Unit) { onCommit.add(block) }
     override fun afterRollback(block: () -> Unit) { onRollback.add(block) }
 
-    /** Fire queued afterCommit hooks (call only at outermost commit). */
-    fun runAfterCommit() { onCommit.forEach { it() } }
-
-    /** Fire queued afterRollback hooks (call only at outermost rollback). */
-    fun runAfterRollback() { onRollback.forEach { it() } }
-
-    /** Move queued hooks from this nested transaction up to its enclosing tx. */
-    fun propagateHooksTo(parent: SqkonDriverTransaction) {
-        parent.onCommit.addAll(onCommit); onCommit.clear()
-        parent.onRollback.addAll(onRollback); onRollback.clear()
+    override fun endTransaction() {
+        val enclosing = enclosingTransaction
+        // Pop thread-local back to the enclosing tx (or null for top-level).
+        transactions.set(enclosing)
+        if (enclosing != null) {
+            // Nested: don't COMMIT/ROLLBACK; merge state + hooks into the enclosing tx.
+            if (!successful || !childrenSuccessful) enclosing.childrenSuccessful = false
+            enclosing.onCommit.addAll(onCommit); onCommit.clear()
+            enclosing.onRollback.addAll(onRollback); onRollback.clear()
+            return
+        }
+        try {
+            if (successful && childrenSuccessful) {
+                connection.execSQL("COMMIT")
+                onCommit.forEach { it() }
+            } else {
+                connection.execSQL("ROLLBACK")
+                onRollback.forEach { it() }
+            }
+        } finally {
+            onTopLevelRelease()
+        }
     }
 }

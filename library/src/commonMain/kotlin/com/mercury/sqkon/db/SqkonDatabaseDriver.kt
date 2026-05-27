@@ -1,6 +1,6 @@
 package com.mercury.sqkon.db
 
-import app.cash.sqldelight.db.SqlDriver
+import com.mercury.sqkon.db.internal.SqkonDriver
 
 internal expect val connectionPoolSize: Int
 
@@ -8,5 +8,5 @@ internal expect val connectionPoolSize: Int
 internal expect val defaultSqkonDispatchers: SqkonDispatchers
 
 internal expect class DriverFactory {
-    fun createDriver(): SqlDriver
+    fun createDriver(): SqkonDriver
 }

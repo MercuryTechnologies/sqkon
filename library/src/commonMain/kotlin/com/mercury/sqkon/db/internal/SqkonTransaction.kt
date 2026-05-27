@@ -18,4 +18,12 @@ internal abstract class SqkonTransaction {
 
     abstract fun afterCommit(block: () -> Unit)
     abstract fun afterRollback(block: () -> Unit)
+
+    /**
+     * End this transaction. For top-level transactions this issues COMMIT (if [successful] and
+     * [childrenSuccessful]) or ROLLBACK, fires the queued hooks, and releases the writer connection.
+     * For nested transactions it propagates state + hooks to [enclosingTransaction]. The legacy
+     * SQLDelight bridge overrides this as a no-op (its body wrapper manages SQLDelight's lifecycle).
+     */
+    abstract fun endTransaction()
 }

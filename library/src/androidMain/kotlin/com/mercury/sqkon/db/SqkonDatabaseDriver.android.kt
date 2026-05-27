@@ -3,22 +3,14 @@ package com.mercury.sqkon.db
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.res.Resources
-import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import androidx.sqlite.driver.bundled.SQLITE_OPEN_CREATE
 import androidx.sqlite.driver.bundled.SQLITE_OPEN_FULLMUTEX
 import androidx.sqlite.driver.bundled.SQLITE_OPEN_READWRITE
-import app.cash.sqldelight.db.SqlDriver
-import com.eygraber.sqldelight.androidx.driver.AndroidxSqliteConcurrencyModel
-import com.eygraber.sqldelight.androidx.driver.AndroidxSqliteConfiguration
-import com.eygraber.sqldelight.androidx.driver.AndroidxSqliteConnectionFactory
-import com.eygraber.sqldelight.androidx.driver.AndroidxSqliteDatabaseType
-import com.eygraber.sqldelight.androidx.driver.AndroidxSqliteDriver
-import com.eygraber.sqldelight.androidx.driver.FileProvider
-import com.eygraber.sqldelight.androidx.driver.SqliteJournalMode
-import com.eygraber.sqldelight.androidx.driver.SqliteSync
+import com.mercury.sqkon.db.internal.SqkonDriver
+import com.mercury.sqkon.db.internal.androidx.AndroidxSqkonDriver
+import com.mercury.sqkon.db.internal.androidx.SqkonConnectionFactory
 import com.mercury.sqkon.db.internal.schema.SqkonDatabaseSchema
-import com.mercury.sqkon.db.internal.sqldelight.toSqlDelightSchema
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.newFixedThreadPoolContext
@@ -34,32 +26,22 @@ internal actual val defaultSqkonDispatchers: SqkonDispatchers by lazy {
     )
 }
 
-/**
- * @param name The name of the database to open or create. If null, an in-memory database will
- *  be created, which will not persist across application restarts. Defaults to "sqkon.db".
- */
 internal actual class DriverFactory(
     private val context: Context,
-    private val name: String? = "sqkon.db"
+    private val type: SqkonDatabaseType =
+        SqkonDatabaseType.FileBacked(context.getDatabasePath("sqkon.db").absolutePath),
+    private val config: SqkonDriverConfig = SqkonDriverConfig(readerConnections = connectionPoolSize),
 ) {
-    private val bundledDriver = BundledSQLiteDriver()
-    actual fun createDriver(): SqlDriver {
-        return AndroidxSqliteDriver(
-            connectionFactory = SqkonAndroidxSqliteConnectionFactory(bundledDriver),
-            databaseType = when (name) {
-                null -> AndroidxSqliteDatabaseType.Memory
-                else -> AndroidxSqliteDatabaseType.FileProvider(context = context, name = name)
-            },
-            schema = SqkonDatabaseSchema.toSqlDelightSchema(),
-            configuration = AndroidxSqliteConfiguration(
-                journalMode = SqliteJournalMode.WAL,
-                sync = SqliteSync.Normal,
-                concurrencyModel = AndroidxSqliteConcurrencyModel.MultipleReadersSingleWriter(
-                    isWal = true,
-                    walCount = connectionPoolSize,
-                ),
-            ),
-        )
+    actual fun createDriver(): SqkonDriver {
+        val bundled = BundledSQLiteDriver()
+        val factory = SqkonConnectionFactory { name ->
+            bundled.open(name, SQLITE_OPEN_READWRITE or SQLITE_OPEN_CREATE or SQLITE_OPEN_FULLMUTEX)
+        }
+        val (name, isMemory) = when (type) {
+            SqkonDatabaseType.Memory -> ":memory:" to true
+            is SqkonDatabaseType.FileBacked -> type.path to false
+        }
+        return AndroidxSqkonDriver(factory, name, isMemory, SqkonDatabaseSchema, config)
     }
 }
 
@@ -67,19 +49,5 @@ internal actual class DriverFactory(
 private fun getWALConnectionPoolSize(): Int {
     val resources = Resources.getSystem()
     val resId = resources.getIdentifier("db_connection_pool_size", "integer", "android")
-    return if (resId != 0) {
-        resources.getInteger(resId)
-    } else {
-        4 // Default is 4 readers as per AndroidxSqliteConfiguration
-    }
-}
-
-private class SqkonAndroidxSqliteConnectionFactory(
-    override val driver: BundledSQLiteDriver,
-) : AndroidxSqliteConnectionFactory {
-    override fun createConnection(name: String): SQLiteConnection =
-        driver.open(
-            fileName = name,
-            flags = SQLITE_OPEN_READWRITE or SQLITE_OPEN_CREATE or SQLITE_OPEN_FULLMUTEX
-        )
+    return if (resId != 0) resources.getInteger(resId) else 4
 }

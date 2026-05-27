@@ -1,6 +1,5 @@
 package com.mercury.sqkon.db
 
-import app.cash.sqldelight.db.QueryResult
 import com.mercury.sqkon.TestObject
 import com.mercury.sqkon.TestObjectChild
 import kotlinx.coroutines.MainScope
@@ -56,17 +55,17 @@ class JsonbStorageTest {
         val expected = TestObject(name = "alpha", value = 42)
         store.insert(expected.id, expected)
 
-        // SqlCursor.next() returns QueryResult<Boolean> in SQLDelight 2.3.x — use .value
-        val cursor = entityQueries.sqlDriver.executeQuery(
+        val cursor = entityQueries.driver.executeQuery(
             identifier = null,
             sql = "SELECT json_extract(value, '$.name'), json_extract(value, '$.value') " +
                 "FROM entity WHERE entity_key = ?",
-            mapper = { c ->
-                c.next().value  // advance; returns Boolean (ignored here — row must exist)
-                QueryResult.Value(Pair(c.getString(0)!!, c.getLong(1)!!))
-            },
             parameters = 1,
-        ) { bindString(0, expected.id) }.value
+            binders = { bindString(0, expected.id) },
+            mapper = { c ->
+                c.next()
+                Pair(c.getString(0)!!, c.getLong(1)!!)
+            },
+        )
 
         assertEquals("alpha", cursor.first)
         assertEquals(42L, cursor.second)
@@ -101,15 +100,16 @@ class JsonbStorageTest {
             )
 
             // json_tree rows for a JSONB cell: fullkey holds the dotted path
-            val found = entityQueries.sqlDriver.executeQuery(
+            val found = entityQueries.driver.executeQuery(
                 identifier = null,
                 sql = "SELECT 1 FROM entity, json_tree(entity.value, '\$') AS jt " +
                     "WHERE entity_key = 'k' AND jt.fullkey = ? LIMIT 1",
-                mapper = { c -> QueryResult.Value(c.next().value) },
                 parameters = 1,
-            ) { bindString(0, expectedPath) }.value
+                binders = { bindString(0, expectedPath) },
+                mapper = { c -> c.next() },
+            )
 
-            assertTrue(found == true, "json_tree.fullkey missing path $expectedPath")
+            assertTrue(found, "json_tree.fullkey missing path $expectedPath")
         }
     }
 }

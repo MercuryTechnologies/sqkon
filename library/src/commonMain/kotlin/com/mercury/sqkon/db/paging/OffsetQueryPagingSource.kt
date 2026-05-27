@@ -2,17 +2,17 @@ package com.mercury.sqkon.db.paging
 
 import androidx.paging.PagingSource
 import androidx.paging.PagingState
-import app.cash.sqldelight.Transacter
-import app.cash.sqldelight.TransactionCallbacks
 import com.mercury.sqkon.db.Entity
+import com.mercury.sqkon.db.SqkonTransactionScope
 import com.mercury.sqkon.db.internal.SqkonQuery
+import com.mercury.sqkon.db.internal.SqkonTransacter
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.CoroutineContext
 
 internal class OffsetQueryPagingSource<T : Any>(
     private val queryProvider: (limit: Int, offset: Int) -> SqkonQuery<Entity>,
     private val countQuery: SqkonQuery<Int>,
-    private val transacter: Transacter,
+    private val transacter: SqkonTransacter,
     private val context: CoroutineContext,
     private val deserialize: (Entity) -> T?,
     private val initialOffset: Int,
@@ -28,7 +28,7 @@ internal class OffsetQueryPagingSource<T : Any>(
             is PagingSource.LoadParams.Prepend<*> -> minOf(key, params.loadSize)
             else -> params.loadSize
         }
-        val getPagingSourceLoadResult: TransactionCallbacks.() -> PagingSource.LoadResult.Page<Int, T> =
+        val getPagingSourceLoadResult: SqkonTransactionScope.() -> PagingSource.LoadResult.Page<Int, T> =
             {
                 val count = countQuery.executeAsOne()
                 val offset = when (params) {
@@ -54,7 +54,7 @@ internal class OffsetQueryPagingSource<T : Any>(
                 )
             }
         val loadResult = transacter
-            .transactionWithResult(bodyWithReturn = getPagingSourceLoadResult)
+            .transactionWithResult(body = getPagingSourceLoadResult)
         (if (invalid) PagingSource.LoadResult.Invalid() else loadResult)
     }
 

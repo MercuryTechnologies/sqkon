@@ -1,25 +1,19 @@
 package com.mercury.sqkon.db
 
-import app.cash.sqldelight.TransacterImpl
-import app.cash.sqldelight.db.SqlDriver
 import com.mercury.sqkon.db.internal.ListenerIdentityMap
 import com.mercury.sqkon.db.internal.SqkonCursor
 import com.mercury.sqkon.db.internal.SqkonDriver
 import com.mercury.sqkon.db.internal.SqkonQuery
-import com.mercury.sqkon.db.internal.sqldelight.SqlDelightSqkonDriver
+import com.mercury.sqkon.db.internal.SqkonTransacter
 import com.mercury.sqkon.db.utils.nowMillis
 import kotlin.time.Clock
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.datetime.Instant
 
-class EntityQueries(
-    @PublishedApi
-    internal val sqlDriver: SqlDriver,
-) : TransacterImpl(sqlDriver) {
-
-    @PublishedApi
-    internal val sqkonDriver: SqkonDriver = SqlDelightSqkonDriver(sqlDriver)
+class EntityQueries internal constructor(
+    driver: SqkonDriver,
+) : SqkonTransacter(driver) {
 
     // Used to slow down insert/updates for testing
     internal var slowWrite: Boolean = false
@@ -34,7 +28,7 @@ class EntityQueries(
     fun insertEntity(entity: Entity, ignoreIfExists: Boolean) {
         val identifier = identifier("insert", ignoreIfExists.toString())
         val orIgnore = if (ignoreIfExists) "OR IGNORE" else ""
-        sqkonDriver.executeUpdate(
+        driver.executeUpdate(
             identifier = identifier,
             sql = """
             INSERT $orIgnore INTO entity (
@@ -67,7 +61,7 @@ class EntityQueries(
     ) {
         val now = Clock.System.now()
         val identifier = identifier("update")
-        sqkonDriver.executeUpdate(
+        driver.executeUpdate(
             identifier = identifier,
             sql = """
                 UPDATE entity SET updated_at = ?, expires_at = ?, write_at = ?, value = jsonb(?)
@@ -126,7 +120,7 @@ class EntityQueries(
         private val offset: Long? = null,
         private val expiresAt: Instant? = null,
         mapper: (SqkonCursor) -> Entity,
-    ) : DriverBackedSqkonQuery<Entity>(sqkonDriver, arrayOf(entityKey(entityName)), mapper) {
+    ) : DriverBackedSqkonQuery<Entity>(driver, arrayOf(entityKey(entityName)), mapper) {
 
         override fun <R> execute(mapper: (SqkonCursor) -> R): R {
             val queries = buildList {
@@ -180,7 +174,7 @@ class EntityQueries(
                 ${limit?.let { "LIMIT ?" } ?: ""} ${offset?.let { "OFFSET ?" } ?: ""}
             """.trimIndent().replace('\n', ' ')
             return try {
-                sqkonDriver.executeQuery(
+                driver.executeQuery(
                     identifier = identifier,
                     sql = sql,
                     parameters = queries.sumParameters() + (if (limit != null) 1 else 0) + (if (offset != null) 1 else 0),
@@ -256,11 +250,11 @@ class EntityQueries(
             ORDER BY rn ASC
         """.trimIndent().replace('\n', ' ')
         object : DriverBackedSqkonQuery<String>(
-            sqkonDriver, arrayOf(entityKey(entityName)), { cursor -> cursor.getString(0)!! },
+            driver, arrayOf(entityKey(entityName)), { cursor -> cursor.getString(0)!! },
         ) {
             override fun <R> execute(mapper: (SqkonCursor) -> R): R {
                 return try {
-                    sqkonDriver.executeQuery(
+                    driver.executeQuery(
                         identifier = queryIdentifier, sql = sql,
                         parameters = queries.sumParameters() + 1,
                         binders = {
@@ -317,11 +311,11 @@ class EntityQueries(
             WHERE rn = ((COALESCE((SELECT rn FROM target), 1) - 1) / ?) * ? + 1
         """.trimIndent().replace('\n', ' ')
         object : DriverBackedSqkonQuery<String>(
-            sqkonDriver, arrayOf(entityKey(entityName)), { cursor -> cursor.getString(0)!! },
+            driver, arrayOf(entityKey(entityName)), { cursor -> cursor.getString(0)!! },
         ) {
             override fun <R> execute(mapper: (SqkonCursor) -> R): R {
                 return try {
-                    sqkonDriver.executeQuery(
+                    driver.executeQuery(
                         identifier = queryIdentifier, sql = sql,
                         parameters = queries.sumParameters() + 4,
                         binders = {
@@ -378,7 +372,7 @@ class EntityQueries(
             """.trimIndent().replace('\n', ' ')
             val extraParams = if (hasEndExclusive) 2 else 1
             object : DriverBackedSqkonQuery<Entity>(
-                sqkonDriver, arrayOf(entityKey(entityName)),
+                driver, arrayOf(entityKey(entityName)),
                 { cursor ->
                     Entity(
                         entity_name = cursor.getString(0)!!,
@@ -394,7 +388,7 @@ class EntityQueries(
             ) {
                 override fun <R> execute(mapper: (SqkonCursor) -> R): R {
                     return try {
-                        sqkonDriver.executeQuery(
+                        driver.executeQuery(
                             identifier = queryIdentifier, sql = sql,
                             parameters = queries.sumParameters() + extraParams,
                             binders = {
@@ -454,7 +448,7 @@ class EntityQueries(
             """.trimIndent()
         val sql = "DELETE FROM entity WHERE entity_name = ? $whereSubQuerySql"
         try {
-            sqkonDriver.executeUpdate(
+            driver.executeUpdate(
                 identifier = identifier,
                 sql = sql.replace('\n', ' '),
                 parameters = 1 + if (queries.size > 1) queries.sumParameters() else 0,
@@ -487,7 +481,7 @@ class EntityQueries(
         private val where: Where<*>? = null,
         private val expiresAfter: Instant? = null,
         mapper: (SqkonCursor) -> T,
-    ) : DriverBackedSqkonQuery<T>(sqkonDriver, arrayOf(entityKey(entityName)), mapper) {
+    ) : DriverBackedSqkonQuery<T>(driver, arrayOf(entityKey(entityName)), mapper) {
 
         override fun <R> execute(mapper: (SqkonCursor) -> R): R {
             val queries = buildList {
@@ -511,7 +505,7 @@ class EntityQueries(
                 SELECT COUNT(*) FROM entity${queries.buildFrom()} ${queries.buildWhere()}
             """.trimIndent().replace('\n', ' ')
             return try {
-                sqkonDriver.executeQuery(
+                driver.executeQuery(
                     identifier = identifier,
                     sql = sql,
                     parameters = queries.sumParameters(),

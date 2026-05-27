@@ -2,10 +2,10 @@ package com.mercury.sqkon.db.paging
 
 import androidx.paging.PagingSource
 import androidx.paging.PagingState
-import app.cash.sqldelight.Transacter
-import app.cash.sqldelight.TransactionCallbacks
 import com.mercury.sqkon.db.Entity
+import com.mercury.sqkon.db.SqkonTransactionScope
 import com.mercury.sqkon.db.internal.SqkonQuery
+import com.mercury.sqkon.db.internal.SqkonTransacter
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.CoroutineContext
 
@@ -33,7 +33,7 @@ internal class KeysetQueryPagingSource<T : Any>(
     private val queryProvider: (beginInclusive: String, endExclusive: String?) -> SqkonQuery<Entity>,
     private val pageBoundariesProvider: (anchor: String?, limit: Long) -> SqkonQuery<String>,
     private val boundaryForKeyProvider: (lookupKey: String, limit: Long) -> SqkonQuery<String>,
-    private val transacter: Transacter,
+    private val transacter: SqkonTransacter,
     private val context: CoroutineContext,
     private val deserialize: (Entity) -> T?,
     private val pageSize: Int,
@@ -47,7 +47,7 @@ internal class KeysetQueryPagingSource<T : Any>(
         params: PagingSource.LoadParams<String>,
     ): PagingSource.LoadResult<String, T> = withContext(context) {
         try {
-            val getPagingSourceLoadResult: TransactionCallbacks.() -> PagingSource.LoadResult<String, T> =
+            val getPagingSourceLoadResult: SqkonTransactionScope.() -> PagingSource.LoadResult<String, T> =
                 {
                     // Always use the stable pageSize for boundary computation, not
                     // params.loadSize which varies (initialLoadSize on first Refresh).
@@ -105,7 +105,7 @@ internal class KeysetQueryPagingSource<T : Any>(
                     }
                 }
             val loadResult = transacter
-                .transactionWithResult(bodyWithReturn = getPagingSourceLoadResult)
+                .transactionWithResult(body = getPagingSourceLoadResult)
             if (invalid) PagingSource.LoadResult.Invalid() else loadResult
         } catch (e: Exception) {
             if (invalid) PagingSource.LoadResult.Invalid()

@@ -1,23 +1,18 @@
 package com.mercury.sqkon.db.internal
 
 import com.mercury.sqkon.db.driverFactory
-import com.mercury.sqkon.db.internal.sqldelight.SqlDelightSqkonDriver
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class SqkonDriverRoundtripTest {
 
-    private val sqlDriver = driverFactory().createDriver()
-    private val driver: SqkonDriver = SqlDelightSqkonDriver(sqlDriver)
+    private val driver: SqkonDriver = driverFactory().createDriver()
 
     @AfterTest
-    fun tearDown() {
-        driver.close()
-    }
+    fun tearDown() { driver.close() }
 
     @Test
     fun create_insert_select_roundtrip() {
@@ -53,18 +48,13 @@ class SqkonDriverRoundtripTest {
     @Test
     fun currentTransaction_null_when_none_active() {
         assertNull(driver.currentTransaction())
-        // Full transaction lifecycle coverage lives in SqkonTransacterParentTest
-        // (Task 7) where TransacterImpl.transaction { } manages end-of-life cleanly.
-        // We can't drive Transacter.Transaction.endTransaction from outside the
-        // SQLDelight module (it's `internal`), so manual lifecycle here would
-        // hang close().
     }
 
     @Test
     fun statement_cache_key_passes_through() {
-        // Same identifier + sql should reuse a prepared statement under the eygraber driver's
-        // LruCache. We can't introspect the cache directly; assert that repeat calls don't
-        // throw and produce consistent results.
+        // Same identifier + sql should reuse a prepared statement under the driver's LruCache.
+        // We can't introspect the cache directly; assert that repeat calls don't throw and
+        // produce consistent results.
         driver.executeUpdate(null, "CREATE TABLE c(x INTEGER)", 0)
         repeat(5) {
             driver.executeUpdate(identifier = 99, sql = "INSERT INTO c VALUES (?)", parameters = 1) {

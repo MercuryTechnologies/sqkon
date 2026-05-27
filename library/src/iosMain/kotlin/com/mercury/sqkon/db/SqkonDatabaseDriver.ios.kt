@@ -1,6 +1,6 @@
 package com.mercury.sqkon.db
 
-import app.cash.sqldelight.db.SqlDriver
+import com.mercury.sqkon.db.internal.SqkonDriver
 import kotlinx.coroutines.Dispatchers
 
 internal actual val connectionPoolSize: Int = 1
@@ -14,6 +14,6 @@ internal actual val defaultSqkonDispatchers: SqkonDispatchers by lazy {
 }
 
 internal actual class DriverFactory {
-    actual fun createDriver(): SqlDriver =
-        TODO("iOS driver not yet implemented — lands in Phase 6 (MOB-3293)")
+    actual fun createDriver(): SqkonDriver =
+        TODO("iOS driver not yet implemented (BundledSQLiteDriver available; wiring is post-Phase-6)")
 }
