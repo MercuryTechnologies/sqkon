@@ -6,10 +6,11 @@ import kotlin.uuid.Uuid
 
 @OptIn(ExperimentalUuidApi::class)
 internal actual fun driverFactory(): DriverFactory {
+    val ctx = InstrumentationRegistry.getInstrumentation().targetContext
     val uuid = Uuid.random()
+    // random file each time so each test gets a fresh WAL-enabled file-backed DB
     return DriverFactory(
-        context = InstrumentationRegistry.getInstrumentation().targetContext,
-        // random file each time to make sure testing against file system and WAL is enabled
-        name = "sqkon-test-$uuid.db",
+        context = ctx,
+        type = SqkonDatabaseType.FileBacked(ctx.getDatabasePath("sqkon-test-$uuid.db").absolutePath),
     )
 }

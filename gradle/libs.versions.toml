@@ -1,4 +1,5 @@
 [versions]
+androidx-collection = "1.5.0"
 androidx-monitor = "1.8.0"
 androidx-runner = "1.7.0"
 androidx-sqlite = "2.6.2"
@@ -15,6 +16,7 @@ turbine = "1.2.1"
 [libraries]
 androidx-test-monitor = { module = "androidx.test:monitor", version.ref = "androidx-monitor" }
 androidx-test-runner = { module = "androidx.test:runner", version.ref = "androidx-runner" }
+androidx-collection = { module = "androidx.collection:collection", version.ref = "androidx-collection" }
 androidx-sqlite-core = { module = "androidx.sqlite:sqlite", version.ref = "androidx-sqlite" }
 androidx-sqlite-bundled = { module = "androidx.sqlite:sqlite-bundled", version.ref = "androidx-sqlite" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }

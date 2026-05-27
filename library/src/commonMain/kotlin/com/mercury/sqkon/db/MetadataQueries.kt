@@ -1,20 +1,14 @@
 package com.mercury.sqkon.db
 
-import app.cash.sqldelight.TransacterImpl
-import app.cash.sqldelight.db.SqlDriver
 import com.mercury.sqkon.db.internal.SqkonCursor
 import com.mercury.sqkon.db.internal.SqkonDriver
 import com.mercury.sqkon.db.internal.SqkonQuery
-import com.mercury.sqkon.db.internal.sqldelight.SqlDelightSqkonDriver
+import com.mercury.sqkon.db.internal.SqkonTransacter
 import kotlinx.datetime.Instant
 
-class MetadataQueries(
-    @PublishedApi
-    internal val sqlDriver: SqlDriver,
-) : TransacterImpl(sqlDriver) {
-
-    @PublishedApi
-    internal val sqkonDriver: SqkonDriver = SqlDelightSqkonDriver(sqlDriver)
+class MetadataQueries internal constructor(
+    driver: SqkonDriver,
+) : SqkonTransacter(driver) {
 
     private fun notifyMetadataChanged(identifier: Int, entityName: String) {
         notifyQueries(identifier) { emit ->
@@ -55,12 +49,12 @@ class MetadataQueries(
         private val entityName: String,
         mapper: (SqkonCursor) -> Metadata,
     ) : DriverBackedSqkonQuery<Metadata>(
-        sqkonDriver, arrayOf(metadataKey(entityName)), mapper,
+        driver, arrayOf(metadataKey(entityName)), mapper,
     ) {
         override fun <R> execute(mapper: (SqkonCursor) -> R): R {
             val sql = "SELECT entity_name, lastReadAt, lastWriteAt FROM metadata WHERE entity_name = ?"
             return withSqlBreadcrumb(sql) {
-                sqkonDriver.executeQuery(
+                driver.executeQuery(
                     identifier = identifier("metadataSelectByEntityName"),
                     sql = sql,
                     parameters = 1,
@@ -81,7 +75,7 @@ class MetadataQueries(
             ON CONFLICT(entity_name) DO UPDATE SET lastReadAt = ? WHERE entity_name = ?
         """.trimIndent().replace('\n', ' ')
         withSqlBreadcrumb(sql) {
-            sqkonDriver.executeUpdate(id, sql, parameters = 4) {
+            driver.executeUpdate(id, sql, parameters = 4) {
                 bindString(0, entity_name)
                 bindLong(1, ms)
                 bindLong(2, ms)
@@ -99,7 +93,7 @@ class MetadataQueries(
             ON CONFLICT(entity_name) DO UPDATE SET lastWriteAt = ? WHERE entity_name = ?
         """.trimIndent().replace('\n', ' ')
         withSqlBreadcrumb(sql) {
-            sqkonDriver.executeUpdate(id, sql, parameters = 4) {
+            driver.executeUpdate(id, sql, parameters = 4) {
                 bindString(0, entity_name)
                 bindLong(1, ms)
                 bindLong(2, ms)
@@ -120,7 +114,7 @@ class MetadataQueries(
         val id = identifier("metadataUpdateReadForEntities", entity_keys.size.toString())
         val sql = "UPDATE entity SET read_at = ? WHERE entity_name = ? AND entity_key IN (${entity_keys.sqlPlaceholders()})"
         withSqlBreadcrumb(sql) {
-            sqkonDriver.executeUpdate(id, sql, parameters = 2 + entity_keys.size) {
+            driver.executeUpdate(id, sql, parameters = 2 + entity_keys.size) {
                 bindLong(0, readAt)
                 bindString(1, entity_name)
                 entity_keys.forEachIndexed { idx, key -> bindString(2 + idx, key) }
@@ -133,7 +127,7 @@ class MetadataQueries(
         val id = identifier("metadataPurgeExpires")
         val sql = "DELETE FROM entity WHERE entity_name = ? AND expires_at IS NOT NULL AND expires_at < ?"
         withSqlBreadcrumb(sql) {
-            sqkonDriver.executeUpdate(id, sql, parameters = 2) {
+            driver.executeUpdate(id, sql, parameters = 2) {
                 bindString(0, entity_name)
                 bindLong(1, expiresAfter)
             }
@@ -145,7 +139,7 @@ class MetadataQueries(
         val id = identifier("metadataPurgeStale")
         val sql = "DELETE FROM entity WHERE entity_name = ? AND write_at < ? AND (read_at IS NULL OR read_at < ?)"
         withSqlBreadcrumb(sql) {
-            sqkonDriver.executeUpdate(id, sql, parameters = 3) {
+            driver.executeUpdate(id, sql, parameters = 3) {
                 bindString(0, entity_name)
                 bindLong(1, writeInstant)
                 bindLong(2, readInstant)
@@ -158,7 +152,7 @@ class MetadataQueries(
         val id = identifier("metadataPurgeStaleWrite")
         val sql = "DELETE FROM entity WHERE entity_name = ? AND write_at < ?"
         withSqlBreadcrumb(sql) {
-            sqkonDriver.executeUpdate(id, sql, parameters = 2) {
+            driver.executeUpdate(id, sql, parameters = 2) {
                 bindString(0, entity_name)
                 bindLong(1, writeInstant)
             }
@@ -170,7 +164,7 @@ class MetadataQueries(
         val id = identifier("metadataPurgeStaleRead")
         val sql = "DELETE FROM entity WHERE entity_name = ? AND read_at < ?"
         withSqlBreadcrumb(sql) {
-            sqkonDriver.executeUpdate(id, sql, parameters = 2) {
+            driver.executeUpdate(id, sql, parameters = 2) {
                 bindString(0, entity_name)
                 bindLong(1, readInstant)
             }

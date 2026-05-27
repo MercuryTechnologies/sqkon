@@ -1,6 +1,5 @@
 package com.mercury.sqkon.db
 
-import app.cash.sqldelight.db.QueryResult
 import app.cash.turbine.test
 import com.mercury.sqkon.TestObject
 import com.mercury.sqkon.until
@@ -38,17 +37,17 @@ class KeyValueStorageMetadataPerRowTest {
     private fun rowMeta(key: String): Pair<Long?, Long?> {
         var readAt: Long? = null
         var writeAt: Long? = null
-        entityQueries.sqlDriver.executeQuery(
+        entityQueries.driver.executeQuery(
             identifier = null,
             sql = "SELECT read_at, write_at FROM entity WHERE entity_key = ? AND entity_name = 'md'",
+            parameters = 1,
+            binders = { bindString(0, key) },
             mapper = { c ->
-                c.next().value  // advance cursor — returns Boolean in SQLDelight 2.3.x
+                c.next()
                 readAt = c.getLong(0)
                 writeAt = c.getLong(1)
-                QueryResult.Unit
             },
-            parameters = 1,
-        ) { bindString(0, key) }
+        )
         return readAt to writeAt
     }
 

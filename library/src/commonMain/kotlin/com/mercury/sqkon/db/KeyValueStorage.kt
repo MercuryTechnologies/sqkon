@@ -53,18 +53,14 @@ open class KeyValueStorage<T : Any>(
      */
     internal open fun runTransaction(body: SqkonTransactionScope.() -> Unit) {
         try {
-            transacter.transaction(noEnclosing = false) {
-                SqlDelightTransactionScope(this, transacter).body()
-            }
+            transacter.transaction(noEnclosing = false, body = body)
         } catch (_: SqkonRollbackException) {
             // rollback() in a Unit transaction aborts silently; the DB transaction already rolled back.
         }
     }
 
     internal open fun <R> runTransactionWithResult(body: SqkonTransactionScope.() -> R): R =
-        transacter.transactionWithResult(noEnclosing = false) {
-            SqlDelightTransactionScope(this, transacter).body()
-        }
+        transacter.transactionWithResult(noEnclosing = false, body = body)
 
     /**
      * Insert a row.
@@ -629,7 +625,7 @@ inline fun <reified T : Any> keyValueStorage(
     config: KeyValueStorage.Config = KeyValueStorage.Config(),
     readDispatcher: CoroutineDispatcher = defaultSqkonDispatchers.read,
     writeDispatcher: CoroutineDispatcher = defaultSqkonDispatchers.write,
-    transactor: SqkonTransacter = SqkonTransacter(entityQueries.sqlDriver),
+    transactor: SqkonTransacter = entityQueries,
 ): KeyValueStorage<T> {
     return KeyValueStorage(
         entityName = entityName,

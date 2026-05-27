@@ -5,7 +5,7 @@ import com.mercury.sqkon.db.serialization.SqkonJson
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.serialization.json.Json
 
-@Deprecated("Use other Sqkon method instead")
+@Deprecated("Use the dbFileName overload instead")
 fun Sqkon(
     context: Context,
     scope: CoroutineScope,
@@ -21,9 +21,9 @@ fun Sqkon(
 )
 
 /**
- * Main entry point for Sqkon on Android
+ * Main entry point for Sqkon on Android.
  *
- * @param dbFileName name of the db file on disk, if null we create an in-memory db
+ * @param dbFileName name of the db file on disk; null = in-memory.
  */
 @JvmOverloads
 fun Sqkon(
@@ -32,9 +32,14 @@ fun Sqkon(
     json: Json = SqkonJson { },
     dbFileName: String? = "sqkon.db",
     config: KeyValueStorage.Config = KeyValueStorage.Config(),
+    driverConfig: SqkonDriverConfig = SqkonDriverConfig(),
     dispatchers: SqkonDispatchers = defaultSqkonDispatchers,
 ): Sqkon {
-    val factory = DriverFactory(context = context, name = dbFileName)
+    val type: SqkonDatabaseType = when (dbFileName) {
+        null -> SqkonDatabaseType.Memory
+        else -> SqkonDatabaseType.FileBacked(context.getDatabasePath(dbFileName).absolutePath)
+    }
+    val factory = DriverFactory(context = context, type = type, config = driverConfig)
     val driver = factory.createDriver()
     val metadataQueries = MetadataQueries(driver)
     val entityQueries = EntityQueries(driver)
@@ -43,4 +48,3 @@ fun Sqkon(
         dispatchers = dispatchers,
     )
 }
-

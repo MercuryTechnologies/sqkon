@@ -7,12 +7,12 @@ import kotlin.test.assertEquals
 
 class SqkonTransacterParentTest {
 
-    private val sqlDriver = driverFactory().createDriver()
-    private val transacter = SqkonTransacter(sqlDriver)
+    private val driver = driverFactory().createDriver()
+    private val transacter = SqkonTransacter(driver)
 
     @AfterTest
     fun tearDown() {
-        sqlDriver.close()
+        driver.close()
     }
 
     @Test
@@ -33,7 +33,7 @@ class SqkonTransacterParentTest {
         var selfHash = 0
         var parentHash = 0
         transacter.transaction {
-            selfHash = sqlDriver.currentTransaction()!!.hashCode()
+            selfHash = driver.currentTransaction()!!.hashCode()
             parentHash = transacter.currentOutermostTransactionHash()
         }
         assertEquals(selfHash, parentHash)

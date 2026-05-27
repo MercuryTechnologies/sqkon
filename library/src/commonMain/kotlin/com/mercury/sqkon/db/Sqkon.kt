@@ -34,10 +34,10 @@ class Sqkon internal constructor(
 ) {
 
     /**
-     * Sqkon internal transactor.
+     * Sqkon internal transactor. EntityQueries IS-A [SqkonTransacter] now, so we reuse it directly.
      */
     @PublishedApi
-    internal val transactor = SqkonTransacter(driver = entityQueries.sqlDriver)
+    internal val transactor: SqkonTransacter = entityQueries
 
     @PublishedApi
     internal val serializer = KotlinSqkonSerializer(json)
