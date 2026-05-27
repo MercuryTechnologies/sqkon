@@ -52,6 +52,7 @@ kotlin {
     iosSimulatorArm64()
     sourceSets {
         commonMain.dependencies {
+            implementation(libs.androidx.collection)
             implementation(libs.androidx.sqlite.core)
             implementation(libs.androidx.sqlite.bundled)
             implementation(libs.kotlinx.coroutines.core)
