@@ -27,6 +27,7 @@ internal class SqkonConnectionPool(
     private val writerMutex = Mutex()
     private val readerChannel = Channel<SQLiteConnection>(Channel.UNLIMITED)
     private val readerCount: Int = if (isMemory) 0 else config.readerConnections
+    private val initMutex = Mutex()
 
     /** Eagerly opened so journal_mode=WAL is set before any reader attaches to the file. */
     private val writerConnection: SQLiteConnection by lazy {
@@ -58,20 +59,31 @@ internal class SqkonConnectionPool(
         sqkonRunBlocking { readerChannel.send(c) }
     }
 
-    /** Force-opens writer + readers. Idempotent. */
+    /**
+     * Force-open the reader connections. Idempotent + thread-safe (concurrent first reads must
+     * see exactly one initialization to avoid opening 2×N connections and leaking them — `close()`
+     * only drains [readerCount] entries from the channel).
+     */
     private fun ensureReaders() {
         if (readersInitialized) return
-        // Touch writer first so WAL is enabled before readers attach.
-        writerConnection
-        repeat(readerCount) { readerChannel.trySend(factory.open(name).apply(::applyPragmas)) }
-        readersInitialized = true
+        sqkonRunBlocking {
+            initMutex.withLock {
+                if (readersInitialized) return@withLock
+                // Touch writer first so WAL is enabled before readers attach.
+                writerConnection
+                repeat(readerCount) { readerChannel.trySend(factory.open(name).apply(::applyPragmas)) }
+                readersInitialized = true
+            }
+        }
     }
 
     override fun close() {
         sqkonRunBlocking {
             writerMutex.withLock { writerConnection.close() }
-            if (readersInitialized) {
-                repeat(readerCount) { readerChannel.tryReceive().getOrNull()?.close() }
+            initMutex.withLock {
+                if (readersInitialized) {
+                    repeat(readerCount) { readerChannel.tryReceive().getOrNull()?.close() }
+                }
             }
             readerChannel.close()
         }

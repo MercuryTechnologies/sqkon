@@ -45,8 +45,14 @@ internal class SqkonStatementCache(private val config: SqkonDriverConfig) {
         }
         val cache = lookupCache(connection)
         val claimed = sqkonRunBlocking { mapMutex.withLock { cache.remove(identifier) } }
-        val stmt: AndroidxPreparedStatement = (claimed as? AndroidxPreparedStatement)
-            ?: AndroidxPreparedStatement(connection.prepare(sql))
+        val stmt: AndroidxPreparedStatement = if (claimed is AndroidxPreparedStatement) {
+            claimed
+        } else {
+            // Wrong subtype (collision with a query cached under same identifier) — close it so
+            // we don't leak the SQLiteStatement.
+            claimed?.close()
+            AndroidxPreparedStatement(connection.prepare(sql))
+        }
         try {
             binders?.invoke(stmt)
             stmt.execute()
@@ -74,8 +80,12 @@ internal class SqkonStatementCache(private val config: SqkonDriverConfig) {
         }
         val cache = lookupCache(connection)
         val claimed = sqkonRunBlocking { mapMutex.withLock { cache.remove(identifier) } }
-        val stmt: AndroidxQuery = (claimed as? AndroidxQuery)
-            ?: AndroidxQuery(connection.prepare(sql))
+        val stmt: AndroidxQuery = if (claimed is AndroidxQuery) {
+            claimed
+        } else {
+            claimed?.close()
+            AndroidxQuery(connection.prepare(sql))
+        }
         try {
             binders?.invoke(stmt)
             return stmt.executeQuery(mapper)

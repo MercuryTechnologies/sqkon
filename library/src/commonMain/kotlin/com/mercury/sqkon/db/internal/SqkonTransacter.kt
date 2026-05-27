@@ -2,6 +2,7 @@
 // pattern; backed by Sqkon's own SqkonDriver/SqkonTransaction.
 package com.mercury.sqkon.db.internal
 
+import com.mercury.sqkon.db.SqkonRollbackException
 import com.mercury.sqkon.db.SqkonTransactionScope
 import com.mercury.sqkon.db.newScopeReceiver
 
@@ -18,7 +19,18 @@ import com.mercury.sqkon.db.newScopeReceiver
 open class SqkonTransacter internal constructor(internal val driver: SqkonDriver) {
 
     fun transaction(noEnclosing: Boolean = false, body: SqkonTransactionScope.() -> Unit) {
-        transactionWithWrapper<Unit>(noEnclosing) { body() }
+        // Unit-path swallows SqkonRollbackException at the outermost boundary so direct callers
+        // (e.g. `entityQueries.transaction { rollback() }`) see silent rollback. Nested calls
+        // re-throw, so the outermost still observes the rollback and aborts (childrenSuccessful=false
+        // propagation handles intermediate levels). transactionWithResult keeps the throw so the
+        // caller can react when there's no value to return.
+        val enclosing = driver.currentTransaction()
+        try {
+            transactionWithWrapper<Unit>(noEnclosing) { body() }
+        } catch (e: SqkonRollbackException) {
+            if (enclosing != null) throw e
+            // outermost Unit transaction: silent abort
+        }
     }
 
     fun <R> transactionWithResult(noEnclosing: Boolean = false, body: SqkonTransactionScope.() -> R): R =

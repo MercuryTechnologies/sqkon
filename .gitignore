@@ -18,8 +18,11 @@ Pods/
 # Claude Code
 .claude/settings.local.json
 .claude/todos/
+.claude/scheduled_tasks.lock
+.claude/scheduled_tasks/
 .worktrees/
 .claude/.worktrees/
+.claude/worktrees/
 
 # Jekyll
 docs/_site/
