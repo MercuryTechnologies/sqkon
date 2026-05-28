@@ -8,10 +8,6 @@ plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.multiplatform)
     alias(libs.plugins.kotlinx.serialization)
-    // Codegen is no longer used (schema is hand-rolled in internal/schema); the plugin is kept
-    // only so Phase 7 can remove it in one isolated step. It logs a harmless "no databases set
-    // up" warning until then. Runtime SQLDelight artifacts are separate deps and still required.
-    alias(libs.plugins.sqlDelight)
     alias(libs.plugins.maven.publish)
     alias(libs.plugins.dokka)
 }
@@ -56,8 +52,6 @@ kotlin {
             implementation(libs.androidx.sqlite.core)
             implementation(libs.androidx.sqlite.bundled)
             implementation(libs.kotlinx.coroutines.core)
-            implementation(libs.sqlDelight.androidx.driver)
-            implementation(libs.sqlDelight.coroutines)
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.kotlinx.datetime)
             implementation(libs.paging.common)
@@ -73,12 +67,10 @@ kotlin {
 
         androidMain.dependencies {
             implementation(libs.kotlinx.coroutines.android)
-            implementation(libs.sqlDelight.driver.android)
         }
 
         jvmMain.dependencies {
             implementation(libs.kotlinx.coroutines.swing)
-            api(libs.sqlDelight.androidx.driver) // Expose the driver for transitive dependencies
         }
 
     }
