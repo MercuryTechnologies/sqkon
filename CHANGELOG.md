@@ -1,5 +1,26 @@
 # Changelog
 
+## [3.0.0](https://github.com/MercuryTechnologies/sqkon/compare/2.1.0...3.0.0) (2026-05-29)
+
+
+### ⚠ BREAKING CHANGES
+
+* strip unused sqldelight plugin + runtime deps (3.0.0 cleanup) ([#61](https://github.com/MercuryTechnologies/sqkon/issues/61))
+* Sqkon factories on JVM and Android no longer accept com.eygraber.sqldelight.androidx.driver.AndroidxSqliteDatabaseType; use com.mercury.sqkon.db.SqkonDatabaseType (Memory / FileBacked) instead. EntityQueries and MetadataQueries constructors are now internal — instances are created exclusively via the Sqkon(...) factories.
+* KeyValueStorage no longer implements app.cash.sqldelight.Transacter, and the transaction lambda receiver is SqkonTransactionScope instead of SQLDelight's TransactionCallbacks. transaction { } / transactionWithResult { } calls are source-compatible. Update code only if you: (1) held a store as a Transacter (`val t: Transacter = store`) — call store.transaction { } directly; (2) imported app.cash.sqldelight.TransactionCallbacks as the block receiver type — drop the import, SqkonTransactionScope is inferred; (3) used Transacter members beyond afterCommit/afterRollback/rollback/nested transaction — rework against SqkonTransactionScope; (4) relied on transactionWithResult { rollback() } returning a value — it now throws SqkonRollbackException. See docs/guides/transactions.md#upgrading-from-1x.
+
+### Features
+
+* **arch:** internal SqkonDriver abstraction (MOB-3289) ([#55](https://github.com/MercuryTechnologies/sqkon/issues/55)) ([eca9a34](https://github.com/MercuryTechnologies/sqkon/commit/eca9a34632c36c1ef20445f611eb9ba90fcf1b18))
+* direct androidx.sqlite driver, drop SQLDelight SqlDriver (MOB-3293) ([#60](https://github.com/MercuryTechnologies/sqkon/issues/60)) ([fe88ce8](https://github.com/MercuryTechnologies/sqkon/commit/fe88ce8a49ff2c17aeb278b7335686cc636fe0b7))
+* hand-roll entity and metadata data classes (MOB-3290) ([#57](https://github.com/MercuryTechnologies/sqkon/issues/57)) ([2c9afeb](https://github.com/MercuryTechnologies/sqkon/commit/2c9afeb7eefa25ce6e15d452f2fad36a0aa6cdac))
+* hide sqldelight transacter behind SqkonTransactionScope (MOB-3292) ([#59](https://github.com/MercuryTechnologies/sqkon/issues/59)) ([0255188](https://github.com/MercuryTechnologies/sqkon/commit/025518825236dee8e48f0a6463c95b4a18fd5c4f))
+
+
+### Miscellaneous
+
+* strip unused sqldelight plugin + runtime deps (3.0.0 cleanup) ([#61](https://github.com/MercuryTechnologies/sqkon/issues/61)) ([f4e975b](https://github.com/MercuryTechnologies/sqkon/commit/f4e975bec979d6b326a4cbaad7936b0bf1ceab1c))
+
 ## [2.1.0](https://github.com/MercuryTechnologies/sqkon/compare/2.0.0...2.1.0) (2026-05-13)
 
 
