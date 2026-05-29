@@ -228,12 +228,13 @@ dependencies {
 
 ## Project Requirements
 
-The project is built upon [SQLDelight](https://github.com/sqldelight/sqldelight)
-and [kotlinx.serialization](https://github.com/Kotlin/kotlinx.serialization), these are transitive
-dependencies, but you will not be able to use the library with applying the
-kotlinx-serialization plugin. If you are not using kotlinx serialization, I suggest you read about
-it
-here: https://github.com/Kotlin/kotlinx.serialization.
+The project is built on [`androidx.sqlite`](https://developer.android.com/jetpack/androidx/releases/sqlite)
+(bundled driver) and [kotlinx.serialization](https://github.com/Kotlin/kotlinx.serialization);
+these are transitive dependencies, but you will need to apply the kotlinx-serialization plugin in
+your build. If you are not using `kotlinx.serialization`, I suggest you read about it
+here: https://github.com/Kotlin/kotlinx.serialization. Earlier versions (≤ 2.x) ran on
+[SQLDelight](https://github.com/sqldelight/sqldelight) — see `docs/superpowers/plans/` for the
+migration history.
 
 ## Expiry/Cache Busting
 
