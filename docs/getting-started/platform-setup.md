@@ -55,8 +55,8 @@ from there.
 ### Database file
 
 By default Sqkon writes to `sqkon.db` inside your app's standard database
-directory (the same place Room and SQLDelight Android drivers use). To pick a
-different file name, pass `dbFileName`:
+directory (the same place Room stores its databases). To pick a different file
+name, pass `dbFileName`:
 
 ```kotlin
 Sqkon(context = this, scope = appScope, dbFileName = "my-cache.db")
@@ -76,20 +76,21 @@ Sqkon(context = this, scope = appScope, dbFileName = null)
 
 ## JVM
 
-The JVM factory takes a `CoroutineScope` and an `AndroidxSqliteDatabaseType`:
+The JVM factory takes a `CoroutineScope` and a `SqkonDatabaseType`:
 
 ```kotlin
 fun Sqkon(
     scope: CoroutineScope,
     json: Json = SqkonJson { },
-    type: AndroidxSqliteDatabaseType = AndroidxSqliteDatabaseType.Memory,
+    type: SqkonDatabaseType = SqkonDatabaseType.Memory,
     config: KeyValueStorage.Config = KeyValueStorage.Config(),
+    driverConfig: SqkonDriverConfig = SqkonDriverConfig(),
 ): Sqkon
 ```
 
 ### In-memory (default)
 
-The default is `AndroidxSqliteDatabaseType.Memory`, which is ideal for unit
+The default is `SqkonDatabaseType.Memory`, which is ideal for unit
 tests:
 
 ```kotlin
@@ -101,11 +102,11 @@ val sqkon = Sqkon(scope = scope) // in-memory by default
 For a persistent JVM database, point at a file:
 
 ```kotlin
-import com.eygraber.sqldelight.androidx.driver.AndroidxSqliteDatabaseType
+import com.mercury.sqkon.db.SqkonDatabaseType
 
 val sqkon = Sqkon(
     scope = appScope,
-    type = AndroidxSqliteDatabaseType.File("data/sqkon.db"),
+    type = SqkonDatabaseType.FileBacked("data/sqkon.db"),
 )
 ```
 
@@ -126,12 +127,10 @@ This is configured in
 [`Sqkon.kt`](https://github.com/MercuryTechnologies/sqkon/blob/main/library/src/commonMain/kotlin/com/mercury/sqkon/db/Sqkon.kt)
 and the platform `SqkonDatabaseDriver` files.
 
-{: .warning }
-> **Do not enable SQLDelight's `generateAsync = true`.** The async driver is
-> effectively broken on multithreaded platforms with coroutines. Sqkon relies on
-> the synchronous driver and serializes work through its own dispatchers — that
-> is the supported configuration. This rule is enforced in the project's
-> `library/build.gradle.kts` and called out in `CLAUDE.md`.
+{: .note }
+> Sqkon's SQLite driver is synchronous by design; it serializes work through its
+> own dispatchers (one writer, a small reader pool) rather than an async driver,
+> which doesn't play well with multithreaded hosts.
 
 The `CoroutineScope` you pass to `Sqkon(...)` is used as the parent of the
 internal reactive query coroutines. Cancel that scope (typically only in tests
@@ -139,13 +138,14 @@ or when shutting down a worker process) to release database resources.
 
 ## iOS / Native
 
-Native targets are **not currently supported**. Sqkon depends on the
-[`sqldelight-androidx-driver`](https://github.com/eygraber/sqldelight-androidx-driver)
-which is JVM/Android-only at the time of writing.
+Not usable on iOS **yet**. The iOS source set is scaffolded and compiles, but the
+platform `DriverFactory.createDriver()` is still a `TODO` stub — there is no public
+`Sqkon(...)` factory for iOS. Now that Sqkon runs on `androidx.sqlite` (which ships a
+KMP/native `BundledSQLiteDriver`), the only remaining work is wiring that actual; the
+old eygraber JVM/Android-only driver is gone.
 
 If iOS support matters to you, please open or upvote an issue on the
-[GitHub repo](https://github.com/MercuryTechnologies/sqkon/issues) — there's no
-fundamental blocker beyond a native driver wiring.
+[GitHub repo](https://github.com/MercuryTechnologies/sqkon/issues).
 
 ## Next
 

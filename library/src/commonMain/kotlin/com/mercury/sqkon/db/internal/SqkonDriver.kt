@@ -1,9 +1,9 @@
 package com.mercury.sqkon.db.internal
 
 /**
- * Sqkon-owned database driver contract. Phase 2 mirrors the subset of
- * `app.cash.sqldelight.db.SqlDriver` that Sqkon actually uses. The
- * SQLDelight runtime sits behind `SqlDelightSqkonDriver` until Phase 6.
+ * Sqkon-owned database driver contract: a small synchronous SQLite driver interface
+ * (originally modeled on the subset of `app.cash.sqldelight.db.SqlDriver` Sqkon used).
+ * The production implementation is `AndroidxSqkonDriver` over `androidx.sqlite`.
  */
 internal interface SqkonDriver {
 

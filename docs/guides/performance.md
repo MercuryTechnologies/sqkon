@@ -25,7 +25,7 @@ data class Merchant(val id: String, val name: String, val category: String)
 ## Built-in indexes
 
 The `entity` table ships with three indexes today (see
-`library/src/commonMain/sqldelight/com/mercury/sqkon/db/entity.sq`):
+`library/src/commonMain/kotlin/com/mercury/sqkon/db/internal/schema/SqkonSchema.kt`):
 
 | Index | Column | What it speeds up |
 |-------|--------|-------------------|

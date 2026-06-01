@@ -114,9 +114,8 @@ dependencies {
 ```
 
 {: .note }
-> Sqkon brings its own SQLDelight driver and the AndroidX SQLite bundled native
-> library transitively. You do **not** need to add SQLDelight or
-> `androidx.sqlite` directly unless you use them outside Sqkon.
+> Sqkon brings the AndroidX SQLite bundled native library transitively. You do
+> **not** need to add `androidx.sqlite` directly unless you use it outside Sqkon.
 
 ## Verify
 

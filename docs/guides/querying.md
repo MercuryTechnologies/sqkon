@@ -436,7 +436,7 @@ a `WHERE` predicate, and the bound parameters. AND/OR combine two child
 queries into one. The store also adds the `entity_name = ?` filter for the
 store you opened, so two stores in the same database never collide.
 
-For the full read/write lifecycle (serializer → SQLDelight → driver →
+For the full read/write lifecycle (serializer → query layer → driver →
 SQLite), see
 [Concepts: Architecture]({{ '/concepts/architecture/' | relative_url }}).
 

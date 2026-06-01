@@ -120,9 +120,9 @@ transaction for these:
 - `delete` (by `Where`), `deleteByKey`, `deleteByKeys`, `deleteAll`
 - `deleteExpired`, `deleteStale`
 
-Wrapping them in your own `transaction { … }` is harmless — SQLDelight nests —
-and is sometimes useful for grouping unrelated writes into one observer
-emission.
+Wrapping them in your own `transaction { … }` is harmless — Sqkon nests
+transactions — and is sometimes useful for grouping unrelated writes into one
+observer emission.
 
 ## Flow emission timing
 
@@ -136,7 +136,7 @@ in [Reactive flows: when does it re-emit?]({{ '/guides/flow/#when-does-it-re-emi
 {: .important }
 Since [PR #22](https://github.com/MercuryTechnologies/sqkon/pull/22)
 (commit `444823c`), Sqkon's `transaction { … }` blocks run **synchronously**
-on the calling thread, the same as SQLDelight upstream. If you're upgrading
+on the calling thread. If you're upgrading
 from a pre-`444823c` version that ran transactions on a write dispatcher,
 move any `runBlocking { … }` or `withContext(Dispatchers.IO) { … }` you added
 *around* `transaction` calls — the block already executes on whatever thread

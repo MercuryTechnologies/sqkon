@@ -142,9 +142,9 @@ on top of Sqkon:
   tests for device-specific behavior. Android unit tests on the
   Robolectric / "JVM-running-Android" path don't add coverage Sqkon
   cares about.
-- **Do not set `generateAsync = true` in SQLDelight.** The Sqkon driver
-  doesn't support it, and concurrency is already handled by the
-  read/write coroutine dispatchers Sqkon uses internally.
+- **Keep the SQLite driver synchronous.** Concurrency is handled by the
+  read/write coroutine dispatchers Sqkon uses internally; don't reach for an
+  async driver.
 
 ## Where to put test data classes
 

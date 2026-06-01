@@ -8,9 +8,10 @@ nav_order: 2
 # Architecture
 
 Sqkon takes typed Kotlin objects, runs them through `kotlinx.serialization` to JSON,
-and stores them as JSONB blobs in a single SQLite table. Reads and writes go through
-SQLDelight, which gives us type-safe SQL, automatic Flow invalidation, and a single
-driver abstraction across Android and JVM. Queries built with the `JsonPath` DSL
+and stores them as JSONB blobs in a single SQLite table. Reads and writes go through a
+hand-written query layer on top of `androidx.sqlite` (the bundled SQLite build), behind
+an internal `SqkonDriver` abstraction that gives us type-safe Kotlin call sites, Flow
+invalidation, and a single driver shape across Android and JVM. Queries built with the `JsonPath` DSL
 compile down to `json_tree`-based predicates against the stored JSON — pushing all
 filtering into SQLite's query planner instead of materializing rows in Kotlin.
 
@@ -21,13 +22,13 @@ flowchart LR
     App["App code"] --> KVS["KeyValueStorage&lt;T&gt;"]
     KVS --> Ser["KotlinSqkonSerializer"]
     KVS --> JP["JsonPath DSL"]
-    Ser --> SD["SQLDelight EntityQueries"]
+    Ser --> SD["EntityQueries"]
     JP --> SD
-    SD --> Drv["SQLite Driver"]
+    SD --> Drv["SqkonDriver (androidx.sqlite)"]
     Drv --> DB[("SQLite + JSONB")]
 ```
 
-- **`Sqkon`** — the entry point. Holds the SQLDelight queries, a serializer, a
+- **`Sqkon`** — the entry point. Holds the query objects, a serializer, a
   `CoroutineScope`, and read/write dispatchers. Use `sqkon.keyValueStorage<T>(name)`
   to spawn typed stores.
 - **`KeyValueStorage<T>`** — the per-type façade. Exposes `insert`, `update`,
@@ -40,21 +41,22 @@ flowchart LR
   parameterized `WHERE` fragments that join the row against `json_tree(entity.value)`
   and match by `fullkey LIKE '$.field' AND value <op> ?`. The final row payload is
   pulled out separately with `json_extract` in the `SELECT`.
-- **`EntityQueries` / `MetadataQueries`** — generated and hand-written SQLDelight
-  queries against the two tables described below.
-- **SQLite driver** — `androidx.sqlite` on both platforms. JVM uses an in-process
-  bundle; Android uses the system SQLite via the AndroidX driver.
+- **`EntityQueries` / `MetadataQueries`** — hand-written query classes over the
+  internal `SqkonDriver`, targeting the two tables described below.
+- **`SqkonDriver`** — Sqkon's own synchronous SQLite driver contract. The production
+  implementation, `AndroidxSqkonDriver`, runs on `androidx.sqlite` (bundled build) on
+  both platforms via a connection pool and per-connection prepared-statement cache.
 
 ## Lifecycle of an insert
 
 1. Caller invokes `storage.insert(key, value, expiresAt = ...)`.
 2. The serializer encodes `T` to a JSON byte array using the configured `Json`
    instance.
-3. SQLDelight runs an `INSERT` (or no-op if `ignoreIfExists = true` and the row
-   exists) inside a transaction.
+3. `EntityQueries` runs an `INSERT` through the driver (or no-op if
+   `ignoreIfExists = true` and the row exists) inside a transaction.
 4. SQLite stores the row with `entity_name`, `entity_key`, `value` (JSONB),
    `added_at`, `updated_at`, optional `expires_at`, and `write_at`.
-5. SQLDelight emits a notification for the affected query keys.
+5. On commit, the driver notifies the affected query keys via its listener registry.
 6. Any active `select(...)` Flows re-execute their underlying query.
 7. Consumers see a fresh emission with the new row included.
 
@@ -66,7 +68,7 @@ flowchart LR
    `json_tree(entity.value)` and filters by
    `fullkey LIKE '$.field' AND value = ?` (or `LIKE`, `IN`, `>`, `<`, `IS NOT`, etc.),
    all with parameter placeholders.
-3. SQLDelight runs the parameterized query against SQLite. Filtering happens inside
+3. The driver runs the parameterized query against SQLite. Filtering happens inside
    the database — Kotlin never sees rows that don't match.
 4. Returned blobs are deserialized back to `T` on the read dispatcher.
 5. The Flow keeps observing; subsequent writes that touch the same query trigger
@@ -87,10 +89,9 @@ flowchart LR
 
 ## Schema
 
-Sqkon uses two tables. The full SQLDelight definitions live at:
+Sqkon uses two tables. The hand-rolled schema (CREATE statements + migrations) lives at:
 
-- [`library/src/commonMain/sqldelight/com/mercury/sqkon/db/entity.sq`](https://github.com/MercuryTechnologies/sqkon/blob/main/library/src/commonMain/sqldelight/com/mercury/sqkon/db/entity.sq)
-- [`library/src/commonMain/sqldelight/com/mercury/sqkon/db/metadata.sq`](https://github.com/MercuryTechnologies/sqkon/blob/main/library/src/commonMain/sqldelight/com/mercury/sqkon/db/metadata.sq)
+- [`library/src/commonMain/kotlin/com/mercury/sqkon/db/internal/schema/SqkonSchema.kt`](https://github.com/MercuryTechnologies/sqkon/blob/main/library/src/commonMain/kotlin/com/mercury/sqkon/db/internal/schema/SqkonSchema.kt)
 
 ### `entity`
 
@@ -125,6 +126,6 @@ store. Useful for cache freshness checks and for purging stale entries.
 | `lastWriteAt` | INTEGER | Mapped to `kotlinx.datetime.Instant`.|
 
 {: .highlight }
-> Sqkon never sets `generateAsync = true` on SQLDelight — the async driver doesn't
-> play well with multithreaded JVM hosts. Coroutines and dispatchers handle
-> concurrency instead.
+> The driver is synchronous; Sqkon serializes work through its own coroutine
+> dispatchers (one writer, a small reader pool) rather than relying on an async
+> SQLite driver, which doesn't play well with multithreaded hosts.

@@ -25,7 +25,7 @@ Sqkon uses [Conventional Commits](https://www.conventionalcommits.org/). Release
 | `fix:`             | patch        | `fix: null handling in JsonPath`                  |
 | `feat!:` / `fix!:` | **major**    | `feat!: remove deprecated expiry API`             |
 | `perf:`            | patch        | `perf: optimize JSONB query plan`                 |
-| `deps:`            | patch        | `deps: upgrade SQLDelight to 2.1`                 |
+| `deps:`            | patch        | `deps: upgrade kotlinx-coroutines to 1.12.0`      |
 | `docs:`            | none         | `docs: update README examples`                    |
 | `chore:`           | none         | `chore: update CI action versions`                |
 
@@ -84,7 +84,7 @@ Releases are fully automated via [release-please](https://github.com/googleapis/
 
 A few constraints exist for technical reasons. Please don't change these without discussion.
 
-- **Do not set `generateAsync = true` in SQLDelight.** The async driver breaks on multithreaded platforms; coroutines handle concurrency at the API layer.
+- **Keep the SQLite driver synchronous.** Sqkon serializes work through its own coroutine dispatchers (one writer, a small reader pool); don't reach for an async driver — it doesn't play well with multithreaded hosts.
 - **Keep the `-Xexpect-actual-classes` compiler flag.** It's required for the KMP `expect`/`actual` declarations Sqkon relies on.
 - **Do not add Android unit tests** (`enableUnitTest = false`). Use JVM tests for fast iteration; Android instrumented tests cover device-specific behavior.
 - **Java 21 toolchain is required.** Do not downgrade.
