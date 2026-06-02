@@ -18,6 +18,9 @@ concurrency:
 
 jobs:
   publish-snapshot:
+    # push only ever fires on main; this guards workflow_dispatch so a snapshot
+    # can never be published from an unreviewed non-main ref selected in the UI.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
@@ -35,11 +38,14 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          # Prefer the upcoming version from the open release-please PR
-          # (title pattern "release: X.Y.Z"); that is exactly the version
-          # currently in development.
-          TITLES="$(gh pr list --state open --json title --jq '.[].title')"
-          NEXT="$(printf '%s\n' "$TITLES" \
+          # Prefer the upcoming version from the open release-please PR (head
+          # branch "release-please--branches--main", title "release: X.Y.Z");
+          # that is exactly the version currently in development. Scoping to the
+          # release-please head branch + main base means an unrelated open PR
+          # that happens to be titled like a release can never be matched.
+          TITLE="$(gh pr list --state open --base main \
+            --head release-please--branches--main --json title --jq '.[].title')"
+          NEXT="$(printf '%s\n' "$TITLE" \
             | sed -n 's/^release: \([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/p' \
             | head -n1)"
           if [ -z "$NEXT" ]; then
