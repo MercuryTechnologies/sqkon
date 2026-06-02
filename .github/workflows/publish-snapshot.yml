@@ -68,7 +68,13 @@ jobs:
         run: ./gradlew jvmTest
 
       - name: Publish snapshot to Maven Central
-        run: ./gradlew publishAllPublicationsToMavenCentralRepository --no-configuration-cache
+        # Use vanniktech's aggregate task, NOT
+        # publishAllPublicationsToMavenCentralRepository: the latter always
+        # uploads through the release Publisher-API deployment bundle, which
+        # validates filenames and rejects timestamped snapshots ("Deployment
+        # failed validation"). publishToMavenCentral routes a -SNAPSHOT version
+        # to the no-validation Central Portal snapshot repository instead.
+        run: ./gradlew publishToMavenCentral --no-configuration-cache
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_VERSION: ${{ steps.version.outputs.version }}
