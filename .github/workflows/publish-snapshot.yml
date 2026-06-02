@@ -1,0 +1,78 @@
+name: Publish Snapshot
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+# Snapshots overwrite the same -SNAPSHOT coordinates, so never publish two at
+# once; let an in-flight publish finish rather than cancelling it.
+concurrency:
+  group: publish-snapshot
+  cancel-in-progress: false
+
+jobs:
+  publish-snapshot:
+    # push only ever fires on main; this guards workflow_dispatch so a snapshot
+    # can never be published from an unreviewed non-main ref selected in the UI.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - name: Setup Java JDK
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
+        with:
+          distribution: 'zulu'
+          java-version: '21'
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@50e97c2cd7a37755bbfafc9c5b7cafaece252f6e # v6.1.0
+
+      - name: Compute snapshot version
+        id: version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # Prefer the upcoming version from the open release-please PR (head
+          # branch "release-please--branches--main", title "release: X.Y.Z");
+          # that is exactly the version currently in development. Scoping to the
+          # release-please head branch + main base means an unrelated open PR
+          # that happens to be titled like a release can never be matched.
+          TITLE="$(gh pr list --state open --base main \
+            --head release-please--branches--main --json title --jq '.[].title')"
+          NEXT="$(printf '%s\n' "$TITLE" \
+            | sed -n 's/^release: \([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/p' \
+            | head -n1)"
+          if [ -z "$NEXT" ]; then
+            # No open release PR: bump the patch of the last released version
+            # recorded in the release-please manifest.
+            BASE="$(jq -r '.["."]' .release-please-manifest.json)"
+            IFS='.' read -r MAJOR MINOR PATCH <<< "$BASE"
+            NEXT="${MAJOR}.${MINOR}.$((PATCH + 1))"
+            echo "No open release PR; falling back to manifest bump: ${BASE} -> ${NEXT}"
+          fi
+          VERSION="${NEXT}-SNAPSHOT"
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+-SNAPSHOT$ ]]; then
+            echo "::error::Computed invalid snapshot version: '${VERSION}'"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Publishing snapshot version: $VERSION"
+
+      - name: Run tests before publishing
+        run: ./gradlew jvmTest
+
+      - name: Publish snapshot to Maven Central
+        run: ./gradlew publishAllPublicationsToMavenCentralRepository --no-configuration-cache
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.GPG_SIGNING_KEY }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.GPG_PASSPHRASE }}
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.CENTRAL_PORTAL_USERNAME }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.CENTRAL_PORTAL_PASSWORD }}
