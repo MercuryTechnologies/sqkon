@@ -28,7 +28,6 @@ dokka {
         listOf(
             "kotlinx-serialization" to "https://kotlinlang.org/api/kotlinx.serialization/",
             "kotlinx-coroutines"    to "https://kotlinlang.org/api/kotlinx.coroutines/",
-            "kotlinx-datetime"      to "https://kotlinlang.org/api/kotlinx-datetime/",
         ).forEach { (name, url) ->
             externalDocumentationLinks.register(name) {
                 this.url.set(URI(url))
@@ -53,7 +52,6 @@ kotlin {
             implementation(libs.androidx.sqlite.bundled)
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.serialization.json)
-            implementation(libs.kotlinx.datetime)
             implementation(libs.paging.common)
             // Don't include other paging, just the base to generate pageable queries
         }
