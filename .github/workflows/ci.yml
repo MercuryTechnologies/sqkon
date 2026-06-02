@@ -31,7 +31,7 @@ jobs:
         uses: gradle/actions/setup-gradle@50e97c2cd7a37755bbfafc9c5b7cafaece252f6e # v6.1.0
 
       - name: Build and publish
-        run: ./gradlew jvmTest
+        run: ./gradlew checkNoSqlDelightImports jvmTest
 
       - name: JUnit Report
         uses: mikepenz/action-junit-report@bccf2e31636835cf0874589931c4116687171386 # v6.4.0

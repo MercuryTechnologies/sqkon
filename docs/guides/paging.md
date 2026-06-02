@@ -146,7 +146,7 @@ sequenceDiagram
     participant App
     participant Pager
     participant Source as PagingSource
-    participant DB as SQLDelight
+    participant DB as SqkonDriver
 
     App->>Pager: collect flow
     Pager->>Source: load(initial)

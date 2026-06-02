@@ -28,8 +28,8 @@ val meta: Flow<Metadata>               = merchants.metadata()
 
 These flows are **cold**. They start no work until something collects them and
 they cancel cleanly when the collector cancels. The first collector triggers
-the first SQL execution; subsequent emissions are driven by SQLDelight's table
-notifications.
+the first SQL execution; subsequent emissions are driven by the driver's
+query-key notifications fired on commit.
 
 ## When does it re-emit?
 
@@ -43,12 +43,12 @@ new result.
 sequenceDiagram
     participant Writer
     participant SqkonStore as KeyValueStorage(T)
-    participant SQLDelight
+    participant Driver as SqkonDriver
     participant Reader as Flow consumer
     Writer->>SqkonStore: insert(...)
-    SqkonStore->>SQLDelight: INSERT
-    SQLDelight->>SQLDelight: notify(entity)
-    SQLDelight->>SqkonStore: re-execute
+    SqkonStore->>Driver: INSERT
+    Driver->>Driver: notify(entity)
+    Driver->>SqkonStore: re-execute
     SqkonStore->>Reader: emit(updatedList)
 ```
 

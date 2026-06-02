@@ -68,18 +68,18 @@ class MyApplication : Application() {
 ### JVM
 
 ```kotlin
-import com.eygraber.sqldelight.androidx.driver.AndroidxSqliteDatabaseType
+import com.mercury.sqkon.db.SqkonDatabaseType
 
 val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
 val sqkon = Sqkon(
     scope = appScope,
-    type = AndroidxSqliteDatabaseType.File("sqkon.db"),
+    type = SqkonDatabaseType.FileBacked("sqkon.db"),
 )
 ```
 
 For tests, drop the `type` argument — the JVM default is
-`AndroidxSqliteDatabaseType.Memory`.
+`SqkonDatabaseType.Memory`.
 
 ## 3. Get a typed store
 
@@ -173,8 +173,8 @@ appScope.launch {
 ```
 
 Inserts, updates, and deletes from anywhere in your app will trigger a new
-emission automatically — Sqkon wires SQLDelight's reactive query plumbing
-through the JSONB layer.
+emission automatically — on commit, Sqkon's driver notifies the affected query
+keys and active Flows re-run their query.
 
 ## 7. Cleanup
 

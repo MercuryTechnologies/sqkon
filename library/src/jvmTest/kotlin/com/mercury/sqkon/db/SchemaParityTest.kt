@@ -9,10 +9,11 @@ import kotlin.test.assertEquals
  * representation of the schema. Compared byte-for-byte against
  * `library/src/jvmTest/resources/sqkon-schema-v2.snapshot`.
  *
- * Replaces `verifySqlDelightMigration` as the schema canary in Phase 4.
+ * The schema canary (the hand-rolled-schema successor to the old SQLDelight
+ * migration verifier).
  *
  * To regenerate after an INTENTIONAL schema change:
- *   1. Add a new SQLDelight migration .sqm file (bumps Schema.version).
+ *   1. Bump the version and add the migration SQL in `internal/schema/SqkonSchema.kt`.
  *   2. Delete the snapshot file.
  *   3. Re-run this test — it writes the new snapshot on first run.
  *   4. Inspect the diff before committing.

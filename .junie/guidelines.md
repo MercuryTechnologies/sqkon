@@ -1,7 +1,7 @@
 # Sqkon Development Guidelines
 
 ## Project Overview
-Sqkon is a Kotlin Multiplatform library for key-value storage built on top of SQLDelight and AndroidX SQLite. It provides a type-safe, coroutine-based API with Flow support for reactive data access.
+Sqkon is a Kotlin Multiplatform library for key-value storage built on AndroidX SQLite (bundled driver) with a hand-rolled schema and query layer. It provides a type-safe, coroutine-based API with Flow support for reactive data access.
 
 ## Build Configuration
 
@@ -16,22 +16,15 @@ The project uses `-Xexpect-actual-classes` compiler flag for multiplatform expec
 - Root `build.gradle.kts` for all subprojects
 - `library/build.gradle.kts` for the library module
 
-### SQLDelight Configuration
-Located in `library/build.gradle.kts`:
-```kotlin
-sqldelight {
-    databases {
-        create("SqkonDatabase") {
-            generateAsync = false  // Disabled due to driver issues on multithreaded platforms
-            packageName.set("com.mercury.sqkon.db")
-            schemaOutputDirectory.set(file("src/commonMain/sqldelight/databases"))
-            dialect("app.cash.sqldelight:sqlite-3-38-dialect:$VERSION")
-        }
-    }
-}
-```
+### Database & schema
+There is no SQL codegen plugin. The schema (CREATE statements, indexes, version, and
+migrations) is hand-rolled in
+`library/src/commonMain/kotlin/com/mercury/sqkon/db/internal/schema/SqkonSchema.kt`,
+applied on first connection by the internal `AndroidxSqkonDriver` over `androidx.sqlite`
+(bundled SQLite build).
 
-**Key Point**: `generateAsync = false` is intentionally disabled as async operations are problematic with coroutines on multithreaded platforms (driver limitation).
+**Key Point**: the SQLite driver is synchronous; Sqkon serializes work through its own
+coroutine dispatchers (one writer, a small reader pool) rather than an async driver.
 
 ### Source Sets
 - `commonMain`: Common code for all platforms
@@ -118,7 +111,7 @@ class MyTest {
 #### Key Components:
 1. **MainScope**: Required for background database operations
 2. **driverFactory()**: Expect/actual function providing platform-specific test drivers
-   - JVM: In-memory database (`AndroidxSqliteDatabaseType.Memory`)
+   - JVM: In-memory database (`SqkonDatabaseType.Memory`)
    - Android: Context-based test database
 3. **tearDown**: Always cancel MainScope to prevent resource leaks
 4. **runTest**: Wraps suspend test functions for coroutine testing
@@ -203,23 +196,22 @@ Key expect/actual declarations:
 - `driverFactory()`: Test database setup
 - `Sqkon.create()`: Platform-specific initialization
 
-### SQLDelight Schema Management
-- Schema files: `library/src/commonMain/sqldelight/com/mercury/sqkon/db/`
-  - `entity.sq`: Entity storage queries
-  - `metadata.sq`: Metadata tracking queries
-- Migrations: `library/src/commonMain/sqldelight/migrations/`
-- Schema output: `library/src/commonMain/sqldelight/databases/`
+### Schema Management
+- Hand-rolled schema (CREATE statements, indexes, version, migrations):
+  `library/src/commonMain/kotlin/com/mercury/sqkon/db/internal/schema/SqkonSchema.kt`
+- Two tables: `entity` (every stored value as JSONB) and `metadata` (per-store read/write times)
+- Applied on first connection by `AndroidxSqkonDriver`; no `.sq`/`.sqm` files, no codegen
 
 ### Core Architecture
 - **KeyValueStorage**: Main API for type-safe storage operations
-- **EntityQueries**: Generated SQLDelight queries for entities
-- **MetadataQueries**: Generated SQLDelight queries for metadata
+- **SqkonDriver**: internal synchronous SQLite driver contract; production impl is `AndroidxSqkonDriver` over `androidx.sqlite`
+- **EntityQueries**: hand-written entity queries over the driver
+- **MetadataQueries**: hand-written metadata queries over the driver
 - **KotlinSqkonSerializer**: Kotlinx.serialization-based JSON serialization
 - **Flow-based**: All queries return Flows for reactive updates
 
 ### Key Libraries
-- **SQLDelight 2.1.0**: Type-safe SQL generation
-- **AndroidX SQLite**: Cross-platform SQLite driver
+- **AndroidX SQLite (bundled)**: cross-platform SQLite driver Sqkon runs on
 - **Kotlinx Serialization 1.9.0**: JSON serialization
 - **Kotlinx Coroutines 1.10.2**: Async operations
 - **Kotlinx Datetime 0.6.2**: Timestamp handling
@@ -280,7 +272,6 @@ storage.transaction {
 ```
 
 ### Debugging Tips
-- Enable SQLDelight query logging by setting appropriate log levels
 - Use `slowWrite = true` on EntityQueries for testing transaction boundaries
 - Flow emissions can be tested with Turbine's `expectNoEvents()` to ensure operations are properly batched
 - Check that MainScope is properly cancelled in tests to avoid resource leaks

@@ -86,8 +86,8 @@ suspend fun loadFood(): List<Merchant> =
     <span class="feature-card__desc">First-class expiry on every entry. Perfect for caches.</span>
   </a>
   <a class="feature-card" href="{{ '/concepts/architecture/' | relative_url }}">
-    <span class="feature-card__title">Built on SQLDelight</span>
-    <span class="feature-card__desc">Battle-tested SQLite, with type-safe codegen underneath.</span>
+    <span class="feature-card__title">Built on androidx.sqlite</span>
+    <span class="feature-card__desc">Battle-tested SQLite via the bundled native driver, with a type-safe Kotlin API on top.</span>
   </a>
 </div>
 

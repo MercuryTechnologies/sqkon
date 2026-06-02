@@ -118,3 +118,35 @@ androidComponents {
         (it as HasUnitTestBuilder).enableUnitTest = false
     }
 }
+
+// MOB-3294: keep SQLDelight/eygraber imports out of the codebase after the androidx.sqlite
+// migration. Checks imports only, so the Apache-2.0 attribution KDoc that names the upstream
+// projects is left untouched. Wired into `check` and invoked directly in CI (see ci.yml).
+val checkNoSqlDelightImports by tasks.registering {
+    group = "verification"
+    description = "Fails if any app.cash.sqldelight or com.eygraber.sqldelight import returns under library/src."
+    val srcRoot = layout.projectDirectory.dir("src").asFile
+    doLast {
+        val offenders = srcRoot.walkTopDown()
+            .filter { it.isFile && it.extension == "kt" }
+            .flatMap { file ->
+                file.readLines().mapIndexedNotNull { i, line ->
+                    val trimmed = line.trimStart()
+                    val isImport = trimmed.startsWith("import ") &&
+                        ("app.cash.sqldelight" in trimmed || "com.eygraber.sqldelight" in trimmed)
+                    if (isImport) "${file.relativeTo(srcRoot)}:${i + 1}: ${line.trim()}" else null
+                }
+            }
+            .toList()
+        if (offenders.isNotEmpty()) {
+            throw GradleException(
+                buildString {
+                    appendLine("SQLDelight/eygraber imports must not return after the androidx.sqlite migration (MOB-3294):")
+                    offenders.forEach { appendLine("  $it") }
+                },
+            )
+        }
+    }
+}
+
+tasks.named("check") { dependsOn(checkNoSqlDelightImports) }

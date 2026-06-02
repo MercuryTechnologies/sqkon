@@ -13,7 +13,8 @@ deliberately doesn't — saves you from fighting it later.
 ## Sqkon IS
 
 - A **Kotlin Multiplatform key-value store** for Android and JVM, built on
-  [SQLDelight](https://cashapp.github.io/sqldelight/) and SQLite.
+  [`androidx.sqlite`](https://developer.android.com/jetpack/androidx/releases/sqlite)
+  (bundled SQLite) with a hand-rolled schema and query layer.
 - **JSONB-queryable**: values are stored as JSONB blobs, and you can filter on any
   field of your serialized type using SQLite's native JSON operators.
 - **Reactive**: every read returns a `Flow`. Writes invalidate the relevant queries,
