@@ -68,16 +68,22 @@ jobs:
         run: ./gradlew jvmTest
 
       - name: Publish snapshot to Maven Central
-        # Use vanniktech's aggregate task, NOT
-        # publishAllPublicationsToMavenCentralRepository: the latter always
-        # uploads through the release Publisher-API deployment bundle, which
-        # validates filenames and rejects timestamped snapshots ("Deployment
-        # failed validation"). publishToMavenCentral routes a -SNAPSHOT version
-        # to the no-validation Central Portal snapshot repository instead.
+        # The version MUST be supplied via VERSION_NAME (a Gradle property), not
+        # RELEASE_VERSION. vanniktech decides snapshot-vs-release routing from its
+        # own publish version (VERSION_NAME), NOT project.version: with only
+        # RELEASE_VERSION set, vanniktech still reads VERSION_NAME=<release> from
+        # gradle.properties, takes the validating release Publisher-API deployment
+        # path, and rejects the -SNAPSHOT artifacts ("Deployment failed
+        # validation: Filename ... is not valid"). Passing VERSION_NAME=<x>-SNAPSHOT
+        # flips routing to the no-validation Central Portal snapshot repository
+        # (https://central.sonatype.com/repository/maven-snapshots/). It also feeds
+        # the root build's project.version (= RELEASE_VERSION ?: VERSION_NAME), so
+        # the published artifacts carry the same version. publishToMavenCentral is
+        # the documented snapshot task.
         run: ./gradlew publishToMavenCentral --no-configuration-cache
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+          ORG_GRADLE_PROJECT_VERSION_NAME: ${{ steps.version.outputs.version }}
           ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.GPG_SIGNING_KEY }}
           ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.GPG_PASSPHRASE }}
           ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.CENTRAL_PORTAL_USERNAME }}
