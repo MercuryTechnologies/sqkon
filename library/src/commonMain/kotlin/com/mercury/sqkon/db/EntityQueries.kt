@@ -7,9 +7,9 @@ import com.mercury.sqkon.db.internal.SqkonQuery
 import com.mercury.sqkon.db.internal.SqkonTransacter
 import com.mercury.sqkon.db.utils.nowMillis
 import kotlin.time.Clock
+import kotlin.time.Instant
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
-import kotlinx.datetime.Instant
 
 class EntityQueries internal constructor(
     driver: SqkonDriver,

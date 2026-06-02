@@ -1,7 +1,7 @@
 package com.mercury.sqkon.db
 
 import kotlin.time.Clock
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 
 data class ResultRow<T : Any>(
     val addedAt: Instant,
