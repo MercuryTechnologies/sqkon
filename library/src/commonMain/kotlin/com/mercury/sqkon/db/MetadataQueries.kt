@@ -4,7 +4,7 @@ import com.mercury.sqkon.db.internal.SqkonCursor
 import com.mercury.sqkon.db.internal.SqkonDriver
 import com.mercury.sqkon.db.internal.SqkonQuery
 import com.mercury.sqkon.db.internal.SqkonTransacter
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 
 class MetadataQueries internal constructor(
     driver: SqkonDriver,

@@ -1,6 +1,6 @@
 package com.mercury.sqkon.db
 
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 
 /**
  * Row in the `metadata` table. [MetadataQueries] handles the `Long ↔ Instant`
