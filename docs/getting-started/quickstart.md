@@ -93,12 +93,25 @@ val merchants: KeyValueStorage<Merchant> =
 
 ## 4. Insert, update, and delete
 
-Write methods are blocking transactions on the calling thread (not `suspend`),
-but they're cheap — Sqkon dispatches the SQLite work onto its internal
-write dispatcher under the hood. You can call them from any context, but for
-UI threads on Android you'll typically still wrap them in
-`launch { ... }` / `withContext(...)` to keep the calling site uniformly
-async with the rest of your code.
+Every method that mutates the store — the `insert*`, `update`, `upsert`, and
+`delete*` families (including `deleteAll`, `deleteByKey(s)`, `deleteExpired`,
+`deleteStale`) — is a **blocking transaction that runs the SQLite work
+synchronously on the calling thread**; none of them are `suspend`. Only the
+follow-up metadata bookkeeping (read/write timestamps) is dispatched onto Sqkon's
+internal write dispatcher; the write itself happens inline on your thread.
+
+So you must keep writes **off the Android main thread** yourself — wrap them in
+`withContext(Dispatchers.IO) { ... }` (or call them from a background dispatcher)
+to avoid blocking the UI and triggering ANRs:
+
+```kotlin
+withContext(Dispatchers.IO) {
+    merchants.insert(key = chipotle.id, value = chipotle)
+}
+```
+
+Reads (`select*` / `count` / `metadata`) return `Flow`s and are already dispatched
+onto Sqkon's internal read dispatcher, so those you can collect from any context.
 
 ```kotlin
 val chipotle = Merchant(id = "1", name = "Chipotle", category = "Food")
