@@ -2,6 +2,7 @@ package com.mercury.sqkon.db
 
 import app.cash.turbine.test
 import com.mercury.sqkon.TestObject
+import com.mercury.sqkon.until
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
@@ -128,15 +129,16 @@ class KeyValueStorageStaleTest {
             .associateBy { it.id }
             .toSortedMap()
         testObjectStorage.insertAll(expected)
-        testObjectStorage.selectAll().first() // sets read_at on every row
-        // Bump write_at so the read is in the past relative to the latest write; read_at is left
-        // as set above.
+        testObjectStorage.selectAll().first() // schedules the read_at update
+        // read_at is updated asynchronously (fire-and-forget on the write dispatcher), so wait
+        // until it has actually been committed before purging — otherwise read_at can still be
+        // NULL when deleteStale runs and `read_at < cutoff` won't match (the rows wouldn't purge).
+        until { testObjectStorage.selectResult().first().all { it.readAt != null } }
+        // Bump write_at so the read is in the past relative to the latest write; read_at stays set.
         testObjectStorage.updateAll(expected)
-        // Cutoff far in the future so every row's read_at deterministically qualifies as stale.
-        // The previous cutoff — Clock.System.now() bracketed by sleep(1) (one millisecond) — raced
-        // clock granularity: when read_at and the cutoff landed in the same millisecond the rows
-        // were not purged, so the selectAll subscriber stayed at 11 rows and the follow-up
-        // awaitItem timed out (flaky on slower CI machines).
+        // Cutoff far in the future so every committed read_at deterministically qualifies as stale.
+        // (The original cutoff — Clock.System.now() bracketed by sleep(1), one millisecond — also
+        // raced clock granularity.)
         val readCutoff = Clock.System.now().plus(1.days)
         testObjectStorage.deleteStale(writeInstant = null, readInstant = readCutoff)
         assertEquals(0, testObjectStorage.selectAll().first().size)
