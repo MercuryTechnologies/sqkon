@@ -133,7 +133,7 @@ class EntityQueries internal constructor(
                 )
                 if (expiresAt != null) add(
                     SqlQuery(
-                        where = "expires_at IS NULL OR expires_at >= ?",
+                        where = "(expires_at IS NULL OR expires_at >= ?)",
                         parameters = 1,
                         bindArgs = { bindLong(expiresAt.toEpochMilliseconds()) },
                     )
@@ -213,7 +213,7 @@ class EntityQueries internal constructor(
         )
         if (expiresAt != null) add(
             SqlQuery(
-                where = "expires_at IS NULL OR expires_at >= ?",
+                where = "(expires_at IS NULL OR expires_at >= ?)",
                 parameters = 1,
                 bindArgs = { bindLong(expiresAt.toEpochMilliseconds()) },
             )
@@ -493,7 +493,7 @@ class EntityQueries internal constructor(
                     ))
                 if (expiresAfter != null) add(
                     SqlQuery(
-                        where = "expires_at IS NULL OR expires_at >= ?",
+                        where = "(expires_at IS NULL OR expires_at >= ?)",
                         parameters = 1,
                         bindArgs = { bindLong(expiresAfter.toEpochMilliseconds()) }
                     )

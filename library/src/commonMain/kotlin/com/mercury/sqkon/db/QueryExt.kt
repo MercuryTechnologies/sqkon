@@ -534,8 +534,15 @@ internal fun List<SqlQuery>.buildFrom(prefix: String = ", ") = mapNotNull { it.f
     .joinToString(", ") { it }
     .let { if (it.isNotBlank()) "$prefix$it" else "" }
 
+// Each fragment is wrapped in parentheses so a fragment that contains a top-level OR
+// (e.g. the expiry predicate `expires_at IS NULL OR expires_at >= ?`) cannot bind loosely
+// against its AND-joined neighbours. Without the wrap, SQL's `AND`-over-`OR` precedence turns
+// `entity_name = ? AND expires_at IS NULL OR expires_at >= ?` into
+// `(entity_name = ? AND expires_at IS NULL) OR (expires_at >= ?)`, dropping the entity_name
+// scope from the second branch and leaking rows across stores. See #67.
 internal fun List<SqlQuery>.buildWhere(prefix: String = "WHERE") = mapNotNull { it.where }
-    .joinToString(" AND ") { it }
+    .filter { it.isNotBlank() }
+    .joinToString(" AND ") { "($it)" }
     .let { if (it.isNotBlank()) "$prefix $it" else "" }
 
 internal fun List<SqlQuery>.buildOrderBy(prefix: String = "ORDER BY") = mapNotNull { it.orderBy }
