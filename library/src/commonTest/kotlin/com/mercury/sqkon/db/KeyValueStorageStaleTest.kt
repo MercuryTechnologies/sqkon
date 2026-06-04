@@ -128,22 +128,18 @@ class KeyValueStorageStaleTest {
             .associateBy { it.id }
             .toSortedMap()
         testObjectStorage.insertAll(expected)
-        testObjectStorage.selectAll().first()
-        sleep(1)
-        val now = Clock.System.now()
-        sleep(1)
-        // write again so read is in the past
+        testObjectStorage.selectAll().first() // sets read_at on every row
+        // Bump write_at so the read is in the past relative to the latest write; read_at is left
+        // as set above.
         testObjectStorage.updateAll(expected)
-        // Read in the past write is after now
-        testObjectStorage.deleteStale(writeInstant = null, readInstant = now)
-        testObjectStorage.selectAll().test {
-            var actualAfterDelete = awaitItem()
-            if (actualAfterDelete.size != 0) {
-                actualAfterDelete = awaitItem()
-            }
-            assertEquals(0, actualAfterDelete.size)
-            cancelAndIgnoreRemainingEvents()
-        }
+        // Cutoff far in the future so every row's read_at deterministically qualifies as stale.
+        // The previous cutoff — Clock.System.now() bracketed by sleep(1) (one millisecond) — raced
+        // clock granularity: when read_at and the cutoff landed in the same millisecond the rows
+        // were not purged, so the selectAll subscriber stayed at 11 rows and the follow-up
+        // awaitItem timed out (flaky on slower CI machines).
+        val readCutoff = Clock.System.now().plus(1.days)
+        testObjectStorage.deleteStale(writeInstant = null, readInstant = readCutoff)
+        assertEquals(0, testObjectStorage.selectAll().first().size)
     }
 
     @Test
