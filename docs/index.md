@@ -47,7 +47,8 @@ data class Merchant(
 val sqkon = Sqkon(context = applicationContext, scope = appScope)
 val merchants = sqkon.keyValueStorage<Merchant>("merchants")
 
-// Insert (sync) — Sqkon dispatches the SQLite work internally.
+// Insert (sync) — runs the SQLite write inline on the calling thread, so keep
+// writes off the Android main thread (e.g. withContext(Dispatchers.IO) { ... }).
 merchants.insert("m_1", Merchant("m_1", "Chipotle", "Food"))
 
 // Observe — emits whenever the store changes. Collect from a coroutine.
