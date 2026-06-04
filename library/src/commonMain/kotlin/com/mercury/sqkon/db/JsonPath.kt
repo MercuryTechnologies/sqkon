@@ -133,6 +133,40 @@ class JsonPathBuilder<R : Any>
     fun buildPath(): String {
         return fieldNames().joinToString("", prefix = "\$")
     }
+
+    /**
+     * Builds a pattern that matches the json_tree `fullkey` of the targeted node, for use as
+     * `fullkey LIKE ? ESCAPE '\'`. SQLite emits a key unquoted only when it is
+     * `[A-Za-z][A-Za-z0-9]*`; otherwise it double-quotes it (e.g. `$."user_name"`). We reproduce
+     * that quoting and escape LIKE metacharacters in the key, so a `_`/`%` in a field name is
+     * matched literally instead of acting as a wildcard (which previously leaked sibling keys —
+     * see #69). The `[%]` array token is left as a deliberate wildcard (match any index).
+     */
+    @OptIn(ExperimentalSerializationApi::class)
+    fun buildFullkeyPattern(): String {
+        return nodes().mapNotNull { node ->
+            if (node.receiverDescriptor.isInline) return@mapNotNull null // Skip inline classes
+            val keyPart = if (node.propertyName.isNotBlank()) ".${node.propertyName.toLikeFullkeyKey()}" else ""
+            when (node.valueDescriptor.kind) {
+                StructureKind.LIST -> "$keyPart[%]"
+                PolymorphicKind.SEALED -> "$keyPart[1]"
+                else -> keyPart
+            }
+        }.joinToString("", prefix = "\$")
+    }
+}
+
+/**
+ * SQLite json_tree emits a key in `fullkey` unquoted only when it matches `[A-Za-z][A-Za-z0-9]*`;
+ * any other key (snake_case, leading digit, `-`, space, …) is double-quoted. Reproduce that, and
+ * escape LIKE metacharacters (`\`, `%`, `_`) so they match literally under `ESCAPE '\'`. (#69)
+ */
+private fun String.toLikeFullkeyKey(): String {
+    val escaped = replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    val bareword = isNotEmpty() &&
+        (this[0] in 'a'..'z' || this[0] in 'A'..'Z') &&
+        all { it in 'a'..'z' || it in 'A'..'Z' || it in '0'..'9' }
+    return if (bareword) escaped else "\"$escaped\""
 }
 
 // Builder Methods to start building paths

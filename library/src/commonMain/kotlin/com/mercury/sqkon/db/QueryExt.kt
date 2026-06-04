@@ -75,10 +75,10 @@ data class Eq<T : Any, V>(
         val treeName = "eq_$increment"
         return SqlQuery(
             from = "json_tree(entity.value, '$') as $treeName",
-            where = "($treeName.fullkey LIKE ? AND $treeName.value = ?)",
+            where = "($treeName.fullkey LIKE ? ESCAPE '\\' AND $treeName.value = ?)",
             parameters = 2,
             bindArgs = {
-                bindString(builder.buildPath())
+                bindString(builder.buildFullkeyPattern())
                 bindValue(value)
             }
         )
@@ -121,10 +121,10 @@ data class NotEq<T : Any, V>(
         val treeName = "eq_$increment"
         return SqlQuery(
             from = "json_tree(entity.value, '$') as $treeName",
-            where = "($treeName.fullkey LIKE ? AND $treeName.value != ?)",
+            where = "($treeName.fullkey LIKE ? ESCAPE '\\' AND $treeName.value != ?)",
             parameters = 2,
             bindArgs = {
-                bindString(builder.buildPath())
+                bindString(builder.buildFullkeyPattern())
                 bindValue(value)
             }
         )
@@ -156,10 +156,10 @@ data class In<T : Any, V>(
         val treeName = "in_$increment"
         return SqlQuery(
             from = "json_tree(entity.value, '$') as $treeName",
-            where = "($treeName.fullkey LIKE ? AND $treeName.value IN (${value.joinToString(",") { "?" }}))",
+            where = "($treeName.fullkey LIKE ? ESCAPE '\\' AND $treeName.value IN (${value.joinToString(",") { "?" }}))",
             parameters = 1 + value.size,
             bindArgs = {
-                bindString(builder.buildPath())
+                bindString(builder.buildFullkeyPattern())
                 value.forEach { bindValue(it) }
             }
         )
@@ -176,10 +176,10 @@ data class NotIn<T : Any, V>(
         val treeName = "in_$increment"
         return SqlQuery(
             from = "json_tree(entity.value, '$') as $treeName",
-            where = "($treeName.fullkey LIKE ? AND $treeName.value NOT IN (${value.joinToString(",") { "?" }}))",
+            where = "($treeName.fullkey LIKE ? ESCAPE '\\' AND $treeName.value NOT IN (${value.joinToString(",") { "?" }}))",
             parameters = 1 + value.size,
             bindArgs = {
-                bindString(builder.buildPath())
+                bindString(builder.buildFullkeyPattern())
                 value.forEach { bindValue(it) }
             }
         )
@@ -224,10 +224,10 @@ data class Like<T : Any>(
         val treeName = "like_$increment"
         return SqlQuery(
             from = "json_tree(entity.value, '$') as $treeName",
-            where = "($treeName.fullkey LIKE ? AND $treeName.value LIKE ?)",
+            where = "($treeName.fullkey LIKE ? ESCAPE '\\' AND $treeName.value LIKE ?)",
             parameters = 2,
             bindArgs = {
-                bindString(builder.buildPath())
+                bindString(builder.buildFullkeyPattern())
                 bindString(value)
             }
         )
@@ -262,10 +262,10 @@ data class GreaterThan<T : Any, V>(
         val treeName = "gt_$increment"
         return SqlQuery(
             from = "json_tree(entity.value, '$') as $treeName",
-            where = "($treeName.fullkey LIKE ? AND $treeName.value > ?)",
+            where = "($treeName.fullkey LIKE ? ESCAPE '\\' AND $treeName.value > ?)",
             parameters = 2,
             bindArgs = {
-                bindString(builder.buildPath())
+                bindString(builder.buildFullkeyPattern())
                 bindValue(value)
             }
         )
@@ -299,10 +299,10 @@ data class LessThan<T : Any, V>(
         val treeName = "lt_$increment"
         return SqlQuery(
             from = "json_tree(entity.value, '$') as $treeName",
-            where = "($treeName.fullkey LIKE ? AND $treeName.value < ?)",
+            where = "($treeName.fullkey LIKE ? ESCAPE '\\' AND $treeName.value < ?)",
             parameters = 2,
             bindArgs = {
-                bindString(builder.buildPath())
+                bindString(builder.buildFullkeyPattern())
                 bindValue(value)
             }
         )
@@ -450,13 +450,13 @@ data class JsonPathOrderBy<T : Any> @PublishedApi internal constructor(
      */
     override val direction: OrderDirection? = null,
 ) : OrderBy<T>() {
-    private val path: String = builder.buildPath()
+    private val path: String = builder.buildFullkeyPattern()
 
     override fun toSqlQuery(index: Int): SqlQuery {
         val treeName = "order_$index"
         return SqlQuery(
             from = "json_tree(entity.value, '$') as $treeName",
-            where = "$treeName.fullkey LIKE ?",
+            where = "$treeName.fullkey LIKE ? ESCAPE '\\'",
             parameters = 1,
             bindArgs = { bindString(path) },
             orderBy = "$treeName.value ${direction?.value ?: ""}".trimEnd(),

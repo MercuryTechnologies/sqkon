@@ -122,7 +122,7 @@ class CaseWhenSqlTest {
         val q = list.toSqlQueries().single()
 
         assertEquals("json_tree(entity.value, '\$') as order_0", q.from)
-        assertEquals("order_0.fullkey LIKE ?", q.where)
+        assertEquals("order_0.fullkey LIKE ? ESCAPE '\\'", q.where)
         assertEquals("order_0.value ASC", q.orderBy)
         assertEquals(1, q.parameters)
     }

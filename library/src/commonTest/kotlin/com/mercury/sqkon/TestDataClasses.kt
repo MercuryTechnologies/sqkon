@@ -180,3 +180,20 @@ data class NullableTestObject(
     val count: Int? = null,
     val flag: Boolean? = null,
 )
+
+/**
+ * A field whose JSON key contains `_` plus a sibling key that a LIKE wildcard would falsely
+ * match (the `_` matches any single char). Used by the fullkey-LIKE escaping regression (#69).
+ * The Kotlin property names are deliberately the JSON keys (no @SerialName), since the query
+ * path is built from the property name.
+ */
+@Suppress("PropertyName")
+@Serializable
+data class WildcardFieldObject(
+    val id: String,
+    val user_name: String,
+    val userXname: String,
+    // A list field whose key also needs quoting (json_tree emits `$."my_tags"[0]`), to cover the
+    // wildcard/quoting fix on list paths (the `[%]` array wildcard must survive).
+    val my_tags: List<String> = emptyList(),
+)
