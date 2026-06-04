@@ -663,6 +663,13 @@ class KeyValueStorageTest {
     @Test
     fun externalTransaction() = runTest {
         testObjectStorage.selectAll().test {
+            // Synchronize on the initial (empty) subscription emission before mutating.
+            // The original test ran the transaction before awaiting any item, so the initial
+            // emission raced the post-commit emission: the collector saw one item (fast
+            // machines, where the commit landed before the initial query emitted) or two
+            // (slower CI machines) — a flaky `ensureAllEventsConsumed`. Awaiting the initial
+            // empty state first removes the race.
+            assertEquals(0, awaitItem().size)
             testObjectStorage.transaction {
                 testObjectStorage.deleteAll()
                 testObjectStorage.insertAll(
@@ -671,7 +678,9 @@ class KeyValueStorageTest {
                         .toSortedMap()
                 )
             }
-            awaitItem()
+            // deleteAll + 101 inserts inside one transaction must coalesce into a single
+            // notification — exactly one further emission carrying all 101 rows.
+            assertEquals(101, awaitItem().size)
             ensureAllEventsConsumed()
         }
     }
