@@ -501,8 +501,12 @@ class EntityQueries internal constructor(
                 addAll(listOfNotNull(where?.toSqlQuery(increment = 1)))
             }
             val identifier: Int = identifier("count", queries.identifier().toString())
+            // COUNT(DISTINCT entity.entity_key) — not COUNT(*). A json_tree join in the WHERE
+            // (list paths / inList / nested .then) yields one row per matching node, so COUNT(*)
+            // would count each match. entity_key is unique within an entity_name, so the DISTINCT
+            // count matches SelectQuery's `SELECT DISTINCT`. See #68.
             val sql = """
-                SELECT COUNT(*) FROM entity${queries.buildFrom()} ${queries.buildWhere()}
+                SELECT COUNT(DISTINCT entity.entity_key) FROM entity${queries.buildFrom()} ${queries.buildWhere()}
             """.trimIndent().replace('\n', ' ')
             return try {
                 driver.executeQuery(
