@@ -39,6 +39,9 @@ internal class SqkonConnectionPool(
     private fun applyPragmas(c: SQLiteConnection) {
         c.execSQL("PRAGMA journal_mode = ${config.journalMode.pragma};")
         c.execSQL("PRAGMA synchronous = ${config.sync.pragma};")
+        // WAL hardening: wait (rather than failing immediately with SQLITE_BUSY) for transient
+        // checkpoint / multi-connection / multi-process write contention. See #75.
+        c.execSQL("PRAGMA busy_timeout = ${config.busyTimeoutMillis};")
     }
 
     fun acquireWriter(): SQLiteConnection {
