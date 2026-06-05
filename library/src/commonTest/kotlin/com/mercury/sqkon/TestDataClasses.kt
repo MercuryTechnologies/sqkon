@@ -181,6 +181,13 @@ data class NullableTestObject(
     val flag: Boolean? = null,
 )
 
+/** A `Float` field for binding-coercion coverage (#72): fractional values must not truncate. */
+@Serializable
+data class FloatFieldObject(
+    val id: String,
+    val price: Float,
+)
+
 /**
  * A field whose JSON key contains `_` plus a sibling key that a LIKE wildcard would falsely
  * match (the `_` matches any single char). Used by the fullkey-LIKE escaping regression (#69).

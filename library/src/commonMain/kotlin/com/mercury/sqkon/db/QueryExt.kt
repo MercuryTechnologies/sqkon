@@ -676,6 +676,9 @@ class AutoIncrementSqlPreparedStatement internal constructor(
             is Boolean -> bindBoolean(value)
             is ByteArray -> bindBytes(value)
             is Double -> bindDouble(value)
+            // Float must bind as a real, not fall into the generic Number branch below, which
+            // would truncate it to a Long (`gt 1.9f` -> 1, `eq 1.5f` -> 1). See #72.
+            is Float -> bindDouble(value.toDouble())
             is Number -> bindLong(value.toLong())
             is String -> bindString(value)
             is Enum<*> -> {
