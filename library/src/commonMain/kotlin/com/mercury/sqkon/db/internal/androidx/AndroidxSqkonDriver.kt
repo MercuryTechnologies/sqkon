@@ -36,7 +36,17 @@ internal class AndroidxSqkonDriver(
     private val listenersMutex = Mutex()
     private val listeners = linkedMapOf<String, MutableSet<SqkonDriver.Listener>>()
 
-    init { ensureSchema(schema) }
+    init {
+        // If schema init fails (e.g. a rejected downgrade or an unregistered migration step),
+        // close the pool so the lazily-opened writer connection isn't leaked — construction failed,
+        // so the caller never gets an instance to close(). See #77.
+        try {
+            ensureSchema(schema)
+        } catch (t: Throwable) {
+            pool.close()
+            throw t
+        }
+    }
 
     // ---------- SqkonDriver: execute ----------
 
@@ -135,6 +145,12 @@ internal class AndroidxSqkonDriver(
         try {
             val current = readUserVersion(connection)
             if (current == schema.version) return
+            // Reject downgrades loudly instead of silently rewriting user_version down — an older
+            // app must not "migrate" a database created by a newer schema. See #77.
+            check(current <= schema.version) {
+                "Database schema version ($current) is newer than this library's schema " +
+                    "(${schema.version}); downgrades are not supported."
+            }
             // Run schema work inside a transaction. Set thread-local so calls into this driver
             // (schema.create / schema.migrate -> driver.executeUpdate) reuse the writer connection
             // instead of re-acquiring (which would deadlock the mutex we already hold).
