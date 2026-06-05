@@ -22,12 +22,6 @@ plugins {
 
 dependencyResolutionManagement {
     repositories {
-        maven {
-            setUrl("https://jitpack.io")
-            content {
-                includeGroupByRegex("com\\.github.*")
-            }
-        }
         google {
             content {
                 includeGroupByRegex("com\\.android.*")

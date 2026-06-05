@@ -131,7 +131,7 @@ open class KeyValueStorage<T : Any>(
     }
 
     /**
-     * Convenience function to insert collection of rows. If the row does not exist, ti will update
+     * Convenience function to insert collection of rows. If the row does not exist, it will update
      * nothing, use [insert] if you want to insert if the row does not exist.
      *
      * @param expiresAt if set, will be used to expire the row when requesting data before it has
@@ -275,7 +275,7 @@ open class KeyValueStorage<T : Any>(
      * )
      * ```
      *
-     * The result row is useful if you need metadata on the row level specific to Sqkon intead of
+     * The result row is useful if you need metadata on the row level specific to Sqkon instead of
      * your entity.
      */
     fun selectResult(
