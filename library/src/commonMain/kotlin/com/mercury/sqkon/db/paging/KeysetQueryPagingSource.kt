@@ -46,7 +46,7 @@ internal class KeysetQueryPagingSource<T : Any>(
     override suspend fun load(
         params: PagingSource.LoadParams<String>,
     ): PagingSource.LoadResult<String, T> = withContext(context) {
-        try {
+        loadResultCatching {
             val getPagingSourceLoadResult: SqkonTransactionScope.() -> PagingSource.LoadResult<String, T> =
                 {
                     // Always use the stable pageSize for boundary computation, not
@@ -107,9 +107,6 @@ internal class KeysetQueryPagingSource<T : Any>(
             val loadResult = transacter
                 .transactionWithResult(body = getPagingSourceLoadResult)
             if (invalid) PagingSource.LoadResult.Invalid() else loadResult
-        } catch (e: Exception) {
-            if (invalid) PagingSource.LoadResult.Invalid()
-            else PagingSource.LoadResult.Error(e)
         }
     }
 
