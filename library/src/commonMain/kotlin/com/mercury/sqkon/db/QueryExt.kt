@@ -95,7 +95,11 @@ infix fun <T : Any, V> JsonPathBuilder<T>.eq(value: V?): Eq<T, V> =
     Eq(builder = this, value = value)
 
 /**
- * Equivalent to `=` in SQL
+ * Equivalent to `=` in SQL.
+ *
+ * Note: enum values bind by their Kotlin constant name, **not** `@SerialName`. For a constant
+ * annotated with `@SerialName`, pass the serial-name string instead (e.g. `eq "active"`) — the
+ * typed enum form would silently not match. See the Querying guide and #11.
  */
 inline infix fun <reified T : Any, reified V, VALUE> KProperty1<T, V>.eq(value: VALUE?): Eq<T, VALUE> =
     Eq(this.builder(), value)
@@ -682,13 +686,15 @@ class AutoIncrementSqlPreparedStatement internal constructor(
             is Number -> bindLong(value.toLong())
             is String -> bindString(value)
             is Enum<*> -> {
-                // Doesn't support @SerialName for now https://github.com/Kotlin/kotlinx.serialization/issues/2956
-//                val e = value as T
-//                e::class.serializerOrNull()?.let {
-//                    val sName = it.descriptor.getElementDescriptor(value.ordinal).serialName
-//                    bindString(sName)
-//                } ?: bindString(null)
-                bindString(value.name) // use ordinal name for now (which is default serialization)
+                // Binds the Kotlin constant name. @SerialName on enum constants is NOT honored
+                // here: the value reaches this point type-erased, and the serial name is not
+                // exposed on the enum's SerialDescriptor — `getElementName(ordinal)` returns the
+                // constant name (kotlinx.serialization #2956), so the serial name is only
+                // observable by actually encoding the value through its serializer (which needs a
+                // reified type + Json instance the DSL layer doesn't have). Querying a constant
+                // that has @SerialName therefore silently fails to match the stored value; pass
+                // the serial-name string instead (e.g. `eq "active"`). Tracked in #11/#73.
+                bindString(value.name)
             }
 
             null -> bindString(null)
