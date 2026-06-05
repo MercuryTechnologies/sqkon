@@ -21,7 +21,7 @@ hand it to a `Pager`.
 |---|---|---|
 | **Key type** | `Int` (row offset) | `String` (entity key at page boundary) |
 | **First-page cost** | O(pageSize) | O(pageSize) for the load + O(n) once for boundary precompute |
-| **Late-page cost** | O(offset + pageSize) — grows with depth | O(log n) — same regardless of depth |
+| **Late-page cost** | O(offset + pageSize) — grows with depth | O(n) ordered scan per page — depth-independent, boundary-stable under writes |
 | **Random page jumps** | yes | no (`jumpingSupported = false`) |
 | **Best for** | Small/medium datasets, random access | Large datasets, deep scrolling, `RemoteMediator` |
 
@@ -73,21 +73,29 @@ into a specific page (for example "page 7" of an admin table).
 ## Keyset paging — `selectKeysetPagingSource`
 
 **Mental model.** "Compute the entity-key at every page boundary up front, then
-look up rows by key for each page." Each page is an indexed range scan — no
-skipping.
+fetch the rows between two boundary keys for each page." A page never skips
+`offset` rows, and boundaries stay valid as rows change (see **Cost** below for the
+per-page scan cost).
 
 ```
 Sorted rows:    [a1][a2][a3][b1][b2][b3][c1][c2][c3][d1]...
 Boundaries:      ^           ^           ^           ^
                  k0          k1          k2          k3
 
-load(key = k1) -> SELECT ... WHERE entity_key >= k1 AND entity_key < k2
+load(key = k1) -> the page bounded by [k1, k2)
               -> returns [b1][b2][b3]
 ```
 
 **Cost.** Boundaries are computed once when the `PagingSource` is created (a
-single window-function query). Each subsequent page is an indexed range scan —
-same cost on page 1 as on page 1000.
+single window-function query). Each page load then runs its *own* window-function
+query: it `ROW_NUMBER()`s the whole filtered, ordered set and returns the slice
+between the page's boundary keys — so a page load is **O(n)** in the filtered row
+count (depth-independent: page 1 and page 1000 cost the same), **not** an indexed
+range scan. The win over offset paging is **stability**, not raw speed: key-based
+boundaries don't shift when rows are inserted or deleted (offsets skip or repeat
+rows), and a page never skips `offset` rows on its way to the result. A true
+indexed keyset scan (`WHERE (orderCol, entity_key) > (?, ?) … LIMIT pageSize`,
+genuinely O(log n + pageSize)) is a possible future optimization — see #80.
 
 **Code.** Same shape as offset paging, one method name different:
 
