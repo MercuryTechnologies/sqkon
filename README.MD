@@ -218,6 +218,10 @@ commonMain {
 }
 ```
 
+> **iOS status:** the iOS targets currently publish a **compile-only scaffold** — there is no
+> `Sqkon()` entry point on iOS yet, and the internal driver is unimplemented (constructing one
+> throws). Use Sqkon on **Android and JVM** today; iOS runtime support is on the roadmap.
+
 Android-only or JVM-only projects use the same coordinate — Gradle resolves the
 right artifact for your target platform:
 
