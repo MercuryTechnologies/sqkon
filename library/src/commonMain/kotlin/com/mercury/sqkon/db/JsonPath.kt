@@ -52,7 +52,6 @@ class JsonPathBuilder<R : Any>
         block: JsonPathNode<R, V>.() -> Unit = {}
     ): JsonPathBuilder<R> {
         parentNode = JsonPathNode<R, V>(
-            //parent = null,
             propertyName = serialName ?: property.name,
             receiverDescriptor = serializer<R1>().descriptor,
             valueDescriptor = serializer<V>().descriptor
@@ -68,7 +67,6 @@ class JsonPathBuilder<R : Any>
         block: JsonPathNode<R, V>.() -> Unit = {}
     ): JsonPathBuilder<R> {
         parentNode = JsonPathNode<R, V>(
-            //parent = null,
             propertyName = serialName ?: property.name,
             receiverBaseDescriptor = if (baseType != typeOf<R1>()) {
                 serializer(baseType).descriptor
@@ -88,7 +86,6 @@ class JsonPathBuilder<R : Any>
         block: JsonPathNode<R, V>.() -> Unit = {}
     ): JsonPathBuilder<R> {
         parentNode = JsonPathNode<R, V>(
-            //parent = null,
             propertyName = serialName ?: property.name,
             receiverDescriptor = serializer<R1>().descriptor,
             valueDescriptor = serializer<Collection<V>>().descriptor
@@ -249,7 +246,6 @@ inline fun <reified R : Any, reified V : Any?> KClass<R>.withList(
 class JsonPathNode<R : Any?, V : Any?>
 @PublishedApi
 internal constructor(
-    //@PublishedApi internal val parent: JsonPathNode<*, R>?,
     val propertyName: String,
     internal val receiverBaseDescriptor: SerialDescriptor? = null,
     internal val receiverDescriptor: SerialDescriptor,
@@ -269,7 +265,6 @@ internal constructor(
         block: JsonPathNode<V1, V2>.() -> Unit = {}
     ): JsonPathNode<R, V> {
         child = JsonPathNode<V1, V2>(
-            //parent = this,
             propertyName = serialName ?: property.name,
             receiverDescriptor = serializer<V1>().descriptor,
             valueDescriptor = serializer<V2>().descriptor
@@ -289,7 +284,6 @@ internal constructor(
         block: JsonPathNode<out V, V2>.() -> Unit = {}
     ): JsonPathNode<R, out V> {
         child = JsonPathNode<V, V2>(
-            //parent = this,
             propertyName = serialName ?: property.name,
             receiverDescriptor = valueDescriptor,
             valueDescriptor = serializer<Collection<V2>>().descriptor
@@ -301,29 +295,3 @@ internal constructor(
         return "JsonPathNode(propertyName='$propertyName', receiverDescriptor=$receiverDescriptor, valueDescriptor=$valueDescriptor)"
     }
 }
-
-//private fun testBlock() {
-//    val pathBuilder: JsonPathBuilder<Test> = Test::class.with(Test::child) {
-//        then(TestChild::child2) {
-//            then(TestChild2::childValue2)
-//        }
-//    }
-//    val pathBuilderWithList = Test::class.withList(Test::childList) {
-//        then(TestChild::childValue)
-//    }
-//}
-
-//private data class Test(
-//    val value: String,
-//    val child: TestChild,
-//    val childList: List<TestChild>,
-//)
-//
-//private data class TestChild(
-//    val childValue: String,
-//    val child2: TestChild2,
-//)
-//
-//private data class TestChild2(
-//    val childValue2: String,
-//)
