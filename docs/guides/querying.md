@@ -408,10 +408,25 @@ type you give it, and the JSON value is a string.
 
 ### Enums
 
-Enums bind by **Kotlin name** (the default `kotlinx.serialization`
-representation). `@SerialName` on enum constants is not yet honored at the
-binding layer (see the comment in `QueryExt.kt`'s `bindValue`). If you renamed
-an enum case with `@SerialName`, query against the original name for now.
+Enums bind by their **Kotlin constant name** (`Status.ACTIVE` binds `"ACTIVE"`),
+not by `@SerialName`. But kotlinx.serialization *stores* an enum using its
+`@SerialName` when present, so for a constant that has `@SerialName` the typed
+overload silently fails to match — it binds the constant name while the stored
+value is the serial name. Query the serial-name **string** instead:
+
+```kotlin
+enum class Status { @SerialName("active") ACTIVE, ARCHIVED }
+
+// Stored as "active", but `eq Status.ACTIVE` binds "ACTIVE" → no rows:
+store.select(where = MyType::status eq Status.ACTIVE)   // ✗ silently empty
+
+// Work around it by querying the serial-name string directly:
+store.select(where = MyType::status eq "active")        // ✓ matches
+```
+
+Constants without `@SerialName` (e.g. `ARCHIVED` above) work with the typed
+overload as expected. Honoring `@SerialName` on the typed overload requires
+encoding the value through its serializer at the call site; tracked in #11.
 
 ### Performance and entity scoping
 

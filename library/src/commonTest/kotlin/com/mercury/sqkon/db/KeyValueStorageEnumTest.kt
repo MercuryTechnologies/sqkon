@@ -55,7 +55,10 @@ class KeyValueStorageEnumTest {
         val bySecondEnum = testObjectStorage.select(
             where = TestObject::testEnum eq TestEnum.SECOND,
         ).first()
-        // Broken due to lack of serialName support from descriptors
+        // @SerialName on enum constants is not honored by the typed `eq` overload (it binds the
+        // Kotlin constant name "LAST", while the stored value is the serial name "unknown"), so the
+        // documented workaround is to query the serial-name string directly. See #73 and
+        // docs/guides/querying.md (### Enums).
         val byLastEnum = testObjectStorage.select(
             where = TestObject::testEnum eq "unknown",
         ).first()
