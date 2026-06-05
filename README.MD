@@ -27,7 +27,8 @@ SQLite and JSONB.
 ```kotlin
 // Create a new instance of Sqkon
 val sqkon = Sqkon(
-    context = context // (only for Android)
+    scope = appScope,   // a CoroutineScope you own (required on every platform)
+    context = context,  // Android only
 )
 
 // Create a Store for each type/entity you want to create
@@ -212,7 +213,7 @@ Multiplatform projects (Android, JVM; iOS on the roadmap):
 ```kotlin
 commonMain {
     dependencies {
-        implementation("com.mercury.sqkon:library:1.3.2")
+        implementation("com.mercury.sqkon:library:2.1.0") // x-release-please-version
     }
 }
 ```
@@ -222,7 +223,7 @@ right artifact for your target platform:
 
 ```kotlin
 dependencies {
-    implementation("com.mercury.sqkon:library:1.3.2")
+    implementation("com.mercury.sqkon:library:2.1.0") // x-release-please-version
 }
 ```
 

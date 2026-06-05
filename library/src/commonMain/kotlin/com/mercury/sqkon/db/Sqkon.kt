@@ -11,12 +11,13 @@ import kotlinx.serialization.json.Json
  *
  * Each platform has a `Sqkon` function that creates a `Sqkon` instance.
  *
- * Simple usage:
+ * Simple usage (`scope` is a [kotlinx.coroutines.CoroutineScope] you own; on Android also pass
+ * `context`):
  * ```
- * val sqkon = Sqkon()
+ * val sqkon = Sqkon(scope = scope)
  * val merchantStore = sqkon.keyValueStorage<Merchant>("merchant")
  * merchantStore.insert(
- *  id = "123",
+ *  key = "123",
  *  value = Merchant(id = "123", name = "Chipotle", category = "Restaurant")
  * )
  * val merchant = merchantStore.selectByKey("123").first()
