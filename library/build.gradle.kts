@@ -47,12 +47,16 @@ kotlin {
     iosSimulatorArm64()
     sourceSets {
         commonMain.dependencies {
+            // androidx.sqlite + collection are internal-only — keep them off the consumer classpath.
             implementation(libs.androidx.collection)
             implementation(libs.androidx.sqlite.core)
             implementation(libs.androidx.sqlite.bundled)
-            implementation(libs.kotlinx.coroutines.core)
-            implementation(libs.kotlinx.serialization.json)
-            implementation(libs.paging.common)
+            // These appear in Sqkon's public API and must be `api` so they land transitively on the
+            // consumer's compile classpath: coroutines (Flow<List<T>>, CoroutineScope), serialization
+            // (Json on Sqkon/SqkonSerializer), and paging (PagingSource from select*PagingSource). #78
+            api(libs.kotlinx.coroutines.core)
+            api(libs.kotlinx.serialization.json)
+            api(libs.paging.common)
             // Don't include other paging, just the base to generate pageable queries
         }
 
