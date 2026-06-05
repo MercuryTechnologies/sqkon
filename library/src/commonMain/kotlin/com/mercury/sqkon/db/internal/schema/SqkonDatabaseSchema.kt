@@ -13,17 +13,30 @@ internal object SqkonDatabaseSchema : SqkonSchema {
     }
 
     override fun migrate(driver: SqkonDriver, oldVersion: Long, newVersion: Long) {
-        if (oldVersion <= 1 && newVersion > 1) {
-            driver.exec(CREATE_METADATA_TABLE)
-            driver.exec("ALTER TABLE entity ADD COLUMN read_at INTEGER")
-            driver.exec("ALTER TABLE entity ADD COLUMN write_at INTEGER")
-            // write_at is read as epoch-millis (ResultRow uses Instant.fromEpochMilliseconds).
-            // 1.sqm used CURRENT_TIMESTAMP, which writes a text datetime that coerces to a bogus
-            // small integer (~the year) on an INTEGER column and breaks purge comparisons. Backfill
-            // real epoch-millis instead. strftime('%s') is whole seconds, so multiply to millis.
-            driver.exec("UPDATE entity SET write_at = CAST(strftime('%s', 'now') AS INTEGER) * 1000")
-            CREATE_ENTITY_INDEXES.forEach(driver::exec)
+        // Apply each version step in turn. Any version with no registered migration fails loudly,
+        // so an unhandled delta can never silently bump user_version with no DDL applied (the caller
+        // writes user_version only after this returns). Downgrades are rejected by ensureSchema. #77
+        for (target in (oldVersion + 1)..newVersion) {
+            when (target) {
+                2L -> migrateToV2(driver)
+                else -> error(
+                    "No migration registered for schema version $target " +
+                        "(migrating $oldVersion -> $newVersion)"
+                )
+            }
         }
+    }
+
+    private fun migrateToV2(driver: SqkonDriver) {
+        driver.exec(CREATE_METADATA_TABLE)
+        driver.exec("ALTER TABLE entity ADD COLUMN read_at INTEGER")
+        driver.exec("ALTER TABLE entity ADD COLUMN write_at INTEGER")
+        // write_at is read as epoch-millis (ResultRow uses Instant.fromEpochMilliseconds).
+        // 1.sqm used CURRENT_TIMESTAMP, which writes a text datetime that coerces to a bogus
+        // small integer (~the year) on an INTEGER column and breaks purge comparisons. Backfill
+        // real epoch-millis instead. strftime('%s') is whole seconds, so multiply to millis.
+        driver.exec("UPDATE entity SET write_at = CAST(strftime('%s', 'now') AS INTEGER) * 1000")
+        CREATE_ENTITY_INDEXES.forEach(driver::exec)
     }
 
     // All INTEGER timestamp columns hold UTC milliseconds. `value` holds JSONB; use jsonb_ operators.
