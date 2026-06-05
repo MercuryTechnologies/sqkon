@@ -19,7 +19,7 @@ Run `./gradlew jvmTest` for the primary development loop. Always run this before
 Single `:library` module with KMP source sets (`commonMain`, `androidMain`, `jvmMain` + test counterparts).
 
 **Core classes** (package `com.mercury.sqkon.db`):
-- `Sqkon` — entry point; use `sqkon.keyValueStore<T>(name)` to create stores
+- `Sqkon` — entry point; use `sqkon.keyValueStorage<T>(name)` to create stores
 - `KeyValueStorage<T>` — CRUD, querying, paging, expiry; all queries return `Flow<T>`
 - `EntityQueries` / `MetadataQueries` — hand-rolled query layer over the internal `SqkonDriver`
 - `JsonPath` — type-safe WHERE DSL (`MyType::field eq "value"`)
@@ -72,6 +72,7 @@ Use [Conventional Commits](https://www.conventionalcommits.org/). Release-please
 **CI** (`.github/workflows/ci.yml`) runs on every push/PR to `main`:
 1. `jvm-tests` — `jvmTest` (which runs `SchemaParityTest` + `SchemaMigrationTest` as the schema gate)
 2. `run-android-tests` — `allDevicesDebugAndroidTest` on managed emulator
+3. `Compile iOS targets` — compiles the iOS Kotlin/Native targets (the iOS scaffold must keep building)
 
 **Releases** are automated via [release-please](https://github.com/googleapis/release-please):
 1. Merge PRs to `main` with conventional commits

@@ -67,8 +67,9 @@ GitHub Actions (`.github/workflows/ci.yml`) runs on every push and PR to `main`:
 
 - **`jvm-tests`** — runs `./gradlew jvmTest`. `SchemaParityTest` + `SchemaMigrationTest` are the schema regression gate.
 - **`run-android-tests`** — runs `./gradlew allDevicesDebugAndroidTest` on a managed emulator.
+- **`Compile iOS targets`** — compiles the iOS Kotlin/Native targets so the iOS scaffold keeps building.
 
-Both jobs must pass before a PR can merge. JUnit reports are surfaced as GitHub check annotations.
+All three jobs must pass before a PR can merge. JUnit reports are surfaced as GitHub check annotations.
 
 ## Releases
 

@@ -12,7 +12,7 @@ import kotlin.reflect.KType
 import kotlin.reflect.typeOf
 
 /**
- * Create a Path builder using one of the manu reified methods.
+ * Create a Path builder using one of the many reified methods.
  *
  * From a class:
  *
@@ -98,7 +98,7 @@ class JsonPathBuilder<R : Any>
         val nodes = mutableListOf<JsonPathNode<*, *>>()
         var node: JsonPathNode<*, *>? = parentNode
         while (node != null) {
-            // Insert additional node for parent classes incase they are sealed classes
+            // Insert additional node for parent classes in case they are sealed classes
             if (node.receiverBaseDescriptor != null) {
                 nodes.add(
                     JsonPathNode<Any, Any>(
