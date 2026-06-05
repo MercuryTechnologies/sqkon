@@ -10,9 +10,10 @@ import kotlinx.coroutines.withContext
 import kotlin.coroutines.CoroutineContext
 
 /**
- * Keyset-based [PagingSource] that uses pre-calculated page boundary keys for efficient
- * pagination. Unlike [OffsetQueryPagingSource], this avoids the O(n) cost of OFFSET on large
- * datasets by using indexed key lookups for each page.
+ * Keyset-based [PagingSource] that uses pre-calculated page boundary keys for stable pagination.
+ * Unlike [OffsetQueryPagingSource], boundaries don't drift under concurrent writes and a page
+ * never skips OFFSET rows. Note: each page still runs a `ROW_NUMBER()` window over the filtered
+ * set (O(n) per page), not an indexed range scan — see the Paging guide (#80).
  *
  * Page boundaries are computed once per PagingSource lifecycle. On invalidation (data change),
  * the Pager creates a new source which recomputes boundaries.
