@@ -14,6 +14,12 @@ import com.mercury.sqkon.db.internal.SqkonStatement
  */
 internal sealed class AndroidxStatement(
     protected val statement: SQLiteStatement,
+    /**
+     * The SQL this statement was prepared from. The statement cache is keyed by a 32-bit
+     * identifier hash, so a hash collision could hand back a statement prepared from different
+     * SQL; callers compare [sql] on a cache hit to guard against that. See #74.
+     */
+    val sql: String,
 ) : SqkonStatement {
     override fun bindBytes(index: Int, value: ByteArray?) {
         if (value == null) statement.bindNull(index + 1) else statement.bindBlob(index + 1, value)
@@ -37,12 +43,12 @@ internal sealed class AndroidxStatement(
 }
 
 /** DML/DDL — no rows. Caller invokes [execute] after binding. */
-internal class AndroidxPreparedStatement(statement: SQLiteStatement) : AndroidxStatement(statement) {
+internal class AndroidxPreparedStatement(statement: SQLiteStatement, sql: String) : AndroidxStatement(statement, sql) {
     /** Step the statement to completion. */
     fun execute() { while (statement.step()) { /* drain */ } }
 }
 
 /** SELECT — caller invokes [executeQuery] after binding to map the cursor. */
-internal class AndroidxQuery(statement: SQLiteStatement) : AndroidxStatement(statement) {
+internal class AndroidxQuery(statement: SQLiteStatement, sql: String) : AndroidxStatement(statement, sql) {
     fun <R> executeQuery(mapper: (SqkonCursor) -> R): R = mapper(AndroidxSqkonCursor(statement))
 }
