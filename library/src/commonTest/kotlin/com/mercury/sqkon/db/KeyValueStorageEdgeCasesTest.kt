@@ -9,8 +9,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFails
-import kotlin.test.assertTrue
+import kotlin.test.assertFailsWith
 
 class KeyValueStorageEdgeCasesTest {
 
@@ -38,14 +37,12 @@ class KeyValueStorageEdgeCasesTest {
         val first = TestObject(id = "k", name = "first")
         val second = TestObject(id = "k", name = "second")
         store.insert("k", first)
-        val ex = assertFails {
+        // The duplicate PRIMARY KEY now surfaces as `SqlException` — the real driver exception type
+        // (androidx.sqlite.SQLiteException) the breadcrumb catch blocks rely on. Before #82,
+        // SqlException aliased java.sql.SQLException, so this would not have matched.
+        assertFailsWith<SqlException> {
             store.insert("k", second, ignoreIfExists = false)
         }
-        assertTrue(
-            ex::class.java.name.contains("SQLite") || ex.message?.contains("UNIQUE") == true
-                    || ex.message?.contains("PRIMARY KEY") == true,
-            "unexpected exception type ${ex::class}: $ex",
-        )
     }
 
     @Test

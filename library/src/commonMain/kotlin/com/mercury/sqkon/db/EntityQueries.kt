@@ -1,5 +1,6 @@
 package com.mercury.sqkon.db
 
+import androidx.sqlite.SQLiteException
 import com.mercury.sqkon.db.internal.ListenerIdentityMap
 import com.mercury.sqkon.db.internal.SqkonCursor
 import com.mercury.sqkon.db.internal.SqkonDriver
@@ -568,4 +569,7 @@ internal const val ALL_ENTITIES_KEY = "entity"
 internal fun entityKey(entityName: String): String = "entity_$entityName"
 
 
-expect class SqlException : Exception
+// Alias to the exception the bundled androidx.sqlite driver actually throws. Previously this was
+// `expect class SqlException` aliased per-platform to java.sql.SQLException (JVM/Android) — a type
+// the driver never throws — so every `catch (ex: SqlException)` breadcrumb block was dead code. #82
+internal typealias SqlException = SQLiteException
