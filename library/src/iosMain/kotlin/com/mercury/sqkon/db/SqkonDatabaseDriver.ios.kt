@@ -15,5 +15,11 @@ internal actual val defaultSqkonDispatchers: SqkonDispatchers by lazy {
 
 internal actual class DriverFactory {
     actual fun createDriver(): SqkonDriver =
-        TODO("iOS driver not yet implemented (BundledSQLiteDriver available; wiring is post-Phase-6)")
+        // The iOS target is a compile-only scaffold: it publishes a klib but has no working driver
+        // (and no public Sqkon() entry point) yet. Fail fast and explicitly rather than appear
+        // usable. iOS runtime support is on the roadmap — see the README "iOS status" note.
+        throw NotImplementedError(
+            "Sqkon does not support iOS at runtime yet — the iOS target is a compile-only scaffold. " +
+                "Use the Android or JVM targets; iOS support is on the roadmap.",
+        )
 }
