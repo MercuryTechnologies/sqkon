@@ -47,6 +47,17 @@ class KeyValueStorageStaleTest {
         }
     }
 
+    @Suppress("DEPRECATION")
+    @Test
+    fun deleteState_delegatesToDeleteStale() = runTest {
+        val expected = (0..4).map { TestObject() }.associateBy { it.id }
+        testObjectStorage.insertAll(expected)
+        // deleteState forwards to deleteStale(instant, instant); a far-future cutoff makes every
+        // (write-stale) row qualify, so all rows are purged.
+        testObjectStorage.deleteState(Clock.System.now().plus(1.days))
+        assertEquals(0, testObjectStorage.selectAll().first().size)
+    }
+
     @Test
     fun insertAll_staleInPast() = runTest {
         val now = Clock.System.now()

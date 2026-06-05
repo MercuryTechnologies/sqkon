@@ -516,6 +516,10 @@ open class KeyValueStorage<T : Any>(
      *
      * @see deleteExpired
      */
+    @Deprecated(
+        "Misnamed twin of deleteStale; this just forwards to deleteStale(instant, instant).",
+        ReplaceWith("deleteStale(writeInstant = instant, readInstant = instant)"),
+    )
     fun deleteState(instant: Instant) {
         deleteStale(instant, instant)
     }
