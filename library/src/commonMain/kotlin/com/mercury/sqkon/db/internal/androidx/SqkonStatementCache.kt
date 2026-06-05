@@ -39,19 +39,19 @@ internal class SqkonStatementCache(private val config: SqkonDriverConfig) {
         binders: (SqkonStatement.() -> Unit)?,
     ) {
         if (identifier == null) {
-            val stmt = AndroidxPreparedStatement(connection.prepare(sql))
+            val stmt = AndroidxPreparedStatement(connection.prepare(sql), sql)
             try { binders?.invoke(stmt); stmt.execute() } finally { stmt.close() }
             return
         }
         val cache = lookupCache(connection)
         val claimed = sqkonRunBlocking { mapMutex.withLock { cache.remove(identifier) } }
-        val stmt: AndroidxPreparedStatement = if (claimed is AndroidxPreparedStatement) {
+        val stmt: AndroidxPreparedStatement = if (claimed is AndroidxPreparedStatement && claimed.sql == sql) {
             claimed
         } else {
-            // Wrong subtype (collision with a query cached under same identifier) — close it so
-            // we don't leak the SQLiteStatement.
+            // Wrong subtype, or an identifier-hash collision against different SQL — close the
+            // claimed statement (if any) so we don't leak it, and prepare the correct SQL. See #74.
             claimed?.close()
-            AndroidxPreparedStatement(connection.prepare(sql))
+            AndroidxPreparedStatement(connection.prepare(sql), sql)
         }
         try {
             binders?.invoke(stmt)
@@ -72,7 +72,7 @@ internal class SqkonStatementCache(private val config: SqkonDriverConfig) {
         mapper: (SqkonCursor) -> R,
     ): R {
         if (identifier == null) {
-            val stmt = AndroidxQuery(connection.prepare(sql))
+            val stmt = AndroidxQuery(connection.prepare(sql), sql)
             try {
                 binders?.invoke(stmt)
                 return stmt.executeQuery(mapper)
@@ -80,11 +80,13 @@ internal class SqkonStatementCache(private val config: SqkonDriverConfig) {
         }
         val cache = lookupCache(connection)
         val claimed = sqkonRunBlocking { mapMutex.withLock { cache.remove(identifier) } }
-        val stmt: AndroidxQuery = if (claimed is AndroidxQuery) {
+        val stmt: AndroidxQuery = if (claimed is AndroidxQuery && claimed.sql == sql) {
             claimed
         } else {
+            // Wrong subtype, or an identifier-hash collision against different SQL — close the
+            // claimed statement (if any) so we don't leak it, and prepare the correct SQL. See #74.
             claimed?.close()
-            AndroidxQuery(connection.prepare(sql))
+            AndroidxQuery(connection.prepare(sql), sql)
         }
         try {
             binders?.invoke(stmt)
