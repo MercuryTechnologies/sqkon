@@ -23,39 +23,41 @@ internal class OffsetQueryPagingSource<T : Any>(
     override suspend fun load(
         params: PagingSource.LoadParams<Int>,
     ): PagingSource.LoadResult<Int, T> = withContext(context) {
-        val key = params.key ?: initialOffset
-        val limit = when (params) {
-            is PagingSource.LoadParams.Prepend<*> -> minOf(key, params.loadSize)
-            else -> params.loadSize
-        }
-        val getPagingSourceLoadResult: SqkonTransactionScope.() -> PagingSource.LoadResult.Page<Int, T> =
-            {
-                val count = countQuery.executeAsOne()
-                val offset = when (params) {
-                    is PagingSource.LoadParams.Prepend<*> -> maxOf(0, key - params.loadSize)
-                    is PagingSource.LoadParams.Append<*> -> key
-                    is PagingSource.LoadParams.Refresh<*> -> {
-                        if (key >= count) maxOf(0, count - params.loadSize) else key
-                    }
-
-                    else -> error("Unknown PagingSourceLoadParams ${params::class}")
-                }
-                val data = queryProvider(limit, offset)
-                    .also { currentQuery = it }
-                    .executeAsList()
-                    .mapNotNull { deserialize(it) }
-                val nextPosToLoad = offset + data.size
-                PagingSource.LoadResult.Page(
-                    data = data,
-                    prevKey = offset.takeIf { it > 0 && data.isNotEmpty() },
-                    nextKey = nextPosToLoad.takeIf { data.isNotEmpty() && data.size >= limit && it < count },
-                    itemsBefore = offset,
-                    itemsAfter = maxOf(0, count - nextPosToLoad),
-                )
+        loadResultCatching {
+            val key = params.key ?: initialOffset
+            val limit = when (params) {
+                is PagingSource.LoadParams.Prepend<*> -> minOf(key, params.loadSize)
+                else -> params.loadSize
             }
-        val loadResult = transacter
-            .transactionWithResult(body = getPagingSourceLoadResult)
-        (if (invalid) PagingSource.LoadResult.Invalid() else loadResult)
+            val getPagingSourceLoadResult: SqkonTransactionScope.() -> PagingSource.LoadResult.Page<Int, T> =
+                {
+                    val count = countQuery.executeAsOne()
+                    val offset = when (params) {
+                        is PagingSource.LoadParams.Prepend<*> -> maxOf(0, key - params.loadSize)
+                        is PagingSource.LoadParams.Append<*> -> key
+                        is PagingSource.LoadParams.Refresh<*> -> {
+                            if (key >= count) maxOf(0, count - params.loadSize) else key
+                        }
+
+                        else -> error("Unknown PagingSourceLoadParams ${params::class}")
+                    }
+                    val data = queryProvider(limit, offset)
+                        .also { currentQuery = it }
+                        .executeAsList()
+                        .mapNotNull { deserialize(it) }
+                    val nextPosToLoad = offset + data.size
+                    PagingSource.LoadResult.Page(
+                        data = data,
+                        prevKey = offset.takeIf { it > 0 && data.isNotEmpty() },
+                        nextKey = nextPosToLoad.takeIf { data.isNotEmpty() && data.size >= limit && it < count },
+                        itemsBefore = offset,
+                        itemsAfter = maxOf(0, count - nextPosToLoad),
+                    )
+                }
+            val loadResult = transacter
+                .transactionWithResult(body = getPagingSourceLoadResult)
+            if (invalid) PagingSource.LoadResult.Invalid() else loadResult
+        }
     }
 
     override fun getRefreshKey(state: PagingState<Int, T>): Int? {
