@@ -9,7 +9,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.days
-import java.lang.Thread.sleep
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -77,10 +76,10 @@ class KeyValueStorageStaleTest {
             .associateBy { it.id }
             .toSortedMap()
         testObjectStorage.insertAll(expected)
-        sleep(1)
-        val now = Clock.System.now()
-        // Clean up older than now
-        testObjectStorage.deleteStale(writeInstant = now, readInstant = now)
+        // Far-future cutoff: every row is write-stale (write_at < cutoff) and read-stale
+        // (read_at IS NULL), so purgeStale removes them all — deterministic, no wall-clock gap.
+        val cutoff = Clock.System.now().plus(1.days)
+        testObjectStorage.deleteStale(writeInstant = cutoff, readInstant = cutoff)
         val actualAfterDelete = testObjectStorage.selectAll().first()
         assertEquals(0, actualAfterDelete.size)
     }
@@ -91,12 +90,13 @@ class KeyValueStorageStaleTest {
             .associateBy { it.id }
             .toSortedMap()
         testObjectStorage.insertAll(expected)
-        sleep(1)
-        val now = Clock.System.now()
-        sleep(1)
-        testObjectStorage.selectAll().first()
-        // Clean up older than now
-        testObjectStorage.deleteStale(writeInstant = null, readInstant = now)
+        testObjectStorage.selectAll().first() // schedules the async read_at update
+        // Wait until read_at is actually committed, so this validates read tracking (it would
+        // otherwise pass vacuously while read_at is still NULL).
+        until { testObjectStorage.selectResult().first().all { it.readAt != null } }
+        // Far-past read cutoff: the freshly-committed read_at is not < cutoff, so purgeStaleRead
+        // keeps every row — verifies a recently-read row is not read-stale.
+        testObjectStorage.deleteStale(writeInstant = null, readInstant = Clock.System.now().minus(1.days))
         val actualAfterDelete = testObjectStorage.selectAll().first()
         assertEquals(expected.size, actualAfterDelete.size)
     }
@@ -107,12 +107,8 @@ class KeyValueStorageStaleTest {
             .associateBy { it.id }
             .toSortedMap()
         testObjectStorage.insertAll(expected)
-        sleep(1)
-        val now = Clock.System.now()
-        sleep(1)
-        testObjectStorage.selectAll().first()
-        // Clean up older than now
-        testObjectStorage.deleteStale(writeInstant = now, readInstant = null)
+        // Far-future write cutoff: every row is write-stale, so purgeStaleWrite removes them all.
+        testObjectStorage.deleteStale(writeInstant = Clock.System.now().plus(1.days), readInstant = null)
         val actualAfterDelete = testObjectStorage.selectAll().first()
         assertEquals(0, actualAfterDelete.size)
     }
@@ -124,12 +120,15 @@ class KeyValueStorageStaleTest {
             .toSortedMap()
         testObjectStorage.insertAll(expected)
         testObjectStorage.selectAll().first()
-        sleep(10)
-        val now = Clock.System.now()
-        // write again so read is in the past
+        // write again so the rows are NOT write-stale (write_at is fresh)
         testObjectStorage.updateAll(expected)
-        // Read in the past write is after now
-        testObjectStorage.deleteStale(writeInstant = now, readInstant = now)
+        // purgeStale requires write-stale AND read-stale. read cutoff far-future (read-stale),
+        // write cutoff far-past (NOT write-stale) -> the AND fails -> rows are kept. Verifies the
+        // AND semantics deterministically, without a wall-clock gap.
+        testObjectStorage.deleteStale(
+            writeInstant = Clock.System.now().minus(1.days),
+            readInstant = Clock.System.now().plus(1.days),
+        )
         val actualAfterDelete = testObjectStorage.selectAll().first()
         assertEquals(expected.size, actualAfterDelete.size)
     }
@@ -162,12 +161,10 @@ class KeyValueStorageStaleTest {
             .toSortedMap()
         testObjectStorage.insertAll(expected)
         testObjectStorage.selectAll().first()
-        val now = Clock.System.now()
-        sleep(10)
-        // write again so read is in the past
+        // write again so the rows are NOT write-stale (write_at is fresh)
         testObjectStorage.updateAll(expected)
-        // Read in the past write is after now
-        testObjectStorage.deleteStale(writeInstant = now, readInstant = null)
+        // Far-past write cutoff: write_at (fresh) is not < cutoff, so purgeStaleWrite keeps all.
+        testObjectStorage.deleteStale(writeInstant = Clock.System.now().minus(1.days), readInstant = null)
         val actualAfterDelete = testObjectStorage.selectAll().first()
         assertEquals(expected.size, actualAfterDelete.size)
     }
@@ -178,12 +175,10 @@ class KeyValueStorageStaleTest {
             .associateBy { it.id }
             .toSortedMap()
         testObjectStorage.insertAll(expected)
-        sleep(10)
-        testObjectStorage.selectAll().first()
-        sleep(10)
-        val now = Clock.System.now()
-        // Clean write and read are in the past
-        testObjectStorage.deleteStale(writeInstant = now, readInstant = now)
+        testObjectStorage.selectAll().first() // the rows have been read
+        // Far-future cutoffs: rows are both write-stale and read-stale, so purgeStale removes all.
+        val cutoff = Clock.System.now().plus(1.days)
+        testObjectStorage.deleteStale(writeInstant = cutoff, readInstant = cutoff)
         val actualAfterDelete = testObjectStorage.selectResult().first()
         assertEquals(0, actualAfterDelete.size)
     }

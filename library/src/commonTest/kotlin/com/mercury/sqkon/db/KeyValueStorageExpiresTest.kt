@@ -124,4 +124,16 @@ class KeyValueStorageExpiresTest {
         assertEquals(expected.size, ten)
     }
 
+    @Test
+    fun expiry_boundaryIsInclusive_atExactExpiry() = runTest {
+        val now = Clock.System.now()
+        val obj = TestObject()
+        // Expires exactly at `now`. The filter is `expires_at IS NULL OR expires_at >= ?`, so a row
+        // expiring exactly at the cutoff is NOT yet expired (the boundary is inclusive).
+        testObjectStorage.insert(obj.id, obj, expiresAt = now)
+        assertEquals(1, testObjectStorage.selectAll(expiresAfter = now).first().size)
+        // One unit later, expires_at < cutoff, so it is expired.
+        assertEquals(0, testObjectStorage.selectAll(expiresAfter = now.plus(1.milliseconds)).first().size)
+    }
+
 }
