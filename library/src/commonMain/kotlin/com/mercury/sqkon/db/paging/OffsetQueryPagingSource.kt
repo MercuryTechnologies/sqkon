@@ -19,8 +19,12 @@ internal class OffsetQueryPagingSource<T : Any>(
     private val onRowsLoaded: (List<Entity>) -> Unit = {},
 ) : QueryPagingSource<Int, T>() {
 
-    // Computed once per source; any write invalidates the source, so the count is stable for
-    // its lifetime — same assumption KeysetQueryPagingSource.totalCount relies on (#117, #118).
+    // Computed once per source. The DISTINCT-entity count only changes when the rowset changes
+    // (insert/delete/upsert), and those writes notify entityKey(entityName), invalidating this
+    // source so the Pager builds a fresh one that recomputes. read_at writes deliberately notify
+    // only ALL_ENTITIES_KEY (not entityKey) to avoid re-waking paging, so they neither invalidate
+    // this source nor change the count — the cached value stays valid for the source's lifetime.
+    // Same assumption KeysetQueryPagingSource.totalCount relies on (#117, #118).
     private var totalCount: Int? = null
 
     override val jumpingSupported get() = true
