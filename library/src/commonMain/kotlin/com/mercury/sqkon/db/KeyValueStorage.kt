@@ -340,7 +340,7 @@ open class KeyValueStorage<T : Any>(
                 expiresAt = expiresAfter,
             )
         },
-        countQuery = entityQueries.count(entityName, where = where),
+        countQuery = entityQueries.count(entityName, where = where, expiresAfter = expiresAfter),
         transacter = entityQueries,
         context = readDispatcher,
         deserialize = { it.deserialize() },

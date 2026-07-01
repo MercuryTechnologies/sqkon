@@ -38,6 +38,9 @@ internal class OffsetQueryPagingSource<T : Any>(
                 is PagingSource.LoadParams.Prepend<*> -> minOf(key, params.loadSize)
                 else -> params.loadSize
             }
+            // Rows fetched inside the transaction, hoisted so read-tracking runs *after* the
+            // invalid check below — a load discarded as Invalid must not mark rows read (#119).
+            var loadedRows: List<Entity>? = null
             val getPagingSourceLoadResult: SqkonTransactionScope.() -> PagingSource.LoadResult.Page<Int, T> =
                 {
                     val count = totalCount ?: countQuery.executeAsOne().also { totalCount = it }
@@ -53,7 +56,7 @@ internal class OffsetQueryPagingSource<T : Any>(
                     val entities = queryProvider(limit, offset)
                         .also { currentQuery = it }
                         .executeAsList()
-                    onRowsLoaded(entities)
+                    loadedRows = entities
                     val data = entities.mapNotNull { deserialize(it) }
                     val nextPosToLoad = offset + data.size
                     PagingSource.LoadResult.Page(
@@ -66,7 +69,13 @@ internal class OffsetQueryPagingSource<T : Any>(
                 }
             val loadResult = transacter
                 .transactionWithResult(body = getPagingSourceLoadResult)
-            if (invalid) PagingSource.LoadResult.Invalid() else loadResult
+            if (invalid) {
+                PagingSource.LoadResult.Invalid()
+            } else {
+                // Mark rows read only for a page that is actually returned to Paging3.
+                loadedRows?.let(onRowsLoaded)
+                loadResult
+            }
         }
     }
 

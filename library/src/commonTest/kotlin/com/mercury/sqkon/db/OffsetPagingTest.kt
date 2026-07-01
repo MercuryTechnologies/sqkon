@@ -18,6 +18,8 @@ import org.junit.After
 import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.milliseconds
 
 class OffsetPagingTest {
 
@@ -100,6 +102,27 @@ class OffsetPagingTest {
         // Should refresh
         until { results.size >= 3 }
         assertEquals(3, results.size, "Should have 3 results after invalidation")
+    }
+
+    @Test
+    fun offsetPaging_expiresAfter_countExcludesExpiredRows() = runTest {
+        // Regression: selectPagingSource must apply expiresAfter to the COUNT as well as the
+        // page query. With 10 live + 10 expired rows and a full first page of the 10 live rows,
+        // a count that ignores expiry over-reports (20), leaving a phantom nextKey and 10
+        // trailing placeholders that never resolve.
+        val now = Clock.System.now()
+        val live = (1..10).map { TestObject() }.associateBy { it.id }
+        val expired = (1..10).map { TestObject() }.associateBy { it.id }
+        testObjectStorage.insertAll(live)
+        testObjectStorage.insertAll(expired, expiresAt = now.minus(1.milliseconds))
+
+        val config = PagingConfig(pageSize = 10, prefetchDistance = 0, initialLoadSize = 10)
+        val pager = TestPager(config, testObjectStorage.selectPagingSource(expiresAfter = now))
+
+        val page = pager.refresh() as LoadResult.Page<Int, TestObject>
+        assertEquals(10, page.data.size, "First page should hold only the 10 non-expired rows")
+        assertEquals(0, page.itemsAfter, "Count must exclude expired rows, so nothing follows")
+        assertNull(page.nextKey, "No further page exists once expired rows are excluded")
     }
 
 }
