@@ -338,15 +338,14 @@ open class KeyValueStorage<T : Any>(
                 limit = limit.toLong(),
                 offset = offset.toLong(),
                 expiresAt = expiresAfter,
-            ).also { entities ->
-                updateReadAt(entities.executeAsList().map { it.entity_key })
-            }
+            )
         },
         countQuery = entityQueries.count(entityName, where = where),
         transacter = entityQueries,
         context = readDispatcher,
         deserialize = { it.deserialize() },
         initialOffset = initialOffset,
+        onRowsLoaded = { entities -> updateReadAt(entities.map { it.entity_key }) },
     )
 
     /**

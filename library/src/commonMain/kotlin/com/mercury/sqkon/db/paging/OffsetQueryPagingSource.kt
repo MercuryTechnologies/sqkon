@@ -16,6 +16,7 @@ internal class OffsetQueryPagingSource<T : Any>(
     private val context: CoroutineContext,
     private val deserialize: (Entity) -> T?,
     private val initialOffset: Int,
+    private val onRowsLoaded: (List<Entity>) -> Unit = {},
 ) : QueryPagingSource<Int, T>() {
 
     override val jumpingSupported get() = true
@@ -41,10 +42,11 @@ internal class OffsetQueryPagingSource<T : Any>(
 
                         else -> error("Unknown PagingSourceLoadParams ${params::class}")
                     }
-                    val data = queryProvider(limit, offset)
+                    val entities = queryProvider(limit, offset)
                         .also { currentQuery = it }
                         .executeAsList()
-                        .mapNotNull { deserialize(it) }
+                    onRowsLoaded(entities)
+                    val data = entities.mapNotNull { deserialize(it) }
                     val nextPosToLoad = offset + data.size
                     PagingSource.LoadResult.Page(
                         data = data,
