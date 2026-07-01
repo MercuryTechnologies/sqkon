@@ -55,6 +55,16 @@ internal class KeysetQueryPagingSource<T : Any>(
 
     override val jumpingSupported: Boolean get() = false
 
+    /** Whole pageSize pages needed to cover [rows] rows (ceil division). */
+    private fun pagesFor(rows: Int): Int = (rows + pageSize - 1) / pageSize
+
+    /**
+     * Pages the load window extends *behind* the requested page — the centering shift.
+     * [load] and [getRefreshKey] must agree on this geometry: getRefreshKey picks a key
+     * assuming exactly this window placement will cover the anchor.
+     */
+    private fun windowBackShift(pageCount: Int): Int = (pageCount - 1) / 2
+
     override suspend fun load(
         params: PagingSource.LoadParams<String>,
     ): PagingSource.LoadResult<String, T> = withContext(context) {
@@ -110,20 +120,29 @@ internal class KeysetQueryPagingSource<T : Any>(
                                 }
                             }
                         }
-                        val key = boundaries[keyIndex]
-                        val previousKey = boundaries.getOrNull(keyIndex - 1)
-                        val nextKey = boundaries.getOrNull(keyIndex + 1)
+                        // Load enough whole pages for params.loadSize, centered on the
+                        // requested page, so a REFRESH (loadSize = initialLoadSize)
+                        // repopulates the visible window around the anchor in one atomic
+                        // page instead of blinking off-anchor rows to placeholders (#128).
+                        // APPEND/PREPEND pass loadSize == pageSize: one page, no shift.
+                        val pageCount = pagesFor(params.loadSize)
+                        val startIndex = (keyIndex - windowBackShift(pageCount))
+                            .coerceAtLeast(0)
+                        val startKey = boundaries[startIndex]
+                        val previousKey = boundaries.getOrNull(startIndex - 1)
+                        val nextKey = boundaries.getOrNull(startIndex + pageCount)
 
-                        val entities = queryProvider(key, nextKey)
+                        val entities = queryProvider(startKey, nextKey)
                             .also { currentQuery = it }
                             .executeAsList()
                         loadedRows = entities
                         val results = entities.mapNotNull { deserialize(it) }
 
                         if (params.placeholdersEnabled) {
-                            // Boundaries sit every pageSize rows, so page keyIndex starts at row
-                            // keyIndex * pageSize; coerce guards boundary/count skew.
-                            val itemsBefore = (keyIndex * pageSize).coerceAtMost(totalCount)
+                            // Boundaries sit every pageSize rows, so the window starting at
+                            // startIndex begins at row startIndex * pageSize; coerce guards
+                            // boundary/count skew.
+                            val itemsBefore = (startIndex * pageSize).coerceAtMost(totalCount)
                             PagingSource.LoadResult.Page(
                                 data = results,
                                 prevKey = previousKey,
@@ -155,20 +174,54 @@ internal class KeysetQueryPagingSource<T : Any>(
 
     override fun getRefreshKey(state: PagingState<String, T>): String? {
         // Must derive from state, not the instance's pageBoundaries — Paging3
-        // calls this on a fresh source before its first load(). Our keys are
-        // page-start boundaries, so the anchor page's own load key equals
-        // pages[i+1].prevKey (or pages[i-1].nextKey); using anchorPage.prevKey
-        // /nextKey directly would shift the user by one full page.
+        // calls this on a fresh source before its first load(). Pages are
+        // contiguous, so any page loaded after another has its exact load key in
+        // the preceding page's nextKey — regardless of how many pageSize pages
+        // either spans. (pages[i+1].prevKey is NOT equivalent: for a multi-page
+        // refresh window it sits pageCount-1 pages past the window start, which
+        // would drop the anchor and reintroduce the #128 blink.)
         val anchorPosition = state.anchorPosition ?: return null
         val anchorPage = state.closestPageToPosition(anchorPosition) ?: return null
         val anchorIndex = state.pages.indexOf(anchorPage)
-        state.pages.getOrNull(anchorIndex + 1)?.let { return it.prevKey }
         state.pages.getOrNull(anchorIndex - 1)?.let { return it.nextKey }
-        // Single loaded page: prevKey is the boundary *before* this page (the closest
-        // hint to the anchor's location); null means the anchor is in the first page,
-        // and our load(null) resolves to boundaries.first() — preserving the anchor.
-        // Do not fall back to nextKey: that points to the *next* page's start, which
-        // would load past the anchor row and shift it off-screen.
-        return anchorPage.prevKey
+
+        // First loaded page: its own load key is not recoverable from state, and it
+        // may span several pageSize pages (a refresh window honoring initialLoadSize).
+        // The only keys state still holds sit at known sub-pages of this page's
+        // window (pageSpan = 3 shown):
+        //
+        //   sub-page:   -1    |   0      1      2   |    3
+        //   key:      prevKey | [--- this page ---] |  nextKey
+        //                                       ^ pages[1].prevKey = sub-page 2
+        //
+        // A refresh from a key at sub-page k loads windowPages pages starting
+        // backReach pages before k (load()'s centering, mirrored). Find the anchor's
+        // sub-page and return the key whose window covers it.
+        if (anchorPage.data.isEmpty()) return anchorPage.prevKey
+        val pageSpan = pagesFor(anchorPage.data.size)
+        val leadingPlaceholders = anchorPage.itemsBefore
+            .takeIf { it != PagingSource.LoadResult.Page.COUNT_UNDEFINED } ?: 0
+        val subPage = (anchorPosition - leadingPlaceholders)
+            .coerceIn(0, anchorPage.data.size - 1) / pageSize
+        val windowPages = pagesFor(state.config.initialLoadSize)
+        val backReach = windowBackShift(windowPages)
+        fun windowFromKeyAtCoversAnchor(keySubPage: Int): Boolean =
+            subPage >= keySubPage - backReach &&
+                subPage < keySubPage - backReach + windowPages
+
+        // The late-side candidate: pages[1].prevKey when a next page exists (one page
+        // before this page's end), else this page's own nextKey (its end).
+        val nextPage = state.pages.getOrNull(anchorIndex + 1)
+        val (lateKey, lateKeySubPage) = when {
+            nextPage != null -> nextPage.prevKey to pageSpan - 1
+            else -> anchorPage.nextKey to pageSpan
+        }
+        return when {
+            windowFromKeyAtCoversAnchor(lateKeySubPage) -> lateKey
+            // prevKey sits at sub-page -1 — covers early sub-pages, and is the closest
+            // fallback when nothing covers (a lone multi-page window's middle). null
+            // means the page starts at boundaries.first(), and load(null) preserves that.
+            else -> anchorPage.prevKey
+        }
     }
 }
