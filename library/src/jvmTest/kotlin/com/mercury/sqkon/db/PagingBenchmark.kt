@@ -1,6 +1,7 @@
 package com.mercury.sqkon.db
 
 import androidx.paging.PagingConfig
+import androidx.paging.PagingSource
 import androidx.paging.PagingSource.LoadResult
 import androidx.paging.testing.TestPager
 import com.mercury.sqkon.TestObject
@@ -52,12 +53,16 @@ class PagingBenchmark {
         storage.insertAll((1..rows).map { TestObject() }.associateBy { it.id })
 
         // Warmup (let the JIT settle) — page fully through once per source type; timing discarded.
-        pageThroughKeyset(pageSize)
-        pageThroughOffset(pageSize)
+        pageThrough(pageSize) { storage.selectKeysetPagingSource(pageSize = pageSize) }
+        pageThrough(pageSize) { storage.selectPagingSource() }
 
         val runs = 3
-        val keysetTime = measureTime { repeat(runs) { pageThroughKeyset(pageSize) } }
-        val offsetTime = measureTime { repeat(runs) { pageThroughOffset(pageSize) } }
+        val keysetTime = measureTime {
+            repeat(runs) { pageThrough(pageSize) { storage.selectKeysetPagingSource(pageSize = pageSize) } }
+        }
+        val offsetTime = measureTime {
+            repeat(runs) { pageThrough(pageSize) { storage.selectPagingSource() } }
+        }
 
         val report = buildString {
             appendLine("sqkon paging benchmark")
@@ -70,22 +75,12 @@ class PagingBenchmark {
             .resolve("paging-benchmark.txt").writeText(report)
     }
 
-    // Pages from the first page to the end on a single source. The loop stops on the first
-    // non-Page / empty append result, so it is robust whether TestPager.append() signals
-    // end-of-list by returning null or by returning an empty final Page.
-    private suspend fun pageThroughKeyset(pageSize: Int) {
+    // Pages from the first page to the end on a single source produced by [source]. The loop stops
+    // on the first non-Page / empty append result, so it is robust whether TestPager.append()
+    // signals end-of-list by returning null or by returning an empty final Page.
+    private suspend fun <K : Any> pageThrough(pageSize: Int, source: () -> PagingSource<K, TestObject>) {
         val config = PagingConfig(pageSize = pageSize, prefetchDistance = 0, initialLoadSize = pageSize)
-        val pager = TestPager(config, storage.selectKeysetPagingSource(pageSize = pageSize))
-        pager.refresh()
-        var next = pager.append()
-        while (next is LoadResult.Page && next.data.isNotEmpty()) {
-            next = pager.append()
-        }
-    }
-
-    private suspend fun pageThroughOffset(pageSize: Int) {
-        val config = PagingConfig(pageSize = pageSize, prefetchDistance = 0, initialLoadSize = pageSize)
-        val pager = TestPager(config, storage.selectPagingSource())
+        val pager = TestPager(config, source())
         pager.refresh()
         var next = pager.append()
         while (next is LoadResult.Page && next.data.isNotEmpty()) {
