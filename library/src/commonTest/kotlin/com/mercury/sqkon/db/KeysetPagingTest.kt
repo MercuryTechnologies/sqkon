@@ -5,6 +5,7 @@ import androidx.paging.PagingConfig
 import androidx.paging.PagingData
 import androidx.paging.PagingSource
 import androidx.paging.PagingSource.LoadResult
+import androidx.paging.PagingState
 import androidx.paging.testing.TestPager
 import androidx.paging.testing.asSnapshot
 import com.mercury.sqkon.TestObject
@@ -35,6 +36,36 @@ class KeysetPagingTest {
     @After
     fun tearDown() {
         mainScope.cancel()
+    }
+
+    /** Deterministic rows: keys "key-001".."key-NNN" sort in insertion order. */
+    private fun paddedRows(range: IntRange = 1..50) = range.associate { i ->
+        val id = "key-${i.toString().padStart(3, '0')}"
+        id to TestObject(id = id, value = i)
+    }
+
+    /** Mediator-style write: 5 keys sorting between "key-005" and "key-006". */
+    private suspend fun injectMediatorRows() = testObjectStorage.insertAll(
+        (1..5).associate { i ->
+            val id = "key-005-injected-$i"
+            id to TestObject(id = id, value = 100 + i)
+        }
+    )
+
+    /** Fresh source refreshed from [state]'s refresh key; returns the loaded page. */
+    private suspend fun refreshFromState(
+        state: PagingState<String, TestObject>,
+        loadSize: Int,
+        placeholdersEnabled: Boolean = true,
+    ): LoadResult.Page<String, TestObject> {
+        val source = testObjectStorage.selectKeysetPagingSource(pageSize = 10)
+        return source.load(
+            PagingSource.LoadParams.Refresh(
+                key = source.getRefreshKey(state),
+                loadSize = loadSize,
+                placeholdersEnabled = placeholdersEnabled,
+            )
+        ) as LoadResult.Page<String, TestObject>
     }
 
     @Test
@@ -283,11 +314,7 @@ class KeysetPagingTest {
         //      "key-016", "key-026". "key-011" is no longer a boundary.
         //   4. load(params.key = "key-011") MUST snap to "key-006" (page containing it),
         //      NOT throw `Key key-011 not found in page boundaries`.
-        val initial = (1..30).associate { i ->
-            val id = "key-${i.toString().padStart(3, '0')}"
-            id to TestObject(id = id, value = i)
-        }
-        testObjectStorage.insertAll(initial)
+        testObjectStorage.insertAll(paddedRows(1..30))
 
         val config = PagingConfig(pageSize = 10, prefetchDistance = 0, initialLoadSize = 10)
         val sourceA = testObjectStorage.selectKeysetPagingSource(pageSize = 10)
@@ -295,11 +322,7 @@ class KeysetPagingTest {
         with(pagerA) { refresh(); append() } // 2 pages loaded
         val state = pagerA.getPagingState(anchorPosition = 15)
 
-        val injected = (1..5).associate { i ->
-            val id = "key-005-injected-$i"
-            id to TestObject(id = id, value = 100 + i)
-        }
-        testObjectStorage.insertAll(injected)
+        injectMediatorRows()
 
         val sourceB = testObjectStorage.selectKeysetPagingSource(pageSize = 10)
         val staleRefreshKey = sourceB.getRefreshKey(state)
@@ -326,11 +349,7 @@ class KeysetPagingTest {
     fun keysetPaging_mediatorWriteDuringLoad_preservesAnchorPage() = runTest {
         // End-to-end regression: user scrolls to the 3rd page, mediator-style write
         // shifts boundaries, fresh source resumes near the anchor (not page 0).
-        val initial = (1..50).associate { i ->
-            val id = "key-${i.toString().padStart(3, '0')}"
-            id to TestObject(id = id, value = i)
-        }
-        testObjectStorage.insertAll(initial)
+        testObjectStorage.insertAll(paddedRows())
 
         val config = PagingConfig(pageSize = 10, prefetchDistance = 0, initialLoadSize = 10)
         val sourceA = testObjectStorage.selectKeysetPagingSource(pageSize = 10)
@@ -338,11 +357,7 @@ class KeysetPagingTest {
         with(pagerA) { refresh(); append(); append() } // 3 pages: key-001..key-030
         val state = pagerA.getPagingState(anchorPosition = 25)
 
-        val injected = (1..5).associate { i ->
-            val id = "key-005-injected-$i"
-            id to TestObject(id = id, value = 100 + i)
-        }
-        testObjectStorage.insertAll(injected)
+        injectMediatorRows()
 
         val sourceB = testObjectStorage.selectKeysetPagingSource(pageSize = 10)
         val refreshKey = sourceB.getRefreshKey(state)
@@ -473,11 +488,7 @@ class KeysetPagingTest {
         // Same fixture as keysetPaging_mediatorWriteDuringLoad_preservesAnchorPage:
         // 50 rows + 5 injected = 55; anchor 25 snaps to the boundary at rn=21
         // ("key-016") = the 3rd page = absolute offset 20.
-        val initial = (1..50).associate { i ->
-            val id = "key-${i.toString().padStart(3, '0')}"
-            id to TestObject(id = id, value = i)
-        }
-        testObjectStorage.insertAll(initial)
+        testObjectStorage.insertAll(paddedRows())
 
         val config = PagingConfig(pageSize = 10, prefetchDistance = 0, initialLoadSize = 10)
         val sourceA = testObjectStorage.selectKeysetPagingSource(pageSize = 10)
@@ -485,19 +496,9 @@ class KeysetPagingTest {
         with(pagerA) { refresh(); append(); append() }
         val state = pagerA.getPagingState(anchorPosition = 25)
 
-        val injected = (1..5).associate { i ->
-            val id = "key-005-injected-$i"
-            id to TestObject(id = id, value = 100 + i)
-        }
-        testObjectStorage.insertAll(injected)
+        injectMediatorRows()
 
-        val sourceB = testObjectStorage.selectKeysetPagingSource(pageSize = 10)
-        val refreshKey = sourceB.getRefreshKey(state)
-        val page = sourceB.load(
-            PagingSource.LoadParams.Refresh(
-                key = refreshKey, loadSize = 10, placeholdersEnabled = true,
-            )
-        ) as LoadResult.Page<String, TestObject>
+        val page = refreshFromState(state, loadSize = 10)
 
         assertEquals("key-016", page.data.first().id, "Fixture invariant: snaps to page-3 boundary")
         assertEquals(20, page.itemsBefore, "Refreshed page must report its absolute offset (20)")
@@ -509,12 +510,8 @@ class KeysetPagingTest {
 
     @Test
     fun keysetPaging_refresh_honorsInitialLoadSize() = runTest {
-        // Regression #128: on REFRESH Paging3 requests initialLoadSize rows (its
-        // default is 3 * pageSize) so the previously-visible window repopulates in a
-        // single atomic page. A source that ignores params.loadSize and returns only
-        // one pageSize page leaves the off-anchor visible rows as placeholders until
-        // follow-up prefetch APPEND/PREPEND loads refill them — the "blink to skeleton
-        // and back" reported on RemoteMediator appends. All other keyset tests set
+        // Regression #128: REFRESH must return the full initialLoadSize window in one
+        // atomic page (see KeysetQueryPagingSource.load). Other keyset tests set
         // initialLoadSize == pageSize, which masks this.
         val expected = (1..100).map { TestObject() }.associateBy { it.id }
         testObjectStorage.insertAll(expected)
@@ -534,40 +531,81 @@ class KeysetPagingTest {
 
     @Test
     fun keysetPaging_mediatorWrite_refreshLoadsFullVisibleWindow() = runTest {
-        // Regression #128 end-to-end: user has scrolled a 3-page (initialLoadSize=30)
-        // window into view, a mediator-style append invalidates + shifts boundaries,
-        // and the fresh source's REFRESH must repopulate the WHOLE visible window in
-        // one page (not just the anchor page) so no on-screen row flashes a placeholder.
-        val initial = (1..50).associate { i ->
-            val id = "key-${i.toString().padStart(3, '0')}"
-            id to TestObject(id = id, value = i)
-        }
-        testObjectStorage.insertAll(initial)
+        // Regression #128 end-to-end: a mediator-style append invalidates + shifts
+        // boundaries; the fresh source's REFRESH must repopulate the whole visible
+        // window in one page so no on-screen row flashes a placeholder.
+        testObjectStorage.insertAll(paddedRows())
 
         val config = PagingConfig(pageSize = 10, prefetchDistance = 0, initialLoadSize = 30)
         val sourceA = testObjectStorage.selectKeysetPagingSource(pageSize = 10)
         val pagerA = TestPager(config, sourceA)
-        // Refresh loads the first 30 (rn 1..30) as one window.
-        with(pagerA) { refresh(); append() } // + rn 31..40 visible
+        // Refresh loads the first 30 (rn 1..30) as one window, append adds rn 31..40.
+        with(pagerA) { refresh(); append() }
         val state = pagerA.getPagingState(anchorPosition = 15)
 
-        val injected = (1..5).associate { i ->
-            val id = "key-005-injected-$i"
-            id to TestObject(id = id, value = 100 + i)
-        }
-        testObjectStorage.insertAll(injected)
+        injectMediatorRows()
 
-        val sourceB = testObjectStorage.selectKeysetPagingSource(pageSize = 10)
-        val refreshKey = sourceB.getRefreshKey(state)
-        val page = sourceB.load(
-            PagingSource.LoadParams.Refresh(
-                key = refreshKey, loadSize = 30, placeholdersEnabled = true,
-            )
-        ) as LoadResult.Page<String, TestObject>
+        val page = refreshFromState(state, loadSize = 30)
 
         assertEquals(
             30, page.data.size,
             "Refresh must repopulate the full 3-page visible window, not just the anchor page"
         )
+        assertTrue(
+            page.data.any { it.id == "key-016" },
+            "Refreshed window must contain the anchor row (key-016, anchorPosition 15) — " +
+                "size alone can pass while the window is mis-anchored pages forward"
+        )
+    }
+
+    @Test
+    fun keysetPaging_getRefreshKey_anchorInMultiPageRefreshWindow_keepsAnchor() = runTest {
+        // Regression: with initialLoadSize=30 the refresh page spans 3 boundaries, so
+        // the old pages[i+1].prevKey derivation returned a boundary 2 pages past the
+        // window start — the next generation's refresh dropped the anchor row.
+        testObjectStorage.insertAll(paddedRows())
+
+        val config = PagingConfig(pageSize = 10, prefetchDistance = 0, initialLoadSize = 30)
+        val sourceA = testObjectStorage.selectKeysetPagingSource(pageSize = 10)
+        val pagerA = TestPager(config, sourceA)
+        with(pagerA) { refresh(); append() } // 30-row refresh page + 10-row append
+
+        // Anchor mid-window (row 16, sub-page 1 of the 3-page refresh page).
+        val midPage = refreshFromState(pagerA.getPagingState(anchorPosition = 15), loadSize = 30)
+        assertTrue(
+            midPage.data.any { it.id == "key-016" },
+            "Refresh window must contain the mid-window anchor row"
+        )
+
+        // Anchor early in the window (row 6, sub-page 0).
+        val earlyPage = refreshFromState(pagerA.getPagingState(anchorPosition = 5), loadSize = 30)
+        assertTrue(
+            earlyPage.data.any { it.id == "key-006" },
+            "Refresh window must contain the early-window anchor row"
+        )
+    }
+
+    @Test
+    fun keysetPaging_refresh_centersWindowOnRequestedPage() = runTest {
+        // The visible viewport extends both ways from the anchor page, so a
+        // multi-page refresh must load pages before the requested page too (#128).
+        testObjectStorage.insertAll(paddedRows())
+
+        val source = testObjectStorage.selectKeysetPagingSource(pageSize = 10)
+        val page = source.load(
+            PagingSource.LoadParams.Refresh(
+                key = "key-021", loadSize = 30, placeholdersEnabled = true,
+            )
+        ) as LoadResult.Page<String, TestObject>
+
+        assertEquals(30, page.data.size)
+        assertEquals(
+            "key-011", page.data.first().id,
+            "Window must start one page above the requested page (centered), not at it"
+        )
+        assertTrue(page.data.any { it.id == "key-021" }, "Window must contain the requested page")
+        assertEquals(10, page.itemsBefore, "Absolute offset must reflect the centered start")
+        assertEquals("key-001", page.prevKey, "Prepend resumes at the boundary before the window")
+        assertEquals("key-041", page.nextKey, "Append resumes at the boundary after the window")
     }
 }
