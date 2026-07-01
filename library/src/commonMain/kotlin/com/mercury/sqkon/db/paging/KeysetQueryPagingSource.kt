@@ -112,7 +112,17 @@ internal class KeysetQueryPagingSource<T : Any>(
                         }
                         val key = boundaries[keyIndex]
                         val previousKey = boundaries.getOrNull(keyIndex - 1)
-                        val nextKey = boundaries.getOrNull(keyIndex + 1)
+                        // Load enough whole pages to satisfy params.loadSize. On REFRESH
+                        // Paging requests initialLoadSize (typically 3 * pageSize) so the
+                        // previously-visible window repopulates in one atomic page; loading a
+                        // single page here would blink the off-anchor visible rows to
+                        // placeholders until follow-up prefetch APPEND/PREPEND refills them
+                        // (#128). APPEND/PREPEND use loadSize == pageSize, so this loads one
+                        // page for them — unchanged behaviour. nextKey is the boundary past the
+                        // loaded window so the next APPEND resumes exactly where this ends.
+                        val pageCount = ((params.loadSize + pageSize - 1) / pageSize)
+                            .coerceAtLeast(1)
+                        val nextKey = boundaries.getOrNull(keyIndex + pageCount)
 
                         val entities = queryProvider(key, nextKey)
                             .also { currentQuery = it }

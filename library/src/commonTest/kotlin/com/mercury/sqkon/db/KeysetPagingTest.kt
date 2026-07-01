@@ -506,4 +506,68 @@ class KeysetPagingTest {
             "itemsBefore + loaded + itemsAfter must equal the full dataset count",
         )
     }
+
+    @Test
+    fun keysetPaging_refresh_honorsInitialLoadSize() = runTest {
+        // Regression #128: on REFRESH Paging3 requests initialLoadSize rows (its
+        // default is 3 * pageSize) so the previously-visible window repopulates in a
+        // single atomic page. A source that ignores params.loadSize and returns only
+        // one pageSize page leaves the off-anchor visible rows as placeholders until
+        // follow-up prefetch APPEND/PREPEND loads refill them — the "blink to skeleton
+        // and back" reported on RemoteMediator appends. All other keyset tests set
+        // initialLoadSize == pageSize, which masks this.
+        val expected = (1..100).map { TestObject() }.associateBy { it.id }
+        testObjectStorage.insertAll(expected)
+
+        val config = PagingConfig(pageSize = 10, prefetchDistance = 0, initialLoadSize = 30)
+        val pager = TestPager(config, testObjectStorage.selectKeysetPagingSource(pageSize = 10))
+
+        val result = pager.refresh() as LoadResult.Page<String, TestObject>
+        assertEquals(
+            30, result.data.size,
+            "Refresh must honor initialLoadSize (30) so the visible window loads " +
+                "atomically instead of blinking off-anchor rows to placeholders"
+        )
+        assertNull(result.prevKey, "Prev key should be null for the first window")
+        assertNotNull(result.nextKey, "Next key should point past the 3-page window")
+    }
+
+    @Test
+    fun keysetPaging_mediatorWrite_refreshLoadsFullVisibleWindow() = runTest {
+        // Regression #128 end-to-end: user has scrolled a 3-page (initialLoadSize=30)
+        // window into view, a mediator-style append invalidates + shifts boundaries,
+        // and the fresh source's REFRESH must repopulate the WHOLE visible window in
+        // one page (not just the anchor page) so no on-screen row flashes a placeholder.
+        val initial = (1..50).associate { i ->
+            val id = "key-${i.toString().padStart(3, '0')}"
+            id to TestObject(id = id, value = i)
+        }
+        testObjectStorage.insertAll(initial)
+
+        val config = PagingConfig(pageSize = 10, prefetchDistance = 0, initialLoadSize = 30)
+        val sourceA = testObjectStorage.selectKeysetPagingSource(pageSize = 10)
+        val pagerA = TestPager(config, sourceA)
+        // Refresh loads the first 30 (rn 1..30) as one window.
+        with(pagerA) { refresh(); append() } // + rn 31..40 visible
+        val state = pagerA.getPagingState(anchorPosition = 15)
+
+        val injected = (1..5).associate { i ->
+            val id = "key-005-injected-$i"
+            id to TestObject(id = id, value = 100 + i)
+        }
+        testObjectStorage.insertAll(injected)
+
+        val sourceB = testObjectStorage.selectKeysetPagingSource(pageSize = 10)
+        val refreshKey = sourceB.getRefreshKey(state)
+        val page = sourceB.load(
+            PagingSource.LoadParams.Refresh(
+                key = refreshKey, loadSize = 30, placeholdersEnabled = true,
+            )
+        ) as LoadResult.Page<String, TestObject>
+
+        assertEquals(
+            30, page.data.size,
+            "Refresh must repopulate the full 3-page visible window, not just the anchor page"
+        )
+    }
 }
