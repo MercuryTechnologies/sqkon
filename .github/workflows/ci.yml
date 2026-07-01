@@ -89,8 +89,8 @@ jobs:
       - name: Compile iOS targets
         run: ./gradlew :library:compileKotlinIosArm64 :library:compileKotlinIosSimulatorArm64
 
-  paging-benchmark:
-    name: Paging benchmark (informational)
+  benchmark-suite:
+    name: Benchmark suite (informational)
     runs-on: ubuntu-latest
     # Informational only — never fails the build. The blocking perf gate is the query-count
     # guards in the jvm-tests job (KeysetPagingPerformanceTest / OffsetPagingPerformanceTest).
@@ -106,12 +106,12 @@ jobs:
           java-version: '21'
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@50e97c2cd7a37755bbfafc9c5b7cafaece252f6e # v6.1.0
-      - name: Run paging benchmark
-        run: ./gradlew :library:jvmTest --tests "*PagingBenchmark" -Dsqkon.benchmark=true
+      - name: Run benchmark suite
+        run: ./gradlew :library:jvmTest --tests "*Benchmark" -Dsqkon.benchmark=true
       - name: Upload benchmark results
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: paging-benchmark-results
-          path: library/build/benchmark-results/paging-benchmark.txt
+          name: benchmark-results
+          path: library/build/benchmark-results/
           if-no-files-found: warn

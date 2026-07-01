@@ -5,74 +5,31 @@ import androidx.paging.PagingSource
 import androidx.paging.PagingSource.LoadResult
 import androidx.paging.testing.TestPager
 import com.mercury.sqkon.TestObject
-import kotlinx.coroutines.MainScope
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.test.runTest
-import org.junit.After
-import org.junit.Assume.assumeTrue
 import org.junit.Test
-import java.io.File
-import kotlin.time.measureTime
 
 /**
- * Informational paging timing benchmark for trend visibility — NOT a correctness test and NOT a
- * hard regression gate (the deterministic query-count guards in KeysetPagingPerformanceTest /
- * OffsetPagingPerformanceTest are the build-failing guardrails).
- *
- * Skipped by default so it never slows the blocking `jvmTest` gate. Run it explicitly:
- *   ./gradlew :library:jvmTest --tests "*PagingBenchmark" -Dsqkon.benchmark=true
- * Optionally set the dataset size with -Dsqkon.benchmark.rows=5000 (default 2000).
- * Results are written to library/build/benchmark-results/paging-benchmark.txt and echoed to stdout.
- *
- * Deliberately dependency-free (kotlin.time + nanoTime, no JMH). kotlinx-benchmark's Gradle plugin
- * bundles a Kotlin compiler plugin and does not state Kotlin 2.3 support (its latest release
- * targets Kotlin 2.2.0), so it is a build-breakage risk on this repo's Kotlin 2.3.21. Once
- * kotlinx-benchmark supports Kotlin 2.3, this can be promoted to a real JMH benchmark.
+ * Paging suite: pages fully through the dataset with each PagingSource. Exercises the O(n)
+ * `ROW_NUMBER()` window keyset recomputes per page vs. SQL `OFFSET`'s per-page scan — the headline
+ * paging cost this whole benchmark effort exists to track. See [Benchmark] for how the suite runs.
  */
-class PagingBenchmark {
-
-    private val mainScope = MainScope()
-    private val driver = driverFactory().createDriver()
-    private val entityQueries = EntityQueries(driver)
-    private val metadataQueries = MetadataQueries(driver)
-    private val storage = keyValueStorage<TestObject>(
-        "test-object", entityQueries, metadataQueries, mainScope
-    )
-
-    @After
-    fun tearDown() = mainScope.cancel()
+class PagingBenchmark : BenchmarkSuite("paging") {
 
     @Test
-    fun pagingThroughput() = runTest {
-        assumeTrue(
-            "set -Dsqkon.benchmark=true to run the paging benchmark",
-            System.getProperty("sqkon.benchmark") == "true",
-        )
-        val rows = System.getProperty("sqkon.benchmark.rows")?.toIntOrNull() ?: 2000
+    fun benchmark() = runTest {
+        assumeBenchmarkEnabled()
+        val rows = benchmarkRows()
         val pageSize = 50
-        storage.insertAll((1..rows).map { TestObject() }.associateBy { it.id })
+        val pages = (rows + pageSize - 1) / pageSize // ceil(rows / pageSize): page-loads per drain
+        storage.insertAll(seedObjects(rows))
 
-        // Warmup (let the JIT settle) — page fully through once per source type; timing discarded.
-        pageThrough(pageSize) { storage.selectKeysetPagingSource(pageSize = pageSize) }
-        pageThrough(pageSize) { storage.selectPagingSource() }
-
-        val runs = 3
-        val keysetTime = measureTime {
-            repeat(runs) { pageThrough(pageSize) { storage.selectKeysetPagingSource(pageSize = pageSize) } }
+        runner.bench("keyset_page_through", opsPerIter = pages) {
+            pageThrough(pageSize) { storage.selectKeysetPagingSource(pageSize = pageSize) }
         }
-        val offsetTime = measureTime {
-            repeat(runs) { pageThrough(pageSize) { storage.selectPagingSource() } }
+        runner.bench("offset_page_through", opsPerIter = pages) {
+            pageThrough(pageSize) { storage.selectPagingSource() }
         }
-
-        val report = buildString {
-            appendLine("sqkon paging benchmark")
-            appendLine("rows=$rows pageSize=$pageSize runs=$runs")
-            appendLine("keyset_total_ms=${keysetTime.inWholeMilliseconds}")
-            appendLine("offset_total_ms=${offsetTime.inWholeMilliseconds}")
-        }
-        println(report)
-        File("build/benchmark-results").apply { mkdirs() }
-            .resolve("paging-benchmark.txt").writeText(report)
+        runner.report(mapOf("rows" to rows, "pageSize" to pageSize))
     }
 
     // Pages from the first page to the end on a single source produced by [source]. The loop stops

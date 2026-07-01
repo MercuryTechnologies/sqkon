@@ -121,14 +121,15 @@ androidComponents {
     }
 }
 
-// The paging benchmark (PagingBenchmark) is skipped unless sqkon.benchmark=true. Gradle forks a
-// separate JVM for tests, so forward the property (and optional row count) into that JVM. Scoped to
-// jvmTest — the only task that runs the benchmark — so -Dsqkon.benchmark doesn't become an input on
-// unrelated Test tasks and churn their up-to-date/cache state.
+// The benchmark suite (*Benchmark classes) is skipped unless sqkon.benchmark=true. Gradle forks a
+// separate JVM for tests, so forward the flag (and the optional rows/warmup/runs knobs) into that
+// JVM. Scoped to jvmTest — the only task that runs the benchmarks — so -Dsqkon.benchmark doesn't
+// become an input on unrelated Test tasks and churn their up-to-date/cache state.
 tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
     systemProperty("sqkon.benchmark", providers.systemProperty("sqkon.benchmark").getOrElse("false"))
-    providers.systemProperty("sqkon.benchmark.rows").orNull
-        ?.let { systemProperty("sqkon.benchmark.rows", it) }
+    listOf("sqkon.benchmark.rows", "sqkon.benchmark.warmup", "sqkon.benchmark.runs").forEach { key ->
+        providers.systemProperty(key).orNull?.let { systemProperty(key, it) }
+    }
 }
 
 // MOB-3294: keep SQLDelight/eygraber imports out of the codebase after the androidx.sqlite
