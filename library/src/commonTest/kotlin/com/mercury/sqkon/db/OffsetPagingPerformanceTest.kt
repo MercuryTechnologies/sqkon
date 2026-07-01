@@ -44,4 +44,19 @@ class OffsetPagingPerformanceTest {
             "offset page query must run once per page load (3 loads), not twice",
         )
     }
+
+    @Test
+    fun countQuery_runsOncePerSource_notPerPageLoad() = runTest {
+        storage.insertAll((1..100).map { TestObject() }.associateBy { it.id })
+        val config = PagingConfig(pageSize = 10, prefetchDistance = 0, initialLoadSize = 10)
+        val pager = TestPager(config, storage.selectPagingSource())
+
+        driver.queries.clear() // ignore insert/setup SQL
+        with(pager) { refresh(); append(); append() } // 3 page loads on ONE source
+
+        assertEquals(
+            1, driver.countMatching("COUNT(DISTINCT"),
+            "total-count query must run once per source, not once per page load",
+        )
+    }
 }
