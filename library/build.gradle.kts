@@ -121,6 +121,14 @@ androidComponents {
     }
 }
 
+// The paging benchmark (PagingBenchmark) is skipped unless sqkon.benchmark=true. Gradle forks a
+// separate JVM for tests, so forward the property (and optional row count) into that JVM.
+tasks.withType<Test>().configureEach {
+    systemProperty("sqkon.benchmark", providers.systemProperty("sqkon.benchmark").getOrElse("false"))
+    providers.systemProperty("sqkon.benchmark.rows").orNull
+        ?.let { systemProperty("sqkon.benchmark.rows", it) }
+}
+
 // MOB-3294: keep SQLDelight/eygraber imports out of the codebase after the androidx.sqlite
 // migration. Checks imports only, so the Apache-2.0 attribution KDoc that names the upstream
 // projects is left untouched. Wired into `check` and invoked directly in CI (see ci.yml).
