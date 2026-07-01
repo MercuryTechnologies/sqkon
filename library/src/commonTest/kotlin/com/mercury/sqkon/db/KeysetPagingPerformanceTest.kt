@@ -4,10 +4,6 @@ import androidx.paging.PagingConfig
 import androidx.paging.PagingSource.LoadResult
 import androidx.paging.testing.TestPager
 import com.mercury.sqkon.TestObject
-import com.mercury.sqkon.db.internal.SqkonCursor
-import com.mercury.sqkon.db.internal.SqkonDriver
-import com.mercury.sqkon.db.internal.SqkonStatement
-import com.mercury.sqkon.db.internal.SqkonTransaction
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.test.runTest
@@ -81,42 +77,4 @@ class KeysetPagingPerformanceTest {
         )
         assertEquals(10, last.data.size, "fixture: full final page")
     }
-}
-
-/** Delegating [SqkonDriver] that records the SQL of every executeQuery for assertions. */
-private class CountingDriver(private val delegate: SqkonDriver) : SqkonDriver {
-    val queries = mutableListOf<String>()
-
-    override fun <R> executeQuery(
-        identifier: Int?,
-        sql: String,
-        parameters: Int,
-        binders: (SqkonStatement.() -> Unit)?,
-        mapper: (SqkonCursor) -> R,
-    ): R {
-        queries += sql
-        return delegate.executeQuery(identifier, sql, parameters, binders, mapper)
-    }
-
-    override fun executeUpdate(
-        identifier: Int?,
-        sql: String,
-        parameters: Int,
-        binders: (SqkonStatement.() -> Unit)?,
-    ): Long = delegate.executeUpdate(identifier, sql, parameters, binders)
-
-    override fun addListener(vararg queryKeys: String, listener: SqkonDriver.Listener) =
-        delegate.addListener(queryKeys = queryKeys, listener = listener)
-
-    override fun removeListener(vararg queryKeys: String, listener: SqkonDriver.Listener) =
-        delegate.removeListener(queryKeys = queryKeys, listener = listener)
-
-    override fun notifyListeners(vararg queryKeys: String) =
-        delegate.notifyListeners(queryKeys = queryKeys)
-
-    override fun newTransaction(): SqkonTransaction = delegate.newTransaction()
-    override fun currentTransaction(): SqkonTransaction? = delegate.currentTransaction()
-    override fun close() = delegate.close()
-
-    fun countMatching(fragment: String): Int = queries.count { it.contains(fragment) }
 }
