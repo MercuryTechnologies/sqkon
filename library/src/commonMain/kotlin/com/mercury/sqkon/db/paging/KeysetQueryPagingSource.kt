@@ -59,6 +59,10 @@ internal class KeysetQueryPagingSource<T : Any>(
         params: PagingSource.LoadParams<String>,
     ): PagingSource.LoadResult<String, T> = withContext(context) {
         loadResultCatching {
+            // Rows fetched inside the transaction, hoisted so read-tracking runs *after* the
+            // invalid check below — a load discarded as Invalid must not mark rows read (#119).
+            // Stays null when no page query ran (empty boundaries).
+            var loadedRows: List<Entity>? = null
             val getPagingSourceLoadResult: SqkonTransactionScope.() -> PagingSource.LoadResult<String, T> =
                 {
                     // Always use the stable pageSize for boundary computation, not
@@ -113,7 +117,7 @@ internal class KeysetQueryPagingSource<T : Any>(
                         val entities = queryProvider(key, nextKey)
                             .also { currentQuery = it }
                             .executeAsList()
-                        onRowsLoaded(entities)
+                        loadedRows = entities
                         val results = entities.mapNotNull { deserialize(it) }
 
                         if (params.placeholdersEnabled) {
@@ -139,7 +143,13 @@ internal class KeysetQueryPagingSource<T : Any>(
                 }
             val loadResult = transacter
                 .transactionWithResult(body = getPagingSourceLoadResult)
-            if (invalid) PagingSource.LoadResult.Invalid() else loadResult
+            if (invalid) {
+                PagingSource.LoadResult.Invalid()
+            } else {
+                // Mark rows read only for a page that is actually returned to Paging3.
+                loadedRows?.let(onRowsLoaded)
+                loadResult
+            }
         }
     }
 
