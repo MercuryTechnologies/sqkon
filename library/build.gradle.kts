@@ -121,6 +121,17 @@ androidComponents {
     }
 }
 
+// The benchmark suite (*Benchmark classes) is skipped unless sqkon.benchmark=true. Gradle forks a
+// separate JVM for tests, so forward the flag (and the optional rows/warmup/runs knobs) into that
+// JVM. Scoped to jvmTest — the only task that runs the benchmarks — so -Dsqkon.benchmark doesn't
+// become an input on unrelated Test tasks and churn their up-to-date/cache state.
+tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
+    systemProperty("sqkon.benchmark", providers.systemProperty("sqkon.benchmark").getOrElse("false"))
+    listOf("sqkon.benchmark.rows", "sqkon.benchmark.warmup", "sqkon.benchmark.runs").forEach { key ->
+        providers.systemProperty(key).orNull?.let { systemProperty(key, it) }
+    }
+}
+
 // MOB-3294: keep SQLDelight/eygraber imports out of the codebase after the androidx.sqlite
 // migration. Checks imports only, so the Apache-2.0 attribution KDoc that names the upstream
 // projects is left untouched. Wired into `check` and invoked directly in CI (see ci.yml).

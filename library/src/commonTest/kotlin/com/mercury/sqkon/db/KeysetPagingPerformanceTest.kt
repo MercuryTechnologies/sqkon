@@ -4,10 +4,6 @@ import androidx.paging.PagingConfig
 import androidx.paging.PagingSource.LoadResult
 import androidx.paging.testing.TestPager
 import com.mercury.sqkon.TestObject
-import com.mercury.sqkon.db.internal.SqkonCursor
-import com.mercury.sqkon.db.internal.SqkonDriver
-import com.mercury.sqkon.db.internal.SqkonStatement
-import com.mercury.sqkon.db.internal.SqkonTransaction
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.test.runTest
@@ -81,42 +77,20 @@ class KeysetPagingPerformanceTest {
         )
         assertEquals(10, last.data.size, "fixture: full final page")
     }
-}
 
-/** Delegating [SqkonDriver] that records the SQL of every executeQuery for assertions. */
-private class CountingDriver(private val delegate: SqkonDriver) : SqkonDriver {
-    val queries = mutableListOf<String>()
+    @Test
+    fun pageQuery_runsOncePerPageLoad_notTwice() = runTest {
+        storage.insertAll((1..100).map { TestObject() }.associateBy { it.id })
+        val config = PagingConfig(pageSize = 10, prefetchDistance = 0, initialLoadSize = 10)
+        val pager = TestPager(config, storage.selectKeysetPagingSource(pageSize = 10))
 
-    override fun <R> executeQuery(
-        identifier: Int?,
-        sql: String,
-        parameters: Int,
-        binders: (SqkonStatement.() -> Unit)?,
-        mapper: (SqkonCursor) -> R,
-    ): R {
-        queries += sql
-        return delegate.executeQuery(identifier, sql, parameters, binders, mapper)
+        driver.queries.clear()
+        with(pager) { refresh(); append(); append() } // 3 page loads on ONE source
+
+        // "WHERE rn >=" is unique to the keyed data query (selectKeyed), not boundaries/snap.
+        assertEquals(
+            3, driver.countMatching("WHERE rn >="),
+            "keyed page query must run once per page load (3 loads), not twice",
+        )
     }
-
-    override fun executeUpdate(
-        identifier: Int?,
-        sql: String,
-        parameters: Int,
-        binders: (SqkonStatement.() -> Unit)?,
-    ): Long = delegate.executeUpdate(identifier, sql, parameters, binders)
-
-    override fun addListener(vararg queryKeys: String, listener: SqkonDriver.Listener) =
-        delegate.addListener(queryKeys = queryKeys, listener = listener)
-
-    override fun removeListener(vararg queryKeys: String, listener: SqkonDriver.Listener) =
-        delegate.removeListener(queryKeys = queryKeys, listener = listener)
-
-    override fun notifyListeners(vararg queryKeys: String) =
-        delegate.notifyListeners(queryKeys = queryKeys)
-
-    override fun newTransaction(): SqkonTransaction = delegate.newTransaction()
-    override fun currentTransaction(): SqkonTransaction? = delegate.currentTransaction()
-    override fun close() = delegate.close()
-
-    fun countMatching(fragment: String): Int = queries.count { it.contains(fragment) }
 }

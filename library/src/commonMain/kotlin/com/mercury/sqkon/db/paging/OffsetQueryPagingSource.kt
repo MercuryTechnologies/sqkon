@@ -16,7 +16,12 @@ internal class OffsetQueryPagingSource<T : Any>(
     private val context: CoroutineContext,
     private val deserialize: (Entity) -> T?,
     private val initialOffset: Int,
+    private val onRowsLoaded: (List<Entity>) -> Unit = {},
 ) : QueryPagingSource<Int, T>() {
+
+    // Computed once per source; any write invalidates the source, so the count is stable for
+    // its lifetime — same assumption KeysetQueryPagingSource.totalCount relies on (#117, #118).
+    private var totalCount: Int? = null
 
     override val jumpingSupported get() = true
 
@@ -31,7 +36,7 @@ internal class OffsetQueryPagingSource<T : Any>(
             }
             val getPagingSourceLoadResult: SqkonTransactionScope.() -> PagingSource.LoadResult.Page<Int, T> =
                 {
-                    val count = countQuery.executeAsOne()
+                    val count = totalCount ?: countQuery.executeAsOne().also { totalCount = it }
                     val offset = when (params) {
                         is PagingSource.LoadParams.Prepend<*> -> maxOf(0, key - params.loadSize)
                         is PagingSource.LoadParams.Append<*> -> key
@@ -41,10 +46,11 @@ internal class OffsetQueryPagingSource<T : Any>(
 
                         else -> error("Unknown PagingSourceLoadParams ${params::class}")
                     }
-                    val data = queryProvider(limit, offset)
+                    val entities = queryProvider(limit, offset)
                         .also { currentQuery = it }
                         .executeAsList()
-                        .mapNotNull { deserialize(it) }
+                    onRowsLoaded(entities)
+                    val data = entities.mapNotNull { deserialize(it) }
                     val nextPosToLoad = offset + data.size
                     PagingSource.LoadResult.Page(
                         data = data,
