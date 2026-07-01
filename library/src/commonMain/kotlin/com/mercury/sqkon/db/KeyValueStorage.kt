@@ -390,11 +390,7 @@ open class KeyValueStorage<T : Any>(
             expiresAt = expiresAfter,
         )
         return KeysetQueryPagingSource(
-            queryProvider = { begin, end ->
-                queryProvider(begin, end).also { query ->
-                    updateReadAt(query.executeAsList().map { it.entity_key })
-                }
-            },
+            queryProvider = queryProvider,
             pageBoundariesProvider = pageBoundariesProvider,
             boundaryForKeyProvider = boundaryForKeyProvider,
             countQuery = entityQueries.count(entityName, where = where, expiresAfter = expiresAfter),
@@ -402,6 +398,7 @@ open class KeyValueStorage<T : Any>(
             context = readDispatcher,
             deserialize = { it.deserialize() },
             pageSize = pageSize,
+            onRowsLoaded = { entities -> updateReadAt(entities.map { it.entity_key }) },
         )
     }
 

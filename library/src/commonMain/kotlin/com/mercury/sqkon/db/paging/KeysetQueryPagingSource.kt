@@ -35,6 +35,8 @@ import kotlin.coroutines.CoroutineContext
  * @param transacter Used to run queries within a transaction for consistency.
  * @param context Coroutine context for query execution.
  * @param deserialize Converts an [Entity] to the target type, returning null to skip.
+ * @param onRowsLoaded Invoked once per load with the raw rows fetched for the page (before
+ *   deserialize), so callers can mark them read without re-running the query.
  */
 internal class KeysetQueryPagingSource<T : Any>(
     private val queryProvider: (beginInclusive: String, endExclusive: String?) -> SqkonQuery<Entity>,
@@ -45,6 +47,7 @@ internal class KeysetQueryPagingSource<T : Any>(
     private val context: CoroutineContext,
     private val deserialize: (Entity) -> T?,
     private val pageSize: Int,
+    private val onRowsLoaded: (List<Entity>) -> Unit = {},
 ) : QueryPagingSource<String, T>() {
 
     private var pageBoundaries: List<String>? = null
@@ -107,10 +110,11 @@ internal class KeysetQueryPagingSource<T : Any>(
                         val previousKey = boundaries.getOrNull(keyIndex - 1)
                         val nextKey = boundaries.getOrNull(keyIndex + 1)
 
-                        val results = queryProvider(key, nextKey)
+                        val entities = queryProvider(key, nextKey)
                             .also { currentQuery = it }
                             .executeAsList()
-                            .mapNotNull { deserialize(it) }
+                        onRowsLoaded(entities)
+                        val results = entities.mapNotNull { deserialize(it) }
 
                         if (params.placeholdersEnabled) {
                             // Boundaries sit every pageSize rows, so page keyIndex starts at row

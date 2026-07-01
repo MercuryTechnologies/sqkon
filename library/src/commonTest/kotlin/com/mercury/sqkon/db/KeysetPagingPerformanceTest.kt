@@ -77,4 +77,20 @@ class KeysetPagingPerformanceTest {
         )
         assertEquals(10, last.data.size, "fixture: full final page")
     }
+
+    @Test
+    fun pageQuery_runsOncePerPageLoad_notTwice() = runTest {
+        storage.insertAll((1..100).map { TestObject() }.associateBy { it.id })
+        val config = PagingConfig(pageSize = 10, prefetchDistance = 0, initialLoadSize = 10)
+        val pager = TestPager(config, storage.selectKeysetPagingSource(pageSize = 10))
+
+        driver.queries.clear()
+        with(pager) { refresh(); append(); append() } // 3 page loads on ONE source
+
+        // "WHERE rn >=" is unique to the keyed data query (selectKeyed), not boundaries/snap.
+        assertEquals(
+            3, driver.countMatching("WHERE rn >="),
+            "keyed page query must run once per page load (3 loads), not twice",
+        )
+    }
 }
