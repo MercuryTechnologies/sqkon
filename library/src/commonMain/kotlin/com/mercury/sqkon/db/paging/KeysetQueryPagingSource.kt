@@ -187,11 +187,16 @@ internal class KeysetQueryPagingSource<T : Any>(
 
         // First loaded page: its own load key is not recoverable from state, and it
         // may span several pageSize pages (a refresh window honoring initialLoadSize).
-        // The known boundary keys around it are prevKey (one page before its start),
-        // pages[1].prevKey (one page before its end), and nextKey (its end). Locate
-        // the pageSize page containing the anchor and return whichever known key's
-        // centered refresh window is guaranteed — or, for a lone multi-page window's
-        // uncovered middle, closest — to cover the anchor's page.
+        // The only keys state still holds sit at known sub-pages of this page's
+        // window (pageSpan = 3 shown):
+        //
+        //   sub-page:   -1    |   0      1      2   |    3
+        //   key:      prevKey | [--- this page ---] |  nextKey
+        //                                       ^ pages[1].prevKey = sub-page 2
+        //
+        // A refresh from a key at sub-page k loads windowPages pages starting
+        // backReach pages before k (load()'s centering, mirrored). Find the anchor's
+        // sub-page and return the key whose window covers it.
         if (anchorPage.data.isEmpty()) return anchorPage.prevKey
         val pageSpan = pagesFor(anchorPage.data.size)
         val leadingPlaceholders = anchorPage.itemsBefore
@@ -200,17 +205,19 @@ internal class KeysetQueryPagingSource<T : Any>(
             .coerceIn(0, anchorPage.data.size - 1) / pageSize
         val windowPages = pagesFor(state.config.initialLoadSize)
         val backReach = windowBackShift(windowPages)
-        // A refresh from a key at sub-page k loads windowPages pages starting
-        // backReach pages before k — load()'s centering, mirrored.
         fun windowFromKeyAtCoversAnchor(keySubPage: Int): Boolean =
             subPage >= keySubPage - backReach &&
                 subPage < keySubPage - backReach + windowPages
+
+        // The late-side candidate: pages[1].prevKey when a next page exists (one page
+        // before this page's end), else this page's own nextKey (its end).
         val nextPage = state.pages.getOrNull(anchorIndex + 1)
+        val (lateKey, lateKeySubPage) = when {
+            nextPage != null -> nextPage.prevKey to pageSpan - 1
+            else -> anchorPage.nextKey to pageSpan
+        }
         return when {
-            // pages[1].prevKey sits one page before this page's end (sub-page pageSpan-1).
-            nextPage != null && windowFromKeyAtCoversAnchor(pageSpan - 1) -> nextPage.prevKey
-            // Lone page: nextKey sits at this page's end (sub-page pageSpan).
-            nextPage == null && windowFromKeyAtCoversAnchor(pageSpan) -> anchorPage.nextKey
+            windowFromKeyAtCoversAnchor(lateKeySubPage) -> lateKey
             // prevKey sits at sub-page -1 — covers early sub-pages, and is the closest
             // fallback when nothing covers (a lone multi-page window's middle). null
             // means the page starts at boundaries.first(), and load(null) preserves that.
