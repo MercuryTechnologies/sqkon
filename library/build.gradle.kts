@@ -122,8 +122,10 @@ androidComponents {
 }
 
 // The paging benchmark (PagingBenchmark) is skipped unless sqkon.benchmark=true. Gradle forks a
-// separate JVM for tests, so forward the property (and optional row count) into that JVM.
-tasks.withType<Test>().configureEach {
+// separate JVM for tests, so forward the property (and optional row count) into that JVM. Scoped to
+// jvmTest — the only task that runs the benchmark — so -Dsqkon.benchmark doesn't become an input on
+// unrelated Test tasks and churn their up-to-date/cache state.
+tasks.withType<Test>().matching { it.name == "jvmTest" }.configureEach {
     systemProperty("sqkon.benchmark", providers.systemProperty("sqkon.benchmark").getOrElse("false"))
     providers.systemProperty("sqkon.benchmark.rows").orNull
         ?.let { systemProperty("sqkon.benchmark.rows", it) }
