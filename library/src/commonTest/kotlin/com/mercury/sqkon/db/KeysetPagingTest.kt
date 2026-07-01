@@ -436,4 +436,74 @@ class KeysetPagingTest {
             "All results should match the where clause"
         )
     }
+
+    @Test
+    fun keysetPaging_reportsAbsolutePositions_forPlaceholderSupport() = runTest {
+        // Regression for scroll-jump-on-append: keyset pages must report their
+        // absolute position (itemsBefore/itemsAfter) so a Pager with
+        // enablePlaceholders keeps ABSOLUTE list indices. Without it every page
+        // reports COUNT_UNDEFINED, Paging3 force-disables placeholders, LazyColumn
+        // indices become window-relative, and a RemoteMediator-write invalidation
+        // re-anchors the loaded window and jumps the user's scroll position.
+        val expected = (1..30).map { TestObject() }.associateBy { it.id }
+        testObjectStorage.insertAll(expected)
+
+        val config = PagingConfig(pageSize = 10, prefetchDistance = 0, initialLoadSize = 10)
+        val pager = TestPager(config, testObjectStorage.selectKeysetPagingSource(pageSize = 10))
+
+        val page1 = pager.refresh() as LoadResult.Page<String, TestObject>
+        assertEquals(0, page1.itemsBefore, "First page starts at absolute index 0")
+        assertEquals(20, page1.itemsAfter, "20 items remain after the first page of 30")
+
+        val page2 = pager.append() as LoadResult.Page<String, TestObject>
+        assertEquals(10, page2.itemsBefore, "Second page starts after the first 10 items")
+        assertEquals(10, page2.itemsAfter, "10 items remain after the second page")
+
+        val page3 = pager.append() as LoadResult.Page<String, TestObject>
+        assertEquals(20, page3.itemsBefore, "Third page starts after the first 20 items")
+        assertEquals(0, page3.itemsAfter, "No items remain after the final page")
+    }
+
+    @Test
+    fun keysetPaging_mediatorWrite_refreshedPageKnowsAbsolutePosition() = runTest {
+        // The scroll-jump root cause, end to end: user scrolls to page 3, a
+        // mediator-style write invalidates + shifts boundaries, and the fresh
+        // source's refresh must report the snapped page's ABSOLUTE offset so
+        // Paging3 can keep the anchor at its true index instead of jumping.
+        // Same fixture as keysetPaging_mediatorWriteDuringLoad_preservesAnchorPage:
+        // 50 rows + 5 injected = 55; anchor 25 snaps to the boundary at rn=21
+        // ("key-016") = the 3rd page = absolute offset 20.
+        val initial = (1..50).associate { i ->
+            val id = "key-${i.toString().padStart(3, '0')}"
+            id to TestObject(id = id, value = i)
+        }
+        testObjectStorage.insertAll(initial)
+
+        val config = PagingConfig(pageSize = 10, prefetchDistance = 0, initialLoadSize = 10)
+        val sourceA = testObjectStorage.selectKeysetPagingSource(pageSize = 10)
+        val pagerA = TestPager(config, sourceA)
+        with(pagerA) { refresh(); append(); append() }
+        val state = pagerA.getPagingState(anchorPosition = 25)
+
+        val injected = (1..5).associate { i ->
+            val id = "key-005-injected-$i"
+            id to TestObject(id = id, value = 100 + i)
+        }
+        testObjectStorage.insertAll(injected)
+
+        val sourceB = testObjectStorage.selectKeysetPagingSource(pageSize = 10)
+        val refreshKey = sourceB.getRefreshKey(state)
+        val page = sourceB.load(
+            PagingSource.LoadParams.Refresh(
+                key = refreshKey, loadSize = 10, placeholdersEnabled = true,
+            )
+        ) as LoadResult.Page<String, TestObject>
+
+        assertEquals("key-016", page.data.first().id, "Fixture invariant: snaps to page-3 boundary")
+        assertEquals(20, page.itemsBefore, "Refreshed page must report its absolute offset (20)")
+        assertEquals(
+            55, page.itemsBefore + page.data.size + page.itemsAfter,
+            "itemsBefore + loaded + itemsAfter must equal the full dataset count",
+        )
+    }
 }
