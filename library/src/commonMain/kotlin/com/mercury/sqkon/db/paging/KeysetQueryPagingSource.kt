@@ -26,6 +26,12 @@ import kotlin.coroutines.CoroutineContext
  *   for the page that contains it. Used to snap a refresh key that came from stale boundaries
  *   (e.g. a RemoteMediator wrote rows between the previous source's load and the new source's
  *   boundary recomputation) back onto a real boundary in the new set.
+ * @param countQuery Total (DISTINCT-entity) row count. Reported as [PagingSource.LoadResult.Page]
+ *   itemsBefore/itemsAfter so Paging3 keeps ABSOLUTE list indices — a mediator-write invalidation
+ *   then preserves scroll position instead of collapsing the loaded window. Executed at most once
+ *   per source, and only when the consumer enables placeholders (skipped otherwise — Paging then
+ *   uses COUNT_UNDEFINED with no count query). Positions are exact when each entity maps to one row
+ *   (the common case); a json_tree-multiplying `where` inherits keyset's raw-row over-count (#68).
  * @param transacter Used to run queries within a transaction for consistency.
  * @param context Coroutine context for query execution.
  * @param deserialize Converts an [Entity] to the target type, returning null to skip.
@@ -34,6 +40,7 @@ internal class KeysetQueryPagingSource<T : Any>(
     private val queryProvider: (beginInclusive: String, endExclusive: String?) -> SqkonQuery<Entity>,
     private val pageBoundariesProvider: (anchor: String?, limit: Long) -> SqkonQuery<String>,
     private val boundaryForKeyProvider: (lookupKey: String, limit: Long) -> SqkonQuery<String>,
+    private val countQuery: SqkonQuery<Int>,
     private val transacter: SqkonTransacter,
     private val context: CoroutineContext,
     private val deserialize: (Entity) -> T?,
@@ -41,6 +48,7 @@ internal class KeysetQueryPagingSource<T : Any>(
 ) : QueryPagingSource<String, T>() {
 
     private var pageBoundaries: List<String>? = null
+    private var totalCount: Int = 0
 
     override val jumpingSupported: Boolean get() = false
 
@@ -56,6 +64,10 @@ internal class KeysetQueryPagingSource<T : Any>(
                         val boundariesQuery = pageBoundariesProvider(params.key, pageSize.toLong())
                         val list = boundariesQuery.executeAsList()
                         pageBoundaries = list
+                        // Only when the consumer uses placeholders: otherwise Paging ignores
+                        // itemsBefore/itemsAfter, so skip the COUNT query entirely. Once per source,
+                        // in the boundaries' transaction (keeps count and boundaries consistent).
+                        if (params.placeholdersEnabled) totalCount = countQuery.executeAsOne()
                         if (list.isEmpty()) {
                             // Register a listener on the boundaries query so an empty→populated
                             // transition (e.g., RemoteMediator initial write) triggers invalidation.
@@ -69,6 +81,8 @@ internal class KeysetQueryPagingSource<T : Any>(
                             data = emptyList(),
                             prevKey = null,
                             nextKey = null,
+                            itemsBefore = 0,
+                            itemsAfter = 0,
                         )
                     } else {
                         // Snap params.key to a boundary in the freshly computed set. The key may
@@ -98,11 +112,25 @@ internal class KeysetQueryPagingSource<T : Any>(
                             .executeAsList()
                             .mapNotNull { deserialize(it) }
 
-                        PagingSource.LoadResult.Page(
-                            data = results,
-                            prevKey = previousKey,
-                            nextKey = nextKey,
-                        )
+                        if (params.placeholdersEnabled) {
+                            // Boundaries sit every pageSize rows, so page keyIndex starts at row
+                            // keyIndex * pageSize; coerce guards boundary/count skew.
+                            val itemsBefore = (keyIndex * pageSize).coerceAtMost(totalCount)
+                            PagingSource.LoadResult.Page(
+                                data = results,
+                                prevKey = previousKey,
+                                nextKey = nextKey,
+                                itemsBefore = itemsBefore,
+                                itemsAfter = (totalCount - itemsBefore - results.size).coerceAtLeast(0),
+                            )
+                        } else {
+                            // Placeholders off → Paging uses COUNT_UNDEFINED; no count needed.
+                            PagingSource.LoadResult.Page(
+                                data = results,
+                                prevKey = previousKey,
+                                nextKey = nextKey,
+                            )
+                        }
                     }
                 }
             val loadResult = transacter

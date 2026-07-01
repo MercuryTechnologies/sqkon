@@ -65,6 +65,7 @@ class PagingErrorHandlingTest {
             queryProvider = entityQueries.selectKeyed("test-object"),
             pageBoundariesProvider = entityQueries.selectPageBoundaries("test-object"),
             boundaryForKeyProvider = entityQueries.selectBoundaryForKey("test-object"),
+            countQuery = entityQueries.count("test-object"),
             transacter = entityQueries,
             context = Dispatchers.IO,
             deserialize = { throw CancellationException("cancelled") },

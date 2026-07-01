@@ -397,6 +397,7 @@ open class KeyValueStorage<T : Any>(
             },
             pageBoundariesProvider = pageBoundariesProvider,
             boundaryForKeyProvider = boundaryForKeyProvider,
+            countQuery = entityQueries.count(entityName, where = where, expiresAfter = expiresAfter),
             transacter = entityQueries,
             context = readDispatcher,
             deserialize = { it.deserialize() },
