@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.0.1](https://github.com/MercuryTechnologies/sqkon/compare/3.0.0...3.0.1) (2026-07-01)
+
+
+### Bug Fixes
+
+* **paging:** honor initialLoadSize on keyset refresh to stop placeholder blink ([#129](https://github.com/MercuryTechnologies/sqkon/issues/129)) ([a2132f8](https://github.com/MercuryTechnologies/sqkon/commit/a2132f814d95c470c73f19eb1293aba5aac76a06))
+
 ## [3.0.0](https://github.com/MercuryTechnologies/sqkon/compare/2.1.0...3.0.0) (2026-07-01)
 
 
