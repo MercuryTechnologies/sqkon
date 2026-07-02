@@ -113,3 +113,62 @@
     init();
   }
 })();
+
+// --- Right-hand "On this page" TOC -----------------------------------------
+(function () {
+  "use strict";
+
+  function init() {
+    var main = document.querySelector("#main-content > main");
+    if (!main || document.querySelector(".hero")) return; // no TOC on the landing page
+
+    var headings = Array.prototype.filter.call(
+      main.querySelectorAll("h2[id], h3[id]"),
+      function (h) { return h.id && h.id !== "table-of-contents"; }
+    );
+    if (headings.length < 2) return;
+
+    var aside = document.createElement("aside");
+    aside.className = "sqkon-toc";
+    aside.setAttribute("aria-label", "On this page");
+
+    var title = document.createElement("p");
+    title.className = "sqkon-toc__title";
+    title.textContent = "On this page";
+    aside.appendChild(title);
+
+    var list = document.createElement("ul");
+    var links = {};
+    headings.forEach(function (h) {
+      var li = document.createElement("li");
+      li.className = "sqkon-toc__" + h.tagName.toLowerCase();
+      var a = document.createElement("a");
+      a.href = "#" + h.id;
+      a.textContent = h.textContent.trim();
+      li.appendChild(a);
+      list.appendChild(li);
+      links[h.id] = a;
+    });
+    aside.appendChild(list);
+    main.insertAdjacentElement("afterend", aside);
+    document.documentElement.classList.add("sqkon-has-toc");
+
+    // Scroll-spy: highlight the heading nearest the top of the viewport.
+    var activeId = null;
+    var observer = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) { activeId = entry.target.id; }
+      });
+      Object.keys(links).forEach(function (id) {
+        links[id].classList.toggle("sqkon-toc--active", id === activeId);
+      });
+    }, { rootMargin: "0px 0px -75% 0px" });
+    headings.forEach(function (h) { observer.observe(h); });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
+})();

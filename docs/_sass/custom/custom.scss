@@ -317,3 +317,58 @@ td, th { border-color: $mercury-border-soft !important; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation: none !important; }
 }
+
+// --- Right TOC ("On this page") --------------------------------------------
+.sqkon-toc { display: none; }
+
+// 75rem ≈ 1200px — below this the TOC stays hidden entirely
+@media (min-width: 75rem) {
+  html.sqkon-has-toc #main-content {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 12.5rem;
+    column-gap: 2.5rem;
+  }
+
+  html.sqkon-has-toc #main-content > main { grid-column: 1; min-width: 0; }
+  html.sqkon-has-toc #main-content > *:not(main):not(.sqkon-toc) { grid-column: 1 / -1; }
+
+  .sqkon-toc {
+    display: block;
+    grid-column: 2;
+    grid-row: 1;
+    position: sticky;
+    top: 2rem;
+    align-self: start;
+    max-height: calc(100vh - 4rem);
+    padding-left: 1rem;
+    overflow-y: auto;
+    border-left: 1px solid $mercury-border-soft;
+
+    &__title {
+      margin: 0 0 0.5rem;
+      font-size: 0.6875rem;
+      font-weight: 600;
+      color: $mercury-text-muted;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    ul { padding: 0; margin: 0; list-style: none; }
+    li { margin: 0; }
+    &__h3 { padding-left: 0.75rem; }
+
+    a {
+      display: block;
+      overflow: hidden;
+      padding: 0.2rem 0;
+      font-size: 0.8125rem;
+      color: $mercury-text-mid;
+      text-decoration: none;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+
+      &:hover { color: $mercury-accent; }
+      &.sqkon-toc--active { font-weight: 600; color: $mercury-accent; }
+    }
+  }
+}
