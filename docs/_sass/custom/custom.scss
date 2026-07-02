@@ -284,7 +284,10 @@ div.highlighter-rouge {
     border-radius: 0;
   }
 
-  pre.highlight { padding: 0.75rem 1rem; }
+  // overflow-x:auto so long lines scroll within the card instead of being
+  // clipped by the container's overflow:hidden (which is there for the
+  // rounded corners). Restores the scroll JTD's default pre.highlight has.
+  pre.highlight { padding: 0.75rem 1rem; overflow-x: auto; }
   code { background: transparent; border: 0; }
 }
 
