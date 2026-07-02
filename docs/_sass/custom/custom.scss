@@ -43,6 +43,7 @@ $mercury-accent:       #5266eb !default;
 $mercury-accent-2:     #4354c8 !default;
 $mercury-border-soft:  #e7e6e0 !default;
 $mercury-code-bg:      #f4f2ee !default;
+$mercury-code-block-bg: #272735 !default;
 
 body {
   letter-spacing: -0.005em;
@@ -181,7 +182,7 @@ html:not([data-sqkon-theme="dark"]) #sqkon-theme-toggle .sqkon-icon-moon { displ
 
 // --- Code blocks: dark cards in both schemes ------------------------------
 // Light scheme: charcoal card on white page. Dark scheme: near-black card.
-$sqkon-code-block-bg: if(lightness($mercury-bg) > 50%, #272735, $mercury-code-bg);
+$sqkon-code-block-bg: $mercury-code-block-bg;
 
 div.highlighter-rouge {
   margin-bottom: 1rem;

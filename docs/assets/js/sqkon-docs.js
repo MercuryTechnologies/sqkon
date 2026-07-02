@@ -58,6 +58,7 @@
   }
 
   function addChrome(block) {
+    if (block.querySelector(".sqkon-code-header")) return;
     if (block.closest(".sqkon-no-chrome")) return;
     var label = labelFor(block);
     if (label === undefined) return;
