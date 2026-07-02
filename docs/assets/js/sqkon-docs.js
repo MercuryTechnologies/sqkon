@@ -3,6 +3,55 @@
 (function () {
   "use strict";
 
+  // Run fn once the DOM is ready (or immediately if it already is).
+  function onReady(fn) {
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", fn);
+    } else {
+      fn();
+    }
+  }
+
+  // Copy text to the clipboard, calling onDone only on success. Tries the
+  // async Clipboard API first (absent on insecure/http:// contexts, and can
+  // reject — e.g. Firefox when the document isn't focused, or denied
+  // permission), then falls back to a hidden-textarea execCommand.
+  function copyText(text, onDone) {
+    function fallback() {
+      var ta = document.createElement("textarea");
+      ta.value = text;
+      ta.setAttribute("readonly", "");
+      ta.style.position = "fixed";
+      ta.style.top = "-9999px";
+      document.body.appendChild(ta);
+      ta.select();
+      var ok = false;
+      try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+      document.body.removeChild(ta);
+      if (ok) onDone();
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(onDone, fallback);
+    } else {
+      fallback();
+    }
+  }
+
+  // Wire a copy button: on click, copy `text` and briefly show `copiedLabel`.
+  function wireCopyButton(btn, getText, copiedLabel) {
+    var original = btn.textContent;
+    btn.addEventListener("click", function () {
+      copyText(getText(), function () {
+        btn.textContent = copiedLabel;
+        btn.classList.add("sqkon-copied");
+        setTimeout(function () {
+          btn.textContent = original;
+          btn.classList.remove("sqkon-copied");
+        }, 1500);
+      });
+    });
+  }
+
   // --- Theme toggle -------------------------------------------------------
   // The pre-paint script in head_custom.html has already set
   // data-sqkon-theme and swapped the stylesheet if needed; this module
@@ -10,12 +59,8 @@
   var LIGHT_CSS = "just-the-docs-default";
   var DARK_CSS = "just-the-docs-mercury-dark";
 
-  function themeLink() {
-    return document.querySelector('link[rel="stylesheet"][href*="' + LIGHT_CSS + '"], link[rel="stylesheet"][href*="' + DARK_CSS + '"]');
-  }
-
   function applyTheme(theme) {
-    var link = themeLink();
+    var link = document.querySelector('link[rel="stylesheet"][href*="' + LIGHT_CSS + '"], link[rel="stylesheet"][href*="' + DARK_CSS + '"]');
     if (!link) return;
     link.href = theme === "dark"
       ? link.href.replace(LIGHT_CSS, DARK_CSS)
@@ -33,17 +78,7 @@
     });
   }
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", initThemeToggle);
-  } else {
-    initThemeToggle();
-  }
-})();
-
-// --- Code-block chrome: language label + copy button ----------------------
-(function () {
-  "use strict";
-
+  // --- Code-block chrome: language label + copy button --------------------
   var LANG_LABELS = {
     kotlin: "Kotlin", bash: "Bash", sh: "Shell", shell: "Shell",
     yaml: "YAML", yml: "YAML", toml: "TOML", sql: "SQL", json: "JSON",
@@ -76,49 +111,21 @@
     btn.type = "button";
     btn.textContent = "Copy";
     btn.setAttribute("aria-label", "Copy code to clipboard");
-    btn.addEventListener("click", function () {
+    wireCopyButton(btn, function () {
       var code = block.querySelector("pre.highlight code, pre code, pre");
-      var text = code ? code.innerText : "";
-      var done = function () {
-        btn.textContent = "Copied";
-        btn.classList.add("sqkon-copied");
-        setTimeout(function () {
-          btn.textContent = "Copy";
-          btn.classList.remove("sqkon-copied");
-        }, 1500);
-      };
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(done);
-      } else {
-        var ta = document.createElement("textarea");
-        ta.value = text;
-        document.body.appendChild(ta);
-        ta.select();
-        try { document.execCommand("copy"); done(); } catch (e) {}
-        document.body.removeChild(ta);
-      }
-    });
+      return code ? code.innerText : "";
+    }, "Copied");
     header.appendChild(btn);
 
     block.insertBefore(header, block.firstChild);
   }
 
-  function init() {
+  function initCodeChrome() {
     document.querySelectorAll("div.highlighter-rouge").forEach(addChrome);
   }
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
-  } else {
-    init();
-  }
-})();
-
-// --- Right-hand "On this page" TOC -----------------------------------------
-(function () {
-  "use strict";
-
-  function init() {
+  // --- Right-hand "On this page" TOC --------------------------------------
+  function initToc() {
     var main = document.querySelector("#main-content > main");
     if (!main || document.querySelector(".hero")) return; // no TOC on the landing page
 
@@ -139,6 +146,7 @@
 
     var list = document.createElement("ul");
     var links = {};
+    var order = [];
     headings.forEach(function (h) {
       var li = document.createElement("li");
       li.className = "sqkon-toc__" + h.tagName.toLowerCase();
@@ -148,58 +156,42 @@
       li.appendChild(a);
       list.appendChild(li);
       links[h.id] = a;
+      order.push(h.id);
     });
     aside.appendChild(list);
     main.insertAdjacentElement("afterend", aside);
     document.documentElement.classList.add("sqkon-has-toc");
 
-    // Scroll-spy: highlight the heading nearest the top of the viewport.
-    var activeId = null;
+    // Scroll-spy: highlight the topmost heading currently within the top band
+    // (document order), and clear the highlight once none remain — e.g. after
+    // scrolling past the last heading.
+    var intersecting = {};
     var observer = new IntersectionObserver(function (entries) {
       entries.forEach(function (entry) {
-        if (entry.isIntersecting) { activeId = entry.target.id; }
+        intersecting[entry.target.id] = entry.isIntersecting;
       });
-      Object.keys(links).forEach(function (id) {
+      var activeId = null;
+      for (var i = 0; i < order.length; i++) {
+        if (intersecting[order[i]]) { activeId = order[i]; break; }
+      }
+      order.forEach(function (id) {
         links[id].classList.toggle("sqkon-toc--active", id === activeId);
       });
     }, { rootMargin: "0px 0px -75% 0px" });
     headings.forEach(function (h) { observer.observe(h); });
   }
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
-  } else {
-    init();
-  }
-})();
-
-// --- Maven-coordinate copy chip (landing hero) ------------------------------
-(function () {
-  "use strict";
-
-  function init() {
+  // --- Maven-coordinate copy chip (landing hero) --------------------------
+  function initCoordChips() {
     document.querySelectorAll("button.sqkon-coord[data-copy]").forEach(function (btn) {
-      var original = btn.textContent;
-      btn.addEventListener("click", function () {
-        var text = btn.getAttribute("data-copy");
-        var done = function () {
-          btn.textContent = "Copied ✓";
-          btn.classList.add("sqkon-copied");
-          setTimeout(function () {
-            btn.textContent = original;
-            btn.classList.remove("sqkon-copied");
-          }, 1500);
-        };
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(text).then(done);
-        }
-      });
+      wireCopyButton(btn, function () { return btn.getAttribute("data-copy"); }, "Copied ✓");
     });
   }
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
-  } else {
-    init();
-  }
+  onReady(function () {
+    initThemeToggle();
+    initCodeChrome();
+    initToc();
+    initCoordChips();
+  });
 })();

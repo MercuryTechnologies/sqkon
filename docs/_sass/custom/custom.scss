@@ -164,12 +164,6 @@ h1, h2, h3, h4 {
 
 .hero__badges { margin: 0 0 2rem; }
 
-// Code block tweaks
-.highlight, pre.highlight {
-  border-radius: 8px;
-  border: 1px solid $mercury-border-soft;
-}
-
 .site-title {
   display: inline-flex;
   align-items: center;
@@ -348,8 +342,9 @@ html[data-sqkon-theme="dark"] .mermaid {
 
 // --- Page chrome -----------------------------------------------------------
 
-// Inline code: quiet cream/charcoal chip (blocks are handled above)
-:not(pre, figure) > code {
+// Inline code: quiet cream/charcoal chip (blocks are handled above).
+// Chained :not() (not the selector-list form) so pre-2021 engines keep the rule.
+:not(pre):not(figure) > code {
   padding: 0.15em 0.35em;
   font-size: 0.85em;
   background-color: $mercury-code-bg;
@@ -388,7 +383,8 @@ blockquote.warning, p.warning, blockquote.caution, p.caution, blockquote.new, p.
   padding: 0.75rem 1rem;
   margin-inline: 0;
   background: rgba($mercury-accent, 0.08);
-  border-left: 3px solid $mercury-accent;
+  border: 0;                                 // drop JTD's full-box callout border
+  border-left: 3px solid $mercury-accent;    // …keep only the accent rail
   border-radius: 0 8px 8px 0;
 
   > .highlight-title, > .note-title, > .important-title,
