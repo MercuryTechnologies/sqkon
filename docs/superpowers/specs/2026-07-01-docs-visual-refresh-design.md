@@ -65,7 +65,6 @@ Decisions below were validated with mockups during brainstorming:
 - **Code blocks:** charcoal card with header row — language label (derived from Rouge's `language-*` class) left, copy button right. Copy button shows a brief "Copied" confirmation.
 - **Callouts:** existing `{: .note }` / `{: .highlight }` etc. restyled as left-rail blocks (3px accent rail, tinted fill, rounded right corners). Callout config names in `_config.yml` are unchanged.
 - **Right TOC ("On this page"):** built client-side from `h2`/`h3` heading IDs; IntersectionObserver drives the active state; hidden below ~1200px viewport width. Pages with fewer than 2 headings render no TOC.
-- **Prev/next:** restyled as bordered card row.
 - All existing markdown pages (33) render unmodified — no front-matter or content edits required beyond `index.md`'s hero markup.
 
 ## 3. Implementation shape
@@ -74,16 +73,17 @@ Decisions below were validated with mockups during brainstorming:
 |---|---|
 | Dark scheme tokens | `docs/_sass/color_schemes/mercury-dark.scss` (new) |
 | Light palette updates | `docs/_sass/color_schemes/mercury.scss` |
-| All component styling (hero, cards, code chrome, callouts, TOC, prev/next) | `docs/_sass/custom/custom.scss` |
+| All component styling (hero, cards, code chrome, callouts, TOC) | `docs/_sass/custom/custom.scss` |
 | Fonts, preloads, no-FOUC theme script | `docs/_includes/head_custom.html` + `docs/assets/fonts/` |
-| Right-TOC container + toggle button placement | shadowed `docs/_layouts/default.html` (copied from the JTD gem, minimally edited) + small include |
+| Dark stylesheet emission | `docs/assets/css/just-the-docs-mercury-dark.scss` (JTD's documented alternate-scheme pattern) |
+| Toggle button placement | shadowed `docs/_includes/components/sidebar.html` (copied from the JTD gem, one button added; no `_layouts` shadow needed — the right TOC is injected client-side) |
 | Copy buttons, language labels, TOC build + scroll-spy, toggle handler | `docs/assets/js/sqkon-docs.js` (new, vanilla JS, no dependencies) |
 | Hero markup | `docs/index.md` |
 
 Notes:
 
 - `!default` fallbacks in `custom.scss` must be kept/extended — JTD always compiles its stock light/dark schemes alongside custom ones (see existing comment in that file).
-- The shadowed `default.html` must be diffed against the gem's version at upgrade time; keep the edit surface minimal (wrapper div + two includes) and comment the divergence points.
+- The shadowed `components/sidebar.html` must be diffed against the gem's version at upgrade time; keep the edit surface minimal (one added button) and comment the divergence point.
 - JS is progressive enhancement: with JS disabled the site renders fully (no TOC, no copy buttons, theme fixed to light/system).
 
 ## 4. Error handling / edge cases
