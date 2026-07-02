@@ -255,3 +255,65 @@ html[data-sqkon-theme="dark"] .mermaid {
   background: #f5f4f0;
   border-radius: 8px;
 }
+
+// --- Page chrome -----------------------------------------------------------
+
+// Inline code: quiet cream/charcoal chip (blocks are handled above)
+:not(pre, figure) > code {
+  padding: 0.15em 0.35em;
+  font-size: 0.85em;
+  background-color: $mercury-code-bg;
+  border: 1px solid $mercury-border-soft;
+  border-radius: 5px;
+}
+
+// Breadcrumbs: quieter, smaller
+.breadcrumb-nav-list-item {
+  font-size: 0.75rem !important;
+  color: $mercury-text-muted;
+
+  a { color: $mercury-text-muted; &:hover { color: $mercury-accent; } }
+}
+
+// Section headers in the sidebar nav (JTD .nav-category)
+.nav-category {
+  font-size: 0.6875rem !important;
+  color: $mercury-text-muted !important;
+  letter-spacing: 0.08em;
+}
+
+// Callouts: left accent rail + tinted fill (restyles JTD's generated ones)
+//
+// Verified against built HTML (docs/_site): kramdown's `{: .note }` IAL
+// attaches directly to whatever block it follows. When the callout body is
+// a single plain paragraph, that's a `<p class="note">`; when the body uses
+// blockquote (`>`) syntax, it's `<blockquote class="note">`. Both shapes
+// occur across the docs (e.g. guides/expiry.md and getting-started/
+// serialization.md), so both element types are targeted here. The callout
+// `.highlight` class only ever appears as `blockquote.highlight` /
+// `p.highlight` in the built output — Rouge code blocks render as
+// `div.highlight`, which these selectors do not touch.
+blockquote.note, p.note, blockquote.highlight, p.highlight, blockquote.important, p.important,
+blockquote.warning, p.warning, blockquote.caution, p.caution, blockquote.new, p.new {
+  padding: 0.75rem 1rem;
+  margin-inline: 0;
+  background: rgba($mercury-accent, 0.08);
+  border-left: 3px solid $mercury-accent;
+  border-radius: 0 8px 8px 0;
+
+  > .highlight-title, > .note-title, > .important-title,
+  > .warning-title, > .caution-title, > .new-title { font-weight: 600; }
+}
+
+blockquote.warning, p.warning { background: rgba(240, 198, 116, 0.12); border-left-color: #d9a648; }
+blockquote.caution, p.caution { background: rgba(224, 108, 108, 0.10); border-left-color: #d06060; }
+blockquote.important, p.important { background: rgba(122, 180, 120, 0.10); border-left-color: #5f9e5d; }
+
+// Tables: soft borders, tinted header row
+th { background: $mercury-bg-alt !important; }
+td, th { border-color: $mercury-border-soft !important; }
+
+// Motion discipline
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+}
