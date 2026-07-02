@@ -48,6 +48,15 @@ errors << "font payload #{font_bytes / 1024}KB exceeds 180KB budget" if font_byt
 errors << "missing #sqkon-theme-toggle button" unless doc.at_css("button#sqkon-theme-toggle")
 errors << "missing sqkon-docs.js script tag" unless doc.at_css('script[src*="sqkon-docs.js"]')
 
+# --- Visual refresh: split hero ---
+errors << "missing .hero--split" unless doc.at_css(".hero--split")
+errors << "missing hero code panel" unless doc.at_css(".hero__code .highlight")
+coord = doc.at_css("button.sqkon-coord")
+errors << "missing maven-coordinate chip" unless coord
+if coord && coord["data-copy"] !~ /\Acom\.mercury\.sqkon:library:\d/
+  errors << "coordinate chip data-copy looks wrong: #{coord && coord["data-copy"].inspect}"
+end
+
 if errors.empty?
   puts "docs smoke check OK"
 else

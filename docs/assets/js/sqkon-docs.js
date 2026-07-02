@@ -172,3 +172,34 @@
     init();
   }
 })();
+
+// --- Maven-coordinate copy chip (landing hero) ------------------------------
+(function () {
+  "use strict";
+
+  function init() {
+    document.querySelectorAll("button.sqkon-coord[data-copy]").forEach(function (btn) {
+      var original = btn.textContent;
+      btn.addEventListener("click", function () {
+        var text = btn.getAttribute("data-copy");
+        var done = function () {
+          btn.textContent = "Copied ✓";
+          btn.classList.add("sqkon-copied");
+          setTimeout(function () {
+            btn.textContent = original;
+            btn.classList.remove("sqkon-copied");
+          }, 1500);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(done);
+        }
+      });
+    });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
+})();

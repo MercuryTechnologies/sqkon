@@ -54,28 +54,99 @@ h1, h2, h3, h4 {
   letter-spacing: -0.02em;
 }
 
-// Hero block on landing
-.hero {
-  background: linear-gradient(180deg, $mercury-bg 0%, $mercury-bg-alt 100%);
-  padding: 4rem 2rem 3rem;
-  text-align: center;
-  border-bottom: 1px solid $mercury-border-soft;
-  margin: -1.5rem -1.5rem 2rem;
-  border-radius: 0;
+// --- Split hero (landing) ---------------------------------------------------
+.hero--split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+  gap: 2.5rem;
+  align-items: center;
+  padding: 3rem 0 2.5rem;
+  margin: 0 0 1rem;
+  text-align: left;
+  background: none;
+  border-bottom: 0;
+
+  @media (max-width: 56.25rem) { // 900px: stack
+    grid-template-columns: 1fr;
+    padding-top: 1.5rem;
+  }
+}
+
+.hero__eyebrow {
+  margin: 0 0 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: $mercury-accent;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 .hero__title {
-  font-size: 3rem;
-  margin-bottom: 0.5rem;
+  margin: 0 0 0.75rem;
+  font-size: 2.5rem;
+  line-height: 1.1;
   color: $mercury-text;
 }
 
 .hero__tagline {
-  font-size: 1.25rem;
+  max-width: 34ch;
+  margin: 0 0 1.5rem;
+  font-size: 1.125rem;
   color: $mercury-text-mid;
-  max-width: 40ch;
-  margin: 0 auto 2rem;
 }
+
+.hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.sqkon-coord {
+  padding: 0.5rem 0.875rem;
+  font-family: $mono-font-family;
+  font-size: 0.8125rem;
+  color: $mercury-text-mid;
+  cursor: pointer;
+  background: $mercury-code-bg;
+  border: 1px solid $mercury-border-soft;
+  border-radius: 8px;
+
+  &:hover { color: $mercury-accent; border-color: $mercury-accent; }
+  &:focus-visible { outline: 2px solid $mercury-accent; outline-offset: 2px; }
+  &.sqkon-copied { color: #5f9e5d; border-color: #5f9e5d; }
+}
+
+.hero__code {
+  overflow: hidden;
+  background: #272735;
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(39, 39, 53, 0.18);
+
+  div.highlighter-rouge, div.highlight, pre.highlight {
+    margin: 0;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+  }
+
+  pre.highlight { padding: 0.5rem 1.25rem 1.25rem; }
+}
+
+.hero__code-bar {
+  display: flex;
+  gap: 0.4rem;
+  padding: 0.75rem 1rem 0.25rem;
+
+  span {
+    width: 0.6rem;
+    height: 0.6rem;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.18);
+  }
+}
+
+.hero__badges { margin: 0 0 2rem; }
 
 // Code block tweaks
 .highlight, pre.highlight {
