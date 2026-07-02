@@ -31,7 +31,7 @@ Decisions below were validated with mockups during brainstorming:
 ### Dark scheme (new) — `mercury-dark.scss`
 
 - Base `#232329`; panels/sidebar `#28282f`; borders `rgba(255,255,255,0.08–0.09)`.
-- Text `#f5f4f0`; secondary `#a3a3ab`; muted `#6e6e78`.
+- Text `#f5f4f0`; secondary `#a3a3ab`; muted `#9494a0` (AA 4.5:1 on the dark base; light-scheme muted is `#70707d`).
 - Accent: brand blue lightened to `#8a93f5` for links/active states (AA on the dark base); callout fill `rgba(138,147,245,0.10–0.16)`.
 - Code blocks `#1b1b20` with a hairline border.
 
