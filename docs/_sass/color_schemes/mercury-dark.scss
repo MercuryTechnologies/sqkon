@@ -1,0 +1,38 @@
+// Mercury dark scheme — "D2 warm charcoal" from the design spec.
+// The dark cousin of the cream: Mercury's charcoal family as surfaces,
+// brand blue lightened to keep AA contrast on dark.
+
+// --- Palette (mirrors every token mercury.scss defines) ---
+$mercury-bg:           #232329;  // base surface
+$mercury-bg-alt:       #28282f;  // panels
+$mercury-bg-sidebar:   #28282f;  // sidebar panel
+$mercury-text:         #f5f4f0;  // primary text
+$mercury-text-mid:     #a3a3ab;  // secondary text
+$mercury-text-muted:   #9494a0;  // eyebrows, TOC headings, breadcrumbs (AA 4.5:1 on #232329)
+$mercury-accent:       #8a93f5;  // lightened brand blue (AA on #232329)
+$mercury-accent-2:     #98a0f6;  // hover
+$mercury-border:       rgba(255, 255, 255, 0.09);
+$mercury-border-soft:  rgba(255, 255, 255, 0.08);
+$mercury-code-bg:      #1b1b20;  // code blocks + inline code
+$mercury-code-block-bg: #1b1b20;  // code cards in dark mode
+
+// --- Just the Docs variable overrides ---
+$color-scheme:                 dark; // JTD hint: affects e.g. search icon rendering
+$body-background-color:        $mercury-bg;
+$sidebar-color:                $mercury-bg-sidebar;
+$body-text-color:              $mercury-text;
+$body-heading-color:           $mercury-text;
+$nav-child-link-color:         $mercury-text-mid;
+$link-color:                   $mercury-accent;
+$btn-primary-color:            #5266eb; // buttons keep the full-strength brand blue
+$base-button-color:            $mercury-bg-alt;
+$code-background-color:        $mercury-code-bg;
+$feedback-color:               lighten($mercury-bg, 3%);
+$table-background-color:       $mercury-bg-alt;
+$search-background-color:      $mercury-bg-alt;
+$search-result-preview-color:  $mercury-text-mid;
+$border-color:                 $mercury-border;
+
+// --- Typography (must match mercury.scss) ---
+$body-font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+$mono-font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;

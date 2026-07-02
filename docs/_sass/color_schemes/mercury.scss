@@ -11,10 +11,13 @@ $mercury-accent-2:     #4354c8;  // hover blue
 $mercury-border:       #c3c3cc;  // light border / divider
 $mercury-border-soft:  #e7e6e0;  // softer divider on cream
 $mercury-code-bg:      #f4f2ee;  // very light cream for code blocks
+$mercury-bg-sidebar:   #fafaf8;  // near-white sidebar (replaces cream sidebar)
+$mercury-text-muted:   #70707d;  // eyebrow labels, TOC headings, breadcrumbs (AA 4.5:1 on white)
+$mercury-code-block-bg: #272735;  // dark code cards on the light page
 
 // --- Just the Docs variable overrides ---
 $body-background-color:        $mercury-bg;
-$sidebar-color:                $mercury-bg-alt;
+$sidebar-color:                $mercury-bg-sidebar;
 $body-text-color:              $mercury-text;
 $body-heading-color:           $mercury-text;
 $nav-child-link-color:         $mercury-text-mid;
@@ -30,3 +33,7 @@ $border-color:                 $mercury-border;
 
 // Callout colors are configured via _config.yml `callouts:` (Just the Docs
 // 0.12+ reads them from site config, not SCSS).
+
+// --- Typography (self-hosted; see custom.scss @font-face) ---
+$body-font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+$mono-font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;

@@ -1,3 +1,29 @@
+// Self-hosted fonts (OFL). Paths resolve relative to the compiled
+// /assets/css/*.css, so ../fonts/ == /assets/fonts/.
+@font-face {
+  font-family: "Inter";
+  src: url("../fonts/inter-var-latin.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("../fonts/ibm-plex-mono-400-latin.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url("../fonts/ibm-plex-mono-700-latin.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 // Mercury-themed typography and layout overrides.
 // Just the Docs auto-loads `_sass/custom/custom.scss` after its own styles.
 //
@@ -9,14 +35,17 @@
 // Keep this list trimmed to what custom.scss actually consumes.
 $mercury-bg:           #ffffff !default;
 $mercury-bg-alt:       #efeee9 !default;
+$mercury-bg-sidebar:   #fafaf8 !default;
 $mercury-text:         #272735 !default;
 $mercury-text-mid:     #535461 !default;
+$mercury-text-muted:   #70707d !default;
 $mercury-accent:       #5266eb !default;
 $mercury-accent-2:     #4354c8 !default;
 $mercury-border-soft:  #e7e6e0 !default;
+$mercury-code-bg:      #f4f2ee !default;
+$mercury-code-block-bg: #272735 !default;
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
   letter-spacing: -0.005em;
 }
 
@@ -25,34 +54,115 @@ h1, h2, h3, h4 {
   letter-spacing: -0.02em;
 }
 
-// Hero block on landing
-.hero {
-  background: linear-gradient(180deg, $mercury-bg 0%, $mercury-bg-alt 100%);
-  padding: 4rem 2rem 3rem;
-  text-align: center;
-  border-bottom: 1px solid $mercury-border-soft;
-  margin: -1.5rem -1.5rem 2rem;
-  border-radius: 0;
+// --- Split hero (landing) ---------------------------------------------------
+.hero--split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+  gap: 2.5rem;
+  align-items: center;
+  padding: 3rem 0 2.5rem;
+  margin: 0 0 1rem;
+  text-align: left;
+  background: none;
+  border-bottom: 0;
+
+  @media (max-width: 56.25rem) { // 900px: stack
+    grid-template-columns: 1fr;
+    padding-top: 1.5rem;
+  }
+}
+
+.hero__eyebrow {
+  margin: 0 0 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: $mercury-accent;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 .hero__title {
-  font-size: 3rem;
-  margin-bottom: 0.5rem;
+  margin: 0 0 0.75rem;
+  font-size: 2.5rem;
+  line-height: 1.1;
   color: $mercury-text;
 }
 
 .hero__tagline {
-  font-size: 1.25rem;
+  max-width: 34ch;
+  margin: 0 0 1.5rem;
+  font-size: 1.125rem;
   color: $mercury-text-mid;
-  max-width: 40ch;
-  margin: 0 auto 2rem;
 }
 
-// Code block tweaks
-.highlight, pre.highlight {
-  border-radius: 8px;
-  border: 1px solid $mercury-border-soft;
+.hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
 }
+
+.sqkon-coord {
+  padding: 0.5rem 0.875rem;
+  font-family: $mono-font-family;
+  font-size: 0.8125rem;
+  color: $mercury-text-mid;
+  cursor: pointer;
+  background: $mercury-code-bg;
+  border: 1px solid $mercury-border-soft;
+  border-radius: 8px;
+
+  &:hover { color: $mercury-accent; border-color: $mercury-accent; }
+  &:focus-visible { outline: 2px solid $mercury-accent; outline-offset: 2px; }
+  &.sqkon-copied { color: #5f9e5d; border-color: #5f9e5d; }
+}
+
+.hero__code {
+  overflow: hidden;
+  background: $mercury-code-block-bg;  // tracks the scheme like the other code cards
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(39, 39, 53, 0.18);
+
+  figure.highlight,
+  div.highlighter-rouge, div.highlight, pre.highlight {
+    margin: 0;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  // Nesting makes these `.hero__code figure.highlight pre` (0,2,2), which beats
+  // JTD's `figure.highlight pre` (0,1,2) and the sitewide `.highlight` border.
+  figure.highlight pre,
+  figure.highlight code,
+  pre.highlight {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+  }
+
+  // Long lines scroll within the panel instead of clipping (the outer card is
+  // overflow:hidden for the rounded corners + traffic-light bar).
+  figure.highlight pre { padding: 0.5rem 1.25rem 1.25rem; overflow-x: auto; }
+}
+
+.hero__code-bar {
+  display: flex;
+  gap: 0.4rem;
+  padding: 0.75rem 1rem 0.25rem;
+
+  span {
+    width: 0.6rem;
+    height: 0.6rem;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.18);
+  }
+}
+
+.hero__badges { margin: 0 0 2rem; }
 
 .site-title {
   display: inline-flex;
@@ -131,5 +241,220 @@ h1, h2, h3, h4 {
     background: $mercury-accent-2;
     border-color: $mercury-accent-2;
     color: $mercury-bg;
+  }
+}
+
+// Theme toggle (sun shown in light mode, moon in dark)
+#sqkon-theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.375rem;
+  margin-right: 0.25rem;
+  color: $mercury-text-mid;
+  cursor: pointer;
+  border-radius: 6px;
+
+  &:hover { color: $mercury-accent; background: rgba($mercury-accent, 0.08); }
+  &:focus-visible { outline: 2px solid $mercury-accent; outline-offset: 2px; }
+}
+
+html[data-sqkon-theme="dark"] #sqkon-theme-toggle .sqkon-icon-sun { display: none; }
+html:not([data-sqkon-theme="dark"]) #sqkon-theme-toggle .sqkon-icon-moon { display: none; }
+
+// --- Code blocks: dark cards in both schemes ------------------------------
+// Light scheme: charcoal card on white page. Dark scheme: near-black card.
+// (background comes from $mercury-code-block-bg, defined per scheme.)
+
+div.highlighter-rouge {
+  margin-bottom: 1rem;
+  overflow: hidden;
+  border: 1px solid $mercury-border-soft;
+  border-radius: 8px;
+
+  div.highlight, pre.highlight {
+    margin: 0;
+    background-color: $mercury-code-block-bg;
+    border: 0;
+    border-radius: 0;
+  }
+
+  // overflow-x:auto so long lines scroll within the card instead of being
+  // clipped by the container's overflow:hidden (which is there for the
+  // rounded corners). Restores the scroll JTD's default pre.highlight has.
+  pre.highlight { padding: 0.75rem 1rem; overflow-x: auto; }
+  code { background: transparent; border: 0; }
+}
+
+.sqkon-code-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.4rem 1rem;
+  background: $mercury-code-block-bg;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.sqkon-code-lang {
+  font-family: $mono-font-family;
+  font-size: 0.6875rem;
+  color: #7f849c;
+  text-transform: none;
+}
+
+.sqkon-code-copy {
+  padding: 0.1rem 0.5rem;
+  font-size: 0.6875rem;
+  color: #7f849c;
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 5px;
+
+  &:hover { color: #e7e6e0; border-color: rgba(255, 255, 255, 0.35); }
+  &:focus-visible { outline: 2px solid #8a93f5; outline-offset: 2px; }
+  &.sqkon-copied { color: #a7d78a; border-color: rgba(167, 215, 138, 0.4); }
+}
+
+// Rouge token palette — indigo/green on charcoal, both schemes.
+.highlight {
+  color: #e7e6e0; // base + unlisted tokens
+
+  .c, .c1, .cm, .cp, .cs { color: #7f849c; font-style: italic; } // comments
+  .k, .kd, .kn, .kp, .kr, .kt, .kc { color: #8a93f5; }           // keywords/types
+  .s, .s1, .s2, .sb, .sc, .sd, .se, .sh, .si, .sx { color: #a7d78a; } // strings
+  .m, .mi, .mf, .mh, .il { color: #f0c674; }                     // numbers
+  .n, .nb, .nl, .nn, .nv, .p, .w { color: #e7e6e0; }             // names/punct
+  .na, .nc, .nf, .nt { color: #a5c8f0; }                         // attrs/classes/functions
+  .o, .ow { color: #c3c8d4; }                                    // operators
+  .err { color: #e7e6e0; background: transparent; }              // don't flag pseudo-errors
+  .gp { color: #7f849c; }                                        // shell prompt
+}
+
+// Mermaid diagrams render light; in dark mode float them on a light card
+// rather than restyling mermaid itself (see spec: pragmatic compromise).
+html[data-sqkon-theme="dark"] .language-mermaid,
+html[data-sqkon-theme="dark"] pre > code.language-mermaid,
+html[data-sqkon-theme="dark"] .mermaid {
+  padding: 0.5rem;
+  background: #f5f4f0;
+  border-radius: 8px;
+}
+
+// --- Page chrome -----------------------------------------------------------
+
+// Inline code: quiet cream/charcoal chip (blocks are handled above).
+// Chained :not() (not the selector-list form) so pre-2021 engines keep the rule.
+:not(pre):not(figure) > code {
+  padding: 0.15em 0.35em;
+  font-size: 0.85em;
+  background-color: $mercury-code-bg;
+  border: 1px solid $mercury-border-soft;
+  border-radius: 5px;
+}
+
+// Breadcrumbs: quieter, smaller
+.breadcrumb-nav-list-item {
+  font-size: 0.75rem;
+  color: $mercury-text-muted;
+
+  a { color: $mercury-text-muted; &:hover { color: $mercury-accent; } }
+}
+
+// Section headers in the sidebar nav (JTD .nav-category)
+.nav-category {
+  font-size: 0.6875rem;
+  color: $mercury-text-muted;
+  letter-spacing: 0.08em;
+}
+
+// Callouts: left accent rail + tinted fill (restyles JTD's generated ones)
+//
+// Verified against built HTML (docs/_site): kramdown's `{: .note }` IAL
+// attaches directly to whatever block it follows. When the callout body is
+// a single plain paragraph, that's a `<p class="note">`; when the body uses
+// blockquote (`>`) syntax, it's `<blockquote class="note">`. Both shapes
+// occur across the docs (e.g. guides/expiry.md and getting-started/
+// serialization.md), so both element types are targeted here. The callout
+// `.highlight` class only ever appears as `blockquote.highlight` /
+// `p.highlight` in the built output — Rouge code blocks render as
+// `div.highlight`, which these selectors do not touch.
+blockquote.note, p.note, blockquote.highlight, p.highlight, blockquote.important, p.important,
+blockquote.warning, p.warning, blockquote.caution, p.caution, blockquote.new, p.new {
+  padding: 0.75rem 1rem;
+  margin-inline: 0;
+  background: rgba($mercury-accent, 0.08);
+  border: 0;                                 // drop JTD's full-box callout border
+  border-left: 3px solid $mercury-accent;    // …keep only the accent rail
+  border-radius: 0 8px 8px 0;
+
+  > .highlight-title, > .note-title, > .important-title,
+  > .warning-title, > .caution-title, > .new-title { font-weight: 600; }
+}
+
+blockquote.warning, p.warning { background: rgba(240, 198, 116, 0.12); border-left-color: #d9a648; }
+blockquote.caution, p.caution { background: rgba(224, 108, 108, 0.10); border-left-color: #d06060; }
+blockquote.important, p.important { background: rgba(122, 180, 120, 0.10); border-left-color: #5f9e5d; }
+
+// Tables: soft borders, tinted header row
+th { background: $mercury-bg-alt; }
+td, th { border-color: $mercury-border-soft; }
+
+// Motion discipline
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+}
+
+// --- Right TOC ("On this page") --------------------------------------------
+.sqkon-toc { display: none; }
+
+// 75rem ≈ 1200px — below this the TOC stays hidden entirely
+@media (min-width: 75rem) {
+  html.sqkon-has-toc #main-content {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 12.5rem;
+    column-gap: 2.5rem;
+  }
+
+  html.sqkon-has-toc #main-content > main { grid-column: 1; min-width: 0; }
+  html.sqkon-has-toc #main-content > *:not(main):not(.sqkon-toc) { grid-column: 1 / -1; }
+
+  .sqkon-toc {
+    display: block;
+    grid-column: 2;
+    grid-row: 1;
+    position: sticky;
+    top: 2rem;
+    align-self: start;
+    max-height: calc(100vh - 4rem);
+    padding-left: 1rem;
+    overflow-y: auto;
+    border-left: 1px solid $mercury-border-soft;
+
+    &__title {
+      margin: 0 0 0.5rem;
+      font-size: 0.6875rem;
+      font-weight: 600;
+      color: $mercury-text-muted;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    ul { padding: 0; margin: 0; list-style: none; }
+    li { margin: 0; }
+    &__h3 { padding-left: 0.75rem; }
+
+    a {
+      display: block;
+      overflow: hidden;
+      padding: 0.2rem 0;
+      font-size: 0.8125rem;
+      color: $mercury-text-mid;
+      text-decoration: none;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+
+      &:hover { color: $mercury-accent; }
+      &.sqkon-toc--active { font-weight: 600; color: $mercury-accent; }
+    }
   }
 }

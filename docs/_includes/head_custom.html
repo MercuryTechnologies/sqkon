@@ -11,3 +11,25 @@
 
 <!-- Theme color -->
 <meta name="theme-color" content="#272735">
+
+<!-- Self-hosted fonts: preload the two that style above-the-fold text -->
+<link rel="preload" href="{{ '/assets/fonts/inter-var-latin.woff2' | relative_url }}" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="{{ '/assets/fonts/ibm-plex-mono-400-latin.woff2' | relative_url }}" as="font" type="font/woff2" crossorigin>
+
+<!-- Theme restore: runs before first paint; no flash of wrong theme -->
+<script>
+  (function () {
+    var theme;
+    try { theme = localStorage.getItem("sqkon-theme"); } catch (e) {}
+    if (!theme) {
+      theme = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    }
+    if (theme === "dark") {
+      var link = document.querySelector('link[rel="stylesheet"][href*="just-the-docs-default"]');
+      if (link) { link.href = link.href.replace("just-the-docs-default", "just-the-docs-mercury-dark"); }
+    }
+    document.documentElement.setAttribute("data-sqkon-theme", theme);
+  })();
+</script>
+
+<script src="{{ '/assets/js/sqkon-docs.js' | relative_url }}" defer></script>

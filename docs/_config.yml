@@ -13,6 +13,9 @@ permalink: pretty
 color_scheme: mercury
 logo: /assets/images/logo.png
 favicon_ico: /assets/images/favicon.svg
+# Our code cards render their own labelled copy button (assets/js/sqkon-docs.js),
+# so disable JTD's built-in one to avoid two copy buttons per block.
+enable_copy_code_button: false
 
 # --- Search ---
 search_enabled: true

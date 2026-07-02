@@ -34,6 +34,29 @@ logo = doc.at_css("img.site-logo")
 errors << "missing .site-logo img in header" unless logo
 errors << ".site-logo src does not point at logo.png (got #{logo["src"].inspect})" if logo && !logo["src"].to_s.end_with?("logo.png")
 
+# --- Visual refresh: self-hosted fonts ---
+preloads = doc.css('link[rel="preload"][as="font"]')
+errors << "expected 2 font preloads, found #{preloads.size}" unless preloads.size == 2
+%w[inter-var-latin.woff2 ibm-plex-mono-400-latin.woff2].each do |f|
+  path = File.join(site, "assets", "fonts", f)
+  errors << "missing font file #{f}" unless File.exist?(path)
+end
+font_bytes = Dir[File.join(site, "assets", "fonts", "*.woff2")].sum { |f| File.size(f) }
+errors << "font payload #{font_bytes / 1024}KB exceeds 180KB budget" if font_bytes > 180 * 1024
+
+# --- Visual refresh: theme toggle ---
+errors << "missing #sqkon-theme-toggle button" unless doc.at_css("button#sqkon-theme-toggle")
+errors << "missing sqkon-docs.js script tag" unless doc.at_css('script[src*="sqkon-docs.js"]')
+
+# --- Visual refresh: split hero ---
+errors << "missing .hero--split" unless doc.at_css(".hero--split")
+errors << "missing hero code panel" unless doc.at_css(".hero__code .highlight")
+coord = doc.at_css("button.sqkon-coord")
+errors << "missing maven-coordinate chip" unless coord
+if coord && coord["data-copy"] !~ /\Acom\.mercury\.sqkon:library:\d/
+  errors << "coordinate chip data-copy looks wrong: #{coord["data-copy"].inspect}"
+end
+
 if errors.empty?
   puts "docs smoke check OK"
 else

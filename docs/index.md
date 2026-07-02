@@ -6,19 +6,39 @@ description: "Type-safe JSONB-powered key-value store for Kotlin Multiplatform."
 permalink: /
 ---
 
-<div class="hero">
-  <h1 class="hero__title">Sqkon</h1>
-  <p class="hero__tagline">Type-safe JSONB-powered key-value store for Kotlin Multiplatform.</p>
-  <p>
-    <a href="{{ '/getting-started/' | relative_url }}" class="btn btn-primary fs-5 mb-4 mb-md-0 mr-2">Get Started</a>
-    <a href="https://github.com/MercuryTechnologies/sqkon" class="btn fs-5 mb-4 mb-md-0">View on GitHub</a>
-    <a href="{{ '/api/' | relative_url }}" class="btn fs-5 mb-4 mb-md-0">API Reference</a>
-  </p>
+<div class="hero hero--split">
+  <div class="hero__copy">
+    <p class="hero__eyebrow">Kotlin Multiplatform</p>
+    <h1 class="hero__title">The KV store that speaks SQL.</h1>
+    <p class="hero__tagline">Serialized Kotlin objects, queryable JSONB fields, reactive Flows — on Android and JVM.</p>
+    <p class="hero__actions">
+      <a href="{{ '/getting-started/quickstart/' | relative_url }}" class="btn btn-primary fs-5">Quickstart →</a>
+      <button class="sqkon-coord" type="button"
+              data-copy="com.mercury.sqkon:library:{{ site.sqkon_version }}"
+              aria-label="Copy Maven coordinates">
+        com.mercury.sqkon:library:{{ site.sqkon_version }}
+      </button>
+    </p>
+  </div>
+  <div class="hero__code sqkon-no-chrome">
+    <div class="hero__code-bar" aria-hidden="true"><span></span><span></span><span></span></div>
+{% highlight kotlin %}
+// Query nested JSON, type-safely
+val merchants = sqkon.keyValueStorage<Merchant>("merchants")
+
+merchants.select(
+    where = Merchant::category eq "Food",
+    orderBy = listOf(OrderBy(Merchant::name)),
+).collect { list -> render(list) }
+{% endhighlight %}
+  </div>
 </div>
 
-[![Maven Central Version](https://img.shields.io/maven-central/v/com.mercury.sqkon/library)](https://central.sonatype.com/artifact/com.mercury.sqkon/library)
-[![GitHub branch check runs](https://img.shields.io/github/check-runs/MercuryTechnologies/sqkon/main)](https://github.com/MercuryTechnologies/sqkon/actions)
-[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/MercuryTechnologies/sqkon/blob/main/LICENSE)
+<p class="hero__badges">
+<a href="https://central.sonatype.com/artifact/com.mercury.sqkon/library"><img src="https://img.shields.io/maven-central/v/com.mercury.sqkon/library" alt="Maven Central Version"></a>
+<a href="https://github.com/MercuryTechnologies/sqkon/actions"><img src="https://img.shields.io/github/check-runs/MercuryTechnologies/sqkon/main" alt="CI status"></a>
+<a href="https://github.com/MercuryTechnologies/sqkon/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License: Apache 2.0"></a>
+</p>
 
 ## Install
 
