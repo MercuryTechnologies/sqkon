@@ -178,3 +178,79 @@ h1, h2, h3, h4 {
 
 html[data-sqkon-theme="dark"] #sqkon-theme-toggle .sqkon-icon-sun { display: none; }
 html:not([data-sqkon-theme="dark"]) #sqkon-theme-toggle .sqkon-icon-moon { display: none; }
+
+// --- Code blocks: dark cards in both schemes ------------------------------
+// Light scheme: charcoal card on white page. Dark scheme: near-black card.
+$sqkon-code-block-bg: if(lightness($mercury-bg) > 50%, #272735, $mercury-code-bg);
+
+div.highlighter-rouge {
+  margin-bottom: 1rem;
+  overflow: hidden;
+  border: 1px solid $mercury-border-soft;
+  border-radius: 8px;
+
+  div.highlight, pre.highlight {
+    margin: 0;
+    background-color: $sqkon-code-block-bg;
+    border: 0;
+    border-radius: 0;
+  }
+
+  pre.highlight { padding: 0.75rem 1rem; }
+  code { background: transparent; border: 0; }
+}
+
+.sqkon-code-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.4rem 1rem;
+  background: $sqkon-code-block-bg;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.sqkon-code-lang {
+  font-family: $mono-font-family;
+  font-size: 0.6875rem;
+  color: #7f849c;
+  text-transform: none;
+}
+
+.sqkon-code-copy {
+  padding: 0.1rem 0.5rem;
+  font-size: 0.6875rem;
+  color: #7f849c;
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 5px;
+
+  &:hover { color: #e7e6e0; border-color: rgba(255, 255, 255, 0.35); }
+  &:focus-visible { outline: 2px solid #8a93f5; outline-offset: 2px; }
+  &.sqkon-copied { color: #a7d78a; border-color: rgba(167, 215, 138, 0.4); }
+}
+
+// Rouge token palette — indigo/green on charcoal, both schemes.
+.highlight {
+  color: #e7e6e0; // base + unlisted tokens
+
+  .c, .c1, .cm, .cp, .cs { color: #7f849c; font-style: italic; } // comments
+  .k, .kd, .kn, .kp, .kr, .kt, .kc { color: #8a93f5; }           // keywords/types
+  .s, .s1, .s2, .sb, .sc, .sd, .se, .sh, .si, .sx { color: #a7d78a; } // strings
+  .m, .mi, .mf, .mh, .il { color: #f0c674; }                     // numbers
+  .n, .nb, .nl, .nn, .nv, .p, .w { color: #e7e6e0; }             // names/punct
+  .na, .nc, .nf, .nt { color: #a5c8f0; }                         // attrs/classes/functions
+  .o, .ow { color: #c3c8d4; }                                    // operators
+  .err { color: #e7e6e0; background: transparent; }              // don't flag pseudo-errors
+  .gp { color: #7f849c; }                                        // shell prompt
+}
+
+// Mermaid diagrams render light; in dark mode float them on a light card
+// rather than restyling mermaid itself (see spec: pragmatic compromise).
+html[data-sqkon-theme="dark"] .language-mermaid,
+html[data-sqkon-theme="dark"] pre > code.language-mermaid,
+html[data-sqkon-theme="dark"] .mermaid {
+  padding: 0.5rem;
+  background: #f5f4f0;
+  border-radius: 8px;
+}
