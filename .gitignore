@@ -29,3 +29,6 @@ docs/_site/
 docs/.jekyll-cache/
 docs/.jekyll-metadata
 docs/vendor/
+
+# Superpowers brainstorming/planning scratch — never tracked or published
+docs/superpowers/
