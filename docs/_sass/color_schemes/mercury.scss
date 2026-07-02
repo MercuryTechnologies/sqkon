@@ -11,10 +11,12 @@ $mercury-accent-2:     #4354c8;  // hover blue
 $mercury-border:       #c3c3cc;  // light border / divider
 $mercury-border-soft:  #e7e6e0;  // softer divider on cream
 $mercury-code-bg:      #f4f2ee;  // very light cream for code blocks
+$mercury-bg-sidebar:   #fafaf8;  // near-white sidebar (replaces cream sidebar)
+$mercury-text-muted:   #9a9aad;  // eyebrow labels, TOC headings, breadcrumbs
 
 // --- Just the Docs variable overrides ---
 $body-background-color:        $mercury-bg;
-$sidebar-color:                $mercury-bg-alt;
+$sidebar-color:                $mercury-bg-sidebar;
 $body-text-color:              $mercury-text;
 $body-heading-color:           $mercury-text;
 $nav-child-link-color:         $mercury-text-mid;

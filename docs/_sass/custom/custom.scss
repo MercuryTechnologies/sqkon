@@ -35,11 +35,14 @@
 // Keep this list trimmed to what custom.scss actually consumes.
 $mercury-bg:           #ffffff !default;
 $mercury-bg-alt:       #efeee9 !default;
+$mercury-bg-sidebar:   #fafaf8 !default;
 $mercury-text:         #272735 !default;
 $mercury-text-mid:     #535461 !default;
+$mercury-text-muted:   #9a9aad !default;
 $mercury-accent:       #5266eb !default;
 $mercury-accent-2:     #4354c8 !default;
 $mercury-border-soft:  #e7e6e0 !default;
+$mercury-code-bg:      #f4f2ee !default;
 
 body {
   letter-spacing: -0.005em;
