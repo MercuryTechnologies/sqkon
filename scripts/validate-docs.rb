@@ -44,6 +44,10 @@ end
 font_bytes = Dir[File.join(site, "assets", "fonts", "*.woff2")].sum { |f| File.size(f) }
 errors << "font payload #{font_bytes / 1024}KB exceeds 180KB budget" if font_bytes > 180 * 1024
 
+# --- Visual refresh: theme toggle ---
+errors << "missing #sqkon-theme-toggle button" unless doc.at_css("button#sqkon-theme-toggle")
+errors << "missing sqkon-docs.js script tag" unless doc.at_css('script[src*="sqkon-docs.js"]')
+
 if errors.empty?
   puts "docs smoke check OK"
 else
