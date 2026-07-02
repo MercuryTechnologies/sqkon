@@ -132,7 +132,8 @@ h1, h2, h3, h4 {
     box-shadow: none;
   }
 
-  // Beat JTD's `figure.highlight pre` (0,1,2) and the sitewide `.highlight` border.
+  // Nesting makes these `.hero__code figure.highlight pre` (0,2,2), which beats
+  // JTD's `figure.highlight pre` (0,1,2) and the sitewide `.highlight` border.
   figure.highlight pre,
   figure.highlight code,
   pre.highlight {
@@ -143,7 +144,9 @@ h1, h2, h3, h4 {
     border-radius: 0;
   }
 
-  figure.highlight pre { padding: 0.5rem 1.25rem 1.25rem; }
+  // Long lines scroll within the panel instead of clipping (the outer card is
+  // overflow:hidden for the rounded corners + traffic-light bar).
+  figure.highlight pre { padding: 0.5rem 1.25rem 1.25rem; overflow-x: auto; }
 }
 
 .hero__code-bar {
