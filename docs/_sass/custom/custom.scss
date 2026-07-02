@@ -119,7 +119,7 @@ h1, h2, h3, h4 {
 
 .hero__code {
   overflow: hidden;
-  background: #272735;
+  background: $mercury-code-block-bg;  // tracks the scheme like the other code cards
   border-radius: 12px;
   box-shadow: 0 12px 32px rgba(39, 39, 53, 0.18);
 
@@ -263,7 +263,7 @@ html:not([data-sqkon-theme="dark"]) #sqkon-theme-toggle .sqkon-icon-moon { displ
 
 // --- Code blocks: dark cards in both schemes ------------------------------
 // Light scheme: charcoal card on white page. Dark scheme: near-black card.
-$sqkon-code-block-bg: $mercury-code-block-bg;
+// (background comes from $mercury-code-block-bg, defined per scheme.)
 
 div.highlighter-rouge {
   margin-bottom: 1rem;
@@ -273,7 +273,7 @@ div.highlighter-rouge {
 
   div.highlight, pre.highlight {
     margin: 0;
-    background-color: $sqkon-code-block-bg;
+    background-color: $mercury-code-block-bg;
     border: 0;
     border-radius: 0;
   }
@@ -290,7 +290,7 @@ div.highlighter-rouge {
   align-items: center;
   justify-content: space-between;
   padding: 0.4rem 1rem;
-  background: $sqkon-code-block-bg;
+  background: $mercury-code-block-bg;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
@@ -354,7 +354,7 @@ html[data-sqkon-theme="dark"] .mermaid {
 
 // Breadcrumbs: quieter, smaller
 .breadcrumb-nav-list-item {
-  font-size: 0.75rem !important;
+  font-size: 0.75rem;
   color: $mercury-text-muted;
 
   a { color: $mercury-text-muted; &:hover { color: $mercury-accent; } }
@@ -362,8 +362,8 @@ html[data-sqkon-theme="dark"] .mermaid {
 
 // Section headers in the sidebar nav (JTD .nav-category)
 .nav-category {
-  font-size: 0.6875rem !important;
-  color: $mercury-text-muted !important;
+  font-size: 0.6875rem;
+  color: $mercury-text-muted;
   letter-spacing: 0.08em;
 }
 
@@ -396,8 +396,8 @@ blockquote.caution, p.caution { background: rgba(224, 108, 108, 0.10); border-le
 blockquote.important, p.important { background: rgba(122, 180, 120, 0.10); border-left-color: #5f9e5d; }
 
 // Tables: soft borders, tinted header row
-th { background: $mercury-bg-alt !important; }
-td, th { border-color: $mercury-border-soft !important; }
+th { background: $mercury-bg-alt; }
+td, th { border-color: $mercury-border-soft; }
 
 // Motion discipline
 @media (prefers-reduced-motion: reduce) {

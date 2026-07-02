@@ -54,7 +54,7 @@ errors << "missing hero code panel" unless doc.at_css(".hero__code .highlight")
 coord = doc.at_css("button.sqkon-coord")
 errors << "missing maven-coordinate chip" unless coord
 if coord && coord["data-copy"] !~ /\Acom\.mercury\.sqkon:library:\d/
-  errors << "coordinate chip data-copy looks wrong: #{coord && coord["data-copy"].inspect}"
+  errors << "coordinate chip data-copy looks wrong: #{coord["data-copy"].inspect}"
 end
 
 if errors.empty?
