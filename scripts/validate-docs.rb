@@ -34,6 +34,16 @@ logo = doc.at_css("img.site-logo")
 errors << "missing .site-logo img in header" unless logo
 errors << ".site-logo src does not point at logo.png (got #{logo["src"].inspect})" if logo && !logo["src"].to_s.end_with?("logo.png")
 
+# --- Visual refresh: self-hosted fonts ---
+preloads = doc.css('link[rel="preload"][as="font"]')
+errors << "expected 2 font preloads, found #{preloads.size}" unless preloads.size == 2
+%w[inter-var-latin.woff2 ibm-plex-mono-400-latin.woff2].each do |f|
+  path = File.join(site, "assets", "fonts", f)
+  errors << "missing font file #{f}" unless File.exist?(path)
+end
+font_bytes = Dir[File.join(site, "assets", "fonts", "*.woff2")].sum { |f| File.size(f) }
+errors << "font payload #{font_bytes / 1024}KB exceeds 180KB budget" if font_bytes > 180 * 1024
+
 if errors.empty?
   puts "docs smoke check OK"
 else

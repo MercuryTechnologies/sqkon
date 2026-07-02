@@ -30,3 +30,7 @@ $border-color:                 $mercury-border;
 
 // Callout colors are configured via _config.yml `callouts:` (Just the Docs
 // 0.12+ reads them from site config, not SCSS).
+
+// --- Typography (self-hosted; see custom.scss @font-face) ---
+$body-font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+$mono-font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
