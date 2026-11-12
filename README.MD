@@ -213,7 +213,7 @@ Multiplatform projects (Android, JVM; iOS on the roadmap):
 ```kotlin
 commonMain {
     dependencies {
-        implementation("com.mercury.sqkon:library:3.0.1") // x-release-please-version
+        implementation("com.mercury.sqkon:library:3.0.2") // x-release-please-version
     }
 }
 ```
@@ -227,7 +227,7 @@ right artifact for your target platform:
 
 ```kotlin
 dependencies {
-    implementation("com.mercury.sqkon:library:3.0.1") // x-release-please-version
+    implementation("com.mercury.sqkon:library:3.0.2") // x-release-please-version
 }
 ```
 

@@ -1,5 +1,18 @@
 # Changelog
 
+## [3.0.2](https://github.com/MercuryTechnologies/sqkon/compare/3.0.1...3.0.2) (2026-11-12)
+
+
+### Dependencies
+
+* update Kotlin to 2.4.21 and other dependencies ([#134](https://github.com/MercuryTechnologies/sqkon/issues/134)) ([3bac822](https://github.com/MercuryTechnologies/sqkon/commit/3bac822b2752142899d719a1ef71239995473840))
+
+
+### Documentation
+
+* stop tracking and publishing docs/superpowers planning scratch ([#133](https://github.com/MercuryTechnologies/sqkon/issues/133)) ([b8c17a7](https://github.com/MercuryTechnologies/sqkon/commit/b8c17a74ec20b0d9b4d8da231d06c24acb72dc42))
+* visual/brand refresh of the docs site ([#131](https://github.com/MercuryTechnologies/sqkon/issues/131)) ([ae1d40e](https://github.com/MercuryTechnologies/sqkon/commit/ae1d40ec4db8ae3f8275cde4e061f94399af8aaf))
+
 ## [3.0.1](https://github.com/MercuryTechnologies/sqkon/compare/3.0.0...3.0.1) (2026-07-01)
 
 
