@@ -1,14 +1,14 @@
 [versions]
-androidx-collection = "1.5.0"
+androidx-collection = "1.7.0"
 androidx-monitor = "1.8.0"
 androidx-runner = "1.7.0"
-androidx-sqlite = "2.6.2"
-dokka = "2.2.0"
-kotlin = "2.3.21"
+androidx-sqlite = "2.7.1"
+dokka = "2.3.0"
+kotlin = "2.4.21"
 agp = "8.13.2"
 kotlinx-coroutines = "1.11.0"
-kotlinx-serialization = { require = "1.11.0" }
-paging = "3.5.0-rc01"
+kotlinx-serialization = { require = "1.13.0" }
+paging = "3.5.3"
 turbine = "1.2.1"
 
 [libraries]
@@ -31,7 +31,7 @@ turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
 android-application = { id = "com.android.application", version.ref = "agp" }
 android-library = { id = "com.android.library", version.ref = "agp" }
 dokka = { id = "org.jetbrains.dokka", version.ref = "dokka" }
-maven-publish = { id = "com.vanniktech.maven.publish", version = "0.36.0" }
+maven-publish = { id = "com.vanniktech.maven.publish", version = "0.37.0" }
 multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlinx-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
